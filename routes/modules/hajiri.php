@@ -36,6 +36,7 @@ Route::prefix('admin/hajiri')->name('hajiri.')->middleware(['auth', 'module.enab
     Route::get('reporting/type-{apd}/user/{userid}/{year}/{month}',         [ReportController::class, 'report_user'])->middleware('permission:attendance.report,reports.view')->name('report.month_user');
     Route::get('reporting/user/ajax/fetch',                                 [ReportController::class, 'getUserLogData'])->middleware('permission:attendance.report,reports.view')->name('report.fetch');
     Route::get('reporting/user/ajax/fetch-ap',                              [ReportController::class, 'getUserLogDataAP'])->middleware('permission:attendance.report,reports.view')->name('report.ap.fetch');
+    Route::get('reporting/user/ajax/search',                                [ReportController::class, 'searchEmployees'])->middleware('permission:attendance.report,reports.view')->name('report.user.search');
     Route::get('reporting/range/print',                                     [ReportController::class, 'rangeReport'])->middleware('permission:attendance.report,reports.view')->name('report.range.print');
 });
 

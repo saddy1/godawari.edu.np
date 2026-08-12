@@ -42,10 +42,7 @@
         <div>
             <label class="mb-1.5 block text-xs font-bold text-gray-600">Individual Employee (optional)</label>
             <select id="userid" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
-                <option value="">Select employee</option>
-                @foreach($users as $user)
-                    <option value="{{ $user->device_id }}">{{ $user->name }} [{{ $user->device_id }}]</option>
-                @endforeach
+                <option value="">Type a name or device ID to search…</option>
             </select>
         </div>
     </div>
@@ -155,9 +152,40 @@
 
 @endsection
 
+@push('styles')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+@endpush
+
 @push('scripts')
 @include('partials.nepali-date-picker')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+var employeeSearchURL = {{ Illuminate\Support\Js::from(route('hajiri.report.user.search')) }};
+
+$('#userid').select2({
+    placeholder: 'Type a name or device ID to search…',
+    allowClear: true,
+    minimumInputLength: 0,
+    ajax: {
+        url: employeeSearchURL,
+        dataType: 'json',
+        delay: 250,
+        data: function (params) {
+            return { q: params.term || '' };
+        },
+        processResults: function (data) {
+            return { results: data };
+        },
+        cache: true
+    }
+});
+
+$('#rangeEmployee').select2({
+    placeholder: 'All matching employees',
+    allowClear: true,
+    width: '100%'
+});
+
 var monthlyTypeURL = {{ Illuminate\Support\Js::from(route('hajiri.report.month_type', [
     'apd' => '__apd__',
     'typeid' => '__typeid__',

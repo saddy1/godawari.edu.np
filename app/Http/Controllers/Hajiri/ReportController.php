@@ -69,6 +69,29 @@ class ReportController extends Controller
         ));
     }
 
+    public function searchEmployees(Request $request)
+    {
+        $query = trim((string) $request->input('q', ''));
+
+        $usersQuery = Auth()->user()->isAdmin()
+            ? $this->attendanceProfileQuery([])->where('name', 'NOT LIKE', 'IOEPC%')
+            : $this->attendanceProfileQuery([])->where('id', Auth()->user()->id);
+
+        if ($query !== '') {
+            $usersQuery->where(function ($q) use ($query) {
+                $q->where('name', 'LIKE', "%{$query}%")
+                    ->orWhere('device_id', 'LIKE', "%{$query}%");
+            });
+        }
+
+        $results = $usersQuery->orderBy('name')->limit(100)->get(['device_id', 'name']);
+
+        return response()->json($results->map(fn ($user) => [
+            'id' => $user->device_id,
+            'text' => "{$user->name} [{$user->device_id}]",
+        ]));
+    }
+
     public function report($year = '',$month = ''){
         if(! Auth()->user()->isAdmin()){ return 'Unauthorized'; }
         $nowData = $this->getDateCalendar($year,$month);
@@ -519,8 +542,8 @@ class ReportController extends Controller
             else
             {
                 if(count($attendanceData) >= 1){
-                    if($isWeekendHoliday){
-                        $attendance[$periodData->format('Y-m-d')] = "W.P";
+                    if($labelToPrint != []){
+                        $attendance[$periodData->format('Y-m-d')] = "W.P (".implode(' / ', $labelToPrint).")";
                     }
                     else{
                         $attendance[$periodData->format('Y-m-d')] = "P";
