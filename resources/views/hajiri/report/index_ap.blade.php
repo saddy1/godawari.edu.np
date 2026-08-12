@@ -1,3 +1,8 @@
+@php
+    $monthlyEmployeeCount = max(1, count($users));
+    $monthlyRowHeight = max(4.5, min(16, 118 / $monthlyEmployeeCount));
+    $monthlyNameFont = $monthlyEmployeeCount > 18 ? 2.1 : ($monthlyEmployeeCount > 12 ? 2.5 : 3);
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 
@@ -52,14 +57,14 @@
     .signature-box {
         border: 1px solid #1a5632;
         border-radius: 2mm;
-        min-height: 20mm;
-        padding: 3mm;
+        min-height: 12mm;
+        padding: 1.5mm;
         text-align: center;
         background: #fbfdfb;
     }
     .signature-line {
         border-top: 1px solid #52645a;
-        margin: 8mm 4mm 1.5mm;
+        margin: 3mm 4mm 1mm;
     }
     .signature-title {
         color: #0b2415;
@@ -76,12 +81,18 @@
         writing-mode: vertical-rl;
         transform: rotate(180deg);
         overflow: hidden;
-        max-height: 13.5mm;
+        max-height: {{ max(3.5, $monthlyRowHeight - 1) }}mm;
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto;
         line-height: .95;
+    }
+    .hajiri-data-table td > div:not(.date_90) {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
   </style>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -103,8 +114,8 @@
                 <table class="table-hajiri table table-bordered d-none">
                     @foreach($users as $user)
                         @php $designationLabel = $user->designation->label ?? ''; @endphp
-                        <tr  class="d-flex hajiri-data-table"  style="height:16mm;"  data-device-id="{{$user->device_id}}" id="tr-user-{{$user->device_id}}">
-                            <td style="width:45mm; font-size:3mm; vertical-align: center;"><b>{{$user["name"]}} <span style="font-size:2mm;">{{$user['device_id']}}</span></b><br/><span style="font-size:{{ strlen($designationLabel) > 80 ? '2.5mm;' : '3mm' }}">{{ $designationLabel }}</span></td>
+                        <tr class="d-flex hajiri-data-table" style="height:{{ $monthlyRowHeight }}mm;" data-device-id="{{$user->device_id}}" id="tr-user-{{$user->device_id}}">
+                            <td style="width:45mm; font-size:{{ $monthlyNameFont }}mm; vertical-align: middle;"><b>{{$user["name"]}} <span style="font-size:2mm;">{{$user['device_id']}}</span></b><br/><span style="font-size:{{ $monthlyEmployeeCount > 12 ? '2mm' : '2.5mm' }}">{{ $designationLabel }}</span></td>
                             <td style="width:230mm; font-size:3mm;">Loading Data for Employee: <b>{{$user->name}}</b> : {{$user->device_id}}</td>
                         </tr>
                     @endforeach
@@ -167,7 +178,7 @@ $(document).ready(function(){
                         '<td style="width:15mm;  font-size:3mm;" class="text-center date-text font-weight-bold">&nbsp;</td>'+
                     '</tr>';
 
-    var footerPage ='<div class="w-100 mt-3">'+
+    var footerPage ='<div class="w-100 mt-2">'+
                     '<div class="row g-3">'+
                         '<div class="col-4"><div class="signature-box"><div class="signature-title">Prepared By</div><div class="signature-line"></div><div class="signature-label">Name / Signature</div></div></div>'+
                         '<div class="col-4"><div class="signature-box"><div class="signature-title">Checked By</div><div class="signature-line"></div><div class="signature-label">Name / Signature</div></div></div>'+
@@ -175,7 +186,7 @@ $(document).ready(function(){
                     '</div>'+
                 '</div>';
 
-    var pageTable = '<section  class="sheet padding-10mm">'+
+    var pageTable = '<section class="sheet padding-5mm">'+
     '    <article class="w-100">'+
     pageHeader+
     '        <div class="table-wala mt-2 w-100">'+
@@ -192,14 +203,6 @@ $(document).ready(function(){
         if({{count($users)}} == countUser.a){
             var $section = $(pageTable);
             $('.hajiri-data-table').each(function(k,v){
-                var device_id = $(this).data('device-id');
-                if(k%8 == 0 && k != 0)
-                {
-                    console.log('%10');
-                    $(document.body).append($section);
-                    $section = $(pageTable);
-                }
-                console.log('Bich');
                 $section.children().children().siblings('.table-wala').children().children().append($(v));
             });
             $(document.body).append($section);
@@ -242,7 +245,7 @@ $(document).ready(function(){
                                     date_90 = 'date_90';
                                     cell_content = '<div class="w-100 '+date_90+'" style="font-size:'+fontS+';">'+value+'</div>';
                                 } else {
-                                    cell_content = '<div style="text-align:center; line-height:1; padding-top:5mm; font-size:'+fontS+';">'+value+'</div>';
+                                    cell_content = '<div style="text-align:center; line-height:1; font-size:'+fontS+';">'+value+'</div>';
                                 }
                             } else {
                                 fontS = '1.35mm';

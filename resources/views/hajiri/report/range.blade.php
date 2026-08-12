@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Attendance Report {{ $fromBS }} to {{ $toBS }}</title>
     <style>
-        @page { size: A4 landscape; margin: 6mm; }
+        @page { size: A4 landscape; margin: 10mm; }
         * { box-sizing: border-box; }
         body { margin: 0; color: #17251d; font-family: Arial, sans-serif; background: #eef2f0; }
         .toolbar {
@@ -18,7 +18,7 @@
             background: #e2a024; font-size: 14px; font-weight: 800; cursor: pointer;
         }
         .sheet {
-            width: 285mm; min-height: 198mm; margin: 8mm auto; padding: 6mm;
+            width: 277mm; min-height: 190mm; margin: 10mm auto; padding: 8mm;
             background: white; box-shadow: 0 2px 12px #0002; page-break-after: always;
         }
         .sheet:last-child { page-break-after: auto; }
@@ -39,9 +39,15 @@
         .status { font-weight: 800; line-height: 1.05; overflow-wrap: anywhere; }
         .status.detailed { font-size: 5px; writing-mode: vertical-rl; transform: rotate(180deg); }
         .muted { background: #f3f4f6; color: #c4c8c6; }
-        .present { color: #166534; background: #f0fdf4; }
-        .absent { color: #b91c1c; }
-        .off { color: #6b7280; background: #f9fafb; font-size: 5px; }
+        .plain { color: #17251d; }
+        .leave {
+            color: #1d4ed8; background: #eff6ff; font-size: 4.5px;
+            writing-mode: vertical-rl; transform: rotate(180deg); overflow-wrap: normal;
+        }
+        .offday {
+            color: #b91c1c; background: #fef2f2; font-size: 4.5px;
+            writing-mode: vertical-rl; transform: rotate(180deg); overflow-wrap: normal;
+        }
         .legend { margin-top: 1.5mm; color: #52645a; font-size: 6px; font-weight: 700; }
         .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18mm; margin-top: 8mm; }
         .signature { padding-top: 1.5mm; border-top: .3mm solid #52645a; color: #52645a; font-size: 7px; font-weight: 700; text-align: center; }
@@ -74,7 +80,7 @@
 
             <div class="employee-meta">
                 <span>Employee: {{ $user->name }} [Device {{ $user->device_id }}]</span>
-                <span>Designation: {{ $user->designation?->label ?: '—' }}</span>
+                <span>Designation: {{ $user->designation_id ? ($user->designation?->label ?: '—') : '—' }}</span>
                 <span>Generated: {{ now()->format('d M Y, h:i A') }}</span>
             </div>
 
@@ -94,7 +100,7 @@
                             $daysByNumber = collect($month['days'])->keyBy('bs_day');
                             $present = $daysByNumber->filter(function ($day) use ($attendance, $user) {
                                 $value = $attendance[$user->id][$day['ad']] ?? 'A';
-                                return $value === 'P' || $value === 'W.P' || str_contains($value, ':');
+                                return $value === 'P';
                             })->count();
                         @endphp
                         <tr>
@@ -102,24 +108,33 @@
                             @for($dayNumber = 1; $dayNumber <= 32; $dayNumber++)
                                 @php
                                     $day = $daysByNumber->get($dayNumber);
-                                    $value = $day ? ($attendance[$user->id][$day['ad']] ?? 'A') : '';
+                                    $value = $day
+                                        ? ($attendance[$user->id][$day['ad']] ?? ($reportType === 'ap' ? 'A' : '—'))
+                                        : '';
+                                    $type = $day ? ($attendanceTypes[$user->id][$day['ad']] ?? null) : null;
                                     $cellClass = match(true) {
                                         !$day => 'muted',
-                                        $value === 'P' || $value === 'W.P' || str_contains($value, ':') => 'present',
-                                        $value === 'A' => 'absent',
-                                        default => 'off',
+                                        $type === 'leave' => 'leave',
+                                        in_array($type, ['holiday', 'weekend']) => 'offday',
+                                        default => 'plain',
                                     };
                                 @endphp
-                                <td class="status {{ $reportType === 'detailed' ? 'detailed' : '' }} {{ $cellClass }}"
+                                <td class="status {{ $reportType === 'detailed' && str_contains($value, ':') ? 'detailed' : '' }} {{ $cellClass }}"
                                     title="{{ $day ? $day['ad'].' · '.$value : '' }}">{{ $value }}</td>
                             @endfor
-                            <td class="total">{{ $present }}</td>
+                            <td class="total">{{ $reportType === 'ap' ? $present : '—' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
 
-            <div class="legend">P = Present · A = Absent · W.P = Weekend Present · Other labels indicate holidays or approved leave.</div>
+            <div class="legend">
+                @if($reportType === 'ap')
+                    P = Present · A = Absent · Leave, holiday, and weekend cells show their full names
+                @else
+                    Times show check-in / check-out · A = Absent · Leave, holiday, and weekend cells show their full names
+                @endif
+            </div>
             <footer class="signatures">
                 <div class="signature">Prepared By</div>
                 <div class="signature">Checked By</div>
