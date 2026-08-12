@@ -57,20 +57,31 @@ class UserController extends Controller
 
     public function index_custom($typeid,$sort = null)
     {
-        if($typeid == 'adminstration')
-        {
-            $type_id = 1;
-            $type = 'Administration Employee';
-        }
-        elseif($typeid == 'academic')
-        {
-            $type_id = 2;
-            $type = 'Academic Employee';
-        }
+        [$memberType, $workAreaLabel, $type] = match ($typeid) {
+            'adminstration', 'administration' => ['staff', 'Administration', 'Administrative Employee'],
+            'academic' => ['teacher', 'Academic', 'Academic Employee'],
+            default => abort(404),
+        };
+
+        // HR's member type is the source of truth. Work Area is retained only as
+        // a fallback for legacy Hajiri users that have not yet been linked to HR.
+        $type_id = $this->work_assigned
+            ->where('label', $workAreaLabel)
+            ->value('id');
 
         $users = $this->user->with('designation','employment','student')
-            ->where('work_assigned_id',$type_id)
+            ->where(function ($query) use ($memberType, $type_id) {
+                $query->whereHas('student', fn ($memberQuery) => $memberQuery->where('member_type', $memberType));
+
+                if ($type_id) {
+                    $query->orWhere(function ($legacyQuery) use ($type_id) {
+                        $legacyQuery->whereDoesntHave('student')
+                            ->where('work_assigned_id', $type_id);
+                    });
+                }
+            })
             ->where('status',1)
+            ->whereNotNull('device_id')
             ->orderBy('sort')
             ->orderBy('name')
             ->get();
@@ -87,7 +98,11 @@ class UserController extends Controller
     public function index_inactive()
     {
         $type = 'InActive Employee';
-        $users = $this->user->with('designation','employment','student')->where('status',0)->orderBy('sort')->get();
+        $users = $this->user->with('designation','employment','student')
+            ->where('status',0)
+            ->whereNotNull('device_id')
+            ->orderBy('sort')
+            ->get();
 
         $desig = $this->desig->get();
         $employmentType = $this->employmentType->get();
@@ -122,7 +137,7 @@ class UserController extends Controller
         $users = $this->staffProfileQuery()->orderBy('sort')->orderBy('name')->get();
         if($work_assigned != '')
         {
-            $users = $this->user->with('designation','employment','student')
+            $users = $this->staffProfileQuery()
                 ->where('work_assigned_id','LIKE',$work_assigned)
                 ->orderBy('sort')
                 ->orderBy('name')
@@ -342,6 +357,7 @@ class UserController extends Controller
     private function staffProfileQuery()
     {
         return $this->user->with('designation','employment','roles','student')
+            ->whereNotNull('device_id')
             ->where(function ($query) {
                 $query->where('status', 1)
                     ->orWhere(function ($pendingAdminQuery) {

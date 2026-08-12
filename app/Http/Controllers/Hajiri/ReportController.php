@@ -13,7 +13,9 @@ use App\Models\Hajiri\Department;
 use App\Models\Hajiri\HajiriSetting;
 use App\Models\Hajiri\Leave;
 use App\Models\Hajiri\LeaveRequest;
+use App\Models\Hajiri\WorkAssigned;
 use App\Services\Hajiri\AttendanceWindow;
+use Illuminate\Validation\ValidationException;
 // use Carbon\Carbon;
 
 class ReportController extends Controller
@@ -46,15 +48,20 @@ class ReportController extends Controller
         $npCal = $this->npCal;
         $nowData = $this->getDateCalendar($year,$month);
         if(! Auth()->user()->isAdmin()){
-            $users = $this->attendanceProfileQuery()->where('id','=',Auth()->user()->id)->orderBy('device_id')->get();
+            $users = $this->attendanceProfileQuery(['student'])->where('id','=',Auth()->user()->id)->orderBy('device_id')->get();
         }
         else
         {
-            $users = $this->attendanceProfileQuery()->where('name','NOT LIKE','IOEPC%')->orderBy('device_id')->get();
+            $users = $this->attendanceProfileQuery(['student'])->where('name','NOT LIKE','IOEPC%')->orderBy('device_id')->get();
         }
         $departments = $this->departments->where('alias',null)->get();
         // return $users;
-        return view('hajiri.report.modal',compact('npCal','nowData','users','departments'));
+        $todayAd = Carbon::today();
+        $todayBsData = $this->npCal->ad_2_bs($todayAd->year, $todayAd->month, $todayAd->day);
+        $todayBS = sprintf('%04d-%02d-%02d', $todayBsData['year'], $todayBsData['month'], $todayBsData['date']);
+        $rangeStartBS = sprintf('%04d-01-01', $todayBsData['year']);
+
+        return view('hajiri.report.modal',compact('npCal','nowData','users','departments','todayBS','rangeStartBS'));
     }
 
     public function report($year = '',$month = ''){
@@ -66,7 +73,7 @@ class ReportController extends Controller
         // 
         // ->where('work_assigned_id',1)
         // ->whereIn('device_id',[201,194,193,191,199,192])
-        $users = $this->attendanceProfileQuery(['designation','working_at'])->where('work_assigned_id',1)->where('employment_type_id','<>',4)->orderBy('sort')->get();
+        $users = $this->employeeTypeReportQuery(1, ['designation','working_at'])->orderBy('sort')->get();
         $npCal =  $this->npCal;
         $labelDepart = '';
         return view('hajiri.report.index',compact('users','nowData','npCal','labelDepart'));
@@ -112,7 +119,7 @@ class ReportController extends Controller
         // ->whereBetween('device_id',[185,230])
         // return $users;
         // ->whereIn('device_id',[201,194,193,191,199,192])
-        $users = $this->attendanceProfileQuery(['designation','working_at'])->where('work_assigned_id',2)->orderBy('sort')->get();
+        $users = $this->employeeTypeReportQuery(2, ['designation','working_at'])->orderBy('sort')->get();
         $npCal =  $this->npCal;
         $labelDepart = '';
         return view('hajiri.report.index_ap',compact('users','nowData','npCal','labelDepart'));
@@ -131,14 +138,7 @@ class ReportController extends Controller
         // 
         // ->where('work_assigned_id',1)
         // ->whereIn('device_id',[201,194,193,191,199,192])
-        if($typeid==0)
-        {
-            $users = $this->attendanceProfileQuery(['designation','working_at'])->where('employment_type_id',4)->orderBy('sort')->get();
-        }
-        else
-        {
-            $users = $this->attendanceProfileQuery(['designation','working_at'])->where('work_assigned_id',$typeid)->where('employment_type_id','!=',4)->orderBy('sort')->get();
-        }
+        $users = $this->employeeTypeReportQuery((int) $typeid, ['designation','working_at'])->orderBy('sort')->get();
         $npCal =  $this->npCal;
         if($apd == 'ap')
         {
@@ -172,6 +172,163 @@ class ReportController extends Controller
         }
         $labelDepart = "{$departments['label']}";
         return view('hajiri.report.index',compact('users','nowData','npCal','labelDepart'));
+    }
+
+    public function rangeReport(Request $request)
+    {
+        $validated = $request->validate([
+            'from_bs' => ['required', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            'to_bs' => ['required', 'regex:/^\d{4}-\d{2}-\d{2}$/'],
+            'range_report_type' => ['nullable', 'in:ap,detailed'],
+            'employee_group' => ['nullable', 'in:all,administrative,academic'],
+            'device_id' => ['nullable', 'string', 'max:100', 'exists:users,device_id'],
+            'department_id' => ['nullable', 'integer', 'exists:hajiri_departments,id'],
+        ]);
+
+        $from = $this->bsDateToCarbon($validated['from_bs']);
+        $to = $this->bsDateToCarbon($validated['to_bs']);
+
+        if (! $from || ! $to) {
+            throw ValidationException::withMessages([
+                'from_bs' => $this->npCal->debug_info ?: 'Enter valid BS dates.',
+            ]);
+        }
+
+        if ($to->lt($from)) {
+            throw ValidationException::withMessages([
+                'to_bs' => 'The end date must be on or after the start date.',
+            ]);
+        }
+
+        if ($to->gt(Carbon::today())) {
+            throw ValidationException::withMessages([
+                'to_bs' => 'The end date cannot be after today.',
+            ]);
+        }
+
+        // A BS year contains at most 366 dates (inclusive).
+        if ($from->diffInDays($to) > 365) {
+            throw ValidationException::withMessages([
+                'to_bs' => 'Choose a range of no more than one year.',
+            ]);
+        }
+
+        $group = $validated['employee_group'] ?? 'all';
+        // Load the HR category eagerly; optional Hajiri relationships are
+        // resolved lazily only when their foreign key is present.
+        $relations = ['student'];
+
+        if (! auth()->user()->isAdmin()) {
+            $usersQuery = $this->attendanceProfileQuery($relations)
+                ->where('id', auth()->id());
+        } elseif ($group === 'academic') {
+            $usersQuery = $this->employeeTypeReportQuery(2, $relations);
+        } elseif ($group === 'administrative') {
+            $usersQuery = $this->employeeTypeReportQuery(1, $relations);
+        } else {
+            $usersQuery = $this->attendanceProfileQuery($relations);
+        }
+
+        $users = $usersQuery
+            ->when($validated['device_id'] ?? null, fn ($query, $deviceId) => $query->where('device_id', $deviceId))
+            ->when($validated['department_id'] ?? null, fn ($query, $departmentId) => $query->where('hajiri_department_id', $departmentId))
+            ->orderBy('name')
+            ->get();
+
+        $deviceIds = $users->pluck('device_id')->map(fn ($id) => (string) $id);
+        $logsByDeviceDate = $this->attnLogs->newQuery()
+            ->whereIn('user_id', $deviceIds)
+            ->whereBetween('at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->orderBy('at')
+            ->get()
+            ->groupBy(function ($log) {
+                $at = Carbon::parse($log->getRawOriginal('at'));
+
+                return (string) $log->user_id.'|'.$at->toDateString();
+            });
+
+        $holidays = $this->holiday->newQuery()
+            ->where('status', true)
+            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+            ->get()
+            ->keyBy(fn ($holiday) => Carbon::parse($holiday->getRawOriginal('date'))->toDateString());
+
+        $leavesByUser = LeaveRequest::with('policy')
+            ->whereIn('user_id', $users->pluck('id'))
+            ->where('status', 'approved')
+            ->whereDate('start_date', '<=', $to->toDateString())
+            ->whereDate('end_date', '>=', $from->toDateString())
+            ->get()
+            ->groupBy('user_id');
+
+        $months = [];
+        foreach (CarbonPeriod::create($from, $to) as $date) {
+            $bs = $this->npCal->ad_2_bs($date->year, $date->month, $date->day);
+            $monthKey = sprintf('%04d-%02d', $bs['year'], $bs['month']);
+
+            if (! isset($months[$monthKey])) {
+                $months[$monthKey] = [
+                    'year' => (int) $bs['year'],
+                    'month' => (int) $bs['month'],
+                    'label' => $this->npCal->get_nepali_month((int) $bs['month']),
+                    'days' => [],
+                ];
+            }
+
+            $months[$monthKey]['days'][] = [
+                'ad' => $date->toDateString(),
+                'bs_day' => (int) $bs['date'],
+                'day' => $this->npCal->get_day_abbr((int) $bs['num_day']),
+            ];
+        }
+
+        $reportType = $validated['range_report_type'] ?? 'ap';
+        $attendance = [];
+        foreach ($users as $user) {
+            foreach ($months as $month) {
+                foreach ($month['days'] as $day) {
+                    $date = Carbon::parse($day['ad']);
+                    $dayLogs = $logsByDeviceDate->get((string) $user->device_id.'|'.$day['ad'], collect());
+                    $leave = $leavesByUser->get($user->id, collect())
+                        ->first(fn (LeaveRequest $item) => $item->start_date->startOfDay()->lte($date) && $item->end_date->endOfDay()->gte($date));
+                    $holiday = $holidays->get($day['ad']);
+                    $isWeekend = $this->setting->isWeekend($date->dayOfWeek);
+
+                    if ($dayLogs->isNotEmpty()) {
+                        if ($reportType === 'detailed') {
+                            $summary = AttendanceWindow::summary($dayLogs, $this->setting);
+                            $in = $summary['in']['time'];
+                            $out = $summary['out']['time'];
+                            $cell = $in.($out !== '-' ? ' / '.$out : '');
+                        } else {
+                            $cell = $isWeekend ? 'W.P' : 'P';
+                        }
+                    } else {
+                        $labels = [];
+                        if ($leave) {
+                            $labels[] = $this->leaveLabel($leave);
+                        }
+                        if ($holiday) {
+                            $labels[] = $this->holidayLabel($holiday);
+                        } elseif ($isWeekend) {
+                            $labels[] = $this->weekendLabel($date);
+                        }
+                        $cell = $labels ? implode(' / ', $labels) : 'A';
+                    }
+
+                    $attendance[$user->id][$day['ad']] = $cell;
+                }
+            }
+        }
+
+        return view('hajiri.report.range', [
+            'users' => $users,
+            'months' => array_values($months),
+            'attendance' => $attendance,
+            'fromBS' => $validated['from_bs'],
+            'toBS' => $validated['to_bs'],
+            'reportType' => $reportType,
+        ]);
     }
 
     public function getUserLogData(Request $request)
@@ -487,6 +644,42 @@ class ReportController extends Controller
         return $this->users->with($relations)
             ->whereNotNull('device_id')
             ->where('device_id', '<>', '');
+    }
+
+    private function employeeTypeReportQuery(int $typeId, array $relations = ['designation','employment'])
+    {
+        $query = $this->attendanceProfileQuery($relations);
+
+        if ($typeId === 0) {
+            return $query->where('employment_type_id', 4);
+        }
+
+        $memberType = $typeId === 2 ? 'teacher' : 'staff';
+        $workAreaLabel = $typeId === 2 ? 'Academic' : 'Administration';
+        $legacyWorkAreaId = WorkAssigned::where('label', $workAreaLabel)->value('id');
+
+        return $query->where(function ($employeeQuery) use ($memberType, $legacyWorkAreaId) {
+            $employeeQuery->whereHas('student', fn ($memberQuery) => $memberQuery->where('member_type', $memberType));
+
+            if ($legacyWorkAreaId) {
+                $employeeQuery->orWhere(function ($legacyQuery) use ($legacyWorkAreaId) {
+                    $legacyQuery->whereDoesntHave('student')
+                        ->where('work_assigned_id', $legacyWorkAreaId);
+                });
+            }
+        });
+    }
+
+    private function bsDateToCarbon(string $date): ?Carbon
+    {
+        [$year, $month, $day] = array_map('intval', explode('-', $date));
+        $ad = $this->npCal->bs_2_ad($year, $month, $day);
+
+        if (! $ad) {
+            return null;
+        }
+
+        return Carbon::create((int) $ad['year'], (int) $ad['month'], (int) $ad['date'])->startOfDay();
     }
 
     private function getDateCalendar($year,$month)

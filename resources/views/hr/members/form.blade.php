@@ -417,7 +417,10 @@
                            class="{{ $input }}">
                 </div>
                 <div><label class="{{ $label }}">Designation</label><select name="designation_id" class="{{ $input }}"><option value="">Select</option>@foreach($hajiriOptions['designations'] as $item)<option value="{{ $item->id }}" @selected((int) old('designation_id', $isEdit ? $member->user?->designation_id : ($p?->designation_id ?? 0)) === $item->id)>{{ $item->label }}</option>@endforeach</select></div>
-                <div><label class="{{ $label }}">Work Area</label><select name="work_assigned_id" class="{{ $input }}"><option value="">Select</option>@foreach($hajiriOptions['workAssigned'] as $item)<option value="{{ $item->id }}" @selected((int) old('work_assigned_id', $isEdit ? $member->user?->work_assigned_id : ($p?->work_assigned_id ?? 0)) === $item->id)>{{ $item->label }}</option>@endforeach</select></div>
+                <div>
+                    <label class="{{ $label }}">Attendance Group</label>
+                    <div class="{{ $input }} flex items-center bg-gray-50 text-gray-600" x-text="memberType === 'teacher' ? 'Academic (automatic)' : 'Administration (automatic)'"></div>
+                </div>
                 <div><label class="{{ $label }}">Department</label><select name="hajiri_department_id" class="{{ $input }}"><option value="">Select</option>@foreach($hajiriOptions['departments'] as $item)<option value="{{ $item->id }}" @selected((int) old('hajiri_department_id', $isEdit ? $member->user?->hajiri_department_id : ($p?->hajiri_department_id ?? 0)) === $item->id)>{{ $item->label }}</option>@endforeach</select></div>
                 <div><label class="{{ $label }}">Bank Name</label><input name="bank_name" value="{{ old('bank_name', $isEdit ? $member->bank_name : '') }}" class="{{ $input }}"></div>
                 <div><label class="{{ $label }}">Bank Branch</label><input name="bank_branch" value="{{ old('bank_branch', $isEdit ? $member->bank_branch : '') }}" class="{{ $input }}"></div>

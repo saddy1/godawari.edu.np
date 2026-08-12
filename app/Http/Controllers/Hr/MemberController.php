@@ -1636,10 +1636,22 @@ class MemberController extends Controller
 
     private function hajiriData(Request $request): array
     {
+        $workAreaLabel = match ($request->input('member_type')) {
+            'teacher' => 'Academic',
+            'staff' => 'Administration',
+            default => null,
+        };
+
+        // Employee type already expresses this classification in HR. Mirror it
+        // to Hajiri's legacy column so attendance reports remain compatible.
+        $workAssignedId = $workAreaLabel
+            ? WorkAssigned::where('label', $workAreaLabel)->value('id')
+            : null;
+
         return [
             'designation_id' => $request->input('designation_id'),
             'employment_type_id' => $request->input('employment_type_id'),
-            'work_assigned_id' => $request->input('work_assigned_id'),
+            'work_assigned_id' => $workAssignedId,
             'hajiri_department_id' => $request->input('hajiri_department_id'),
         ];
     }

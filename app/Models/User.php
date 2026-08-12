@@ -111,22 +111,22 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function designation()
     {
-        return $this->hasOne(\App\Models\Hajiri\Designation::class, 'id', 'designation_id');
+        return $this->belongsTo(\App\Models\Hajiri\Designation::class, 'designation_id');
     }
 
     public function employment()
     {
-        return $this->hasOne(\App\Models\Hajiri\EmploymentType::class, 'id', 'employment_type_id');
+        return $this->belongsTo(\App\Models\Hajiri\EmploymentType::class, 'employment_type_id');
     }
 
     public function working_at()
     {
-        return $this->hasOne(\App\Models\Hajiri\WorkAssigned::class, 'id', 'work_assigned_id');
+        return $this->belongsTo(\App\Models\Hajiri\WorkAssigned::class, 'work_assigned_id');
     }
 
     public function hajiriDepartment()
     {
-        return $this->hasOne(\App\Models\Hajiri\Department::class, 'id', 'hajiri_department_id');
+        return $this->belongsTo(\App\Models\Hajiri\Department::class, 'hajiri_department_id');
     }
 
     public function logs()
