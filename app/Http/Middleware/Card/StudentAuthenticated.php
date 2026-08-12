@@ -24,9 +24,14 @@ class StudentAuthenticated
                 ->with('error', 'Please login to continue.');
         }
 
-        if ($student->profile_completed_at === null && !$request->routeIs('student.profile.*') && !$request->routeIs('student.logout')) {
-            return redirect()->route('student.profile.edit')
-                ->with('info', 'Please complete your profile first.');
+        $hasPendingUpdate = $student->profile_completed_at === null
+            && $student->updateRequests()->where('status', 'pending')->exists();
+
+        $onboardingRoute = $request->routeIs('student.request-update', 'student.submit-update', 'student.logout');
+
+        if ($student->profile_completed_at === null && ! $hasPendingUpdate && ! $onboardingRoute) {
+            return redirect()->route('student.request-update')
+                ->with('info', 'Please review your contact and address details first. Changes will be sent for approval.');
         }
 
         return $next($request);

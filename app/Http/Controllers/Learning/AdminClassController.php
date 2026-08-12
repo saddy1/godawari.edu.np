@@ -12,6 +12,7 @@ class AdminClassController extends Controller
 {
     public function index()
     {
+        $this->denyScopedTeacher();
         app(LearningClassSyncService::class)->syncFromCardDepartments();
 
         $classes = LearningClass::withCount(['subjects', 'courses'])
@@ -30,6 +31,7 @@ class AdminClassController extends Controller
 
     public function store(Request $request)
     {
+        $this->denyScopedTeacher();
         $data = $request->validate([
             'name' => ['required', 'string', 'max:50'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:255'],
@@ -44,6 +46,7 @@ class AdminClassController extends Controller
 
     public function update(Request $request, LearningClass $class)
     {
+        $this->denyScopedTeacher();
         $data = $request->validate([
             'name' => ['required', 'string', 'max:50'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:255'],
@@ -58,9 +61,16 @@ class AdminClassController extends Controller
 
     public function destroy(LearningClass $class)
     {
+        $this->denyScopedTeacher();
         $class->delete();
 
         return back()->with('success', 'Class deleted.');
+    }
+
+    private function denyScopedTeacher(): void
+    {
+        $user = auth()->user();
+        abort_if($user?->isTeacher() && ! $user->isSuperAdmin() && ! $user->isPrincipal() && ! $user->hasRole('administrator'), 403);
     }
 
 }

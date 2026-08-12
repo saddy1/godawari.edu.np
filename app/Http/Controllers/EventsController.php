@@ -34,39 +34,45 @@ class EventsController extends Controller
     }
 
     //news and events
-    public function news()
+    public function news(Request $request)
     {
         $today = \Carbon\Carbon::today();
+        $category = $request->query('category', 'All');
 
         // 1. Fetch Upcoming Events
         $upcomingEvents = Announcement::where('type', 'event')
             ->where('is_published', true)
             ->where('event_date', '>=', $today)
             ->orderBy('event_date', 'asc')
-            ->take(3) // 1 Featured + 2 List items looks best
+            ->take(8)
             ->get();
 
         // 2. Fetch PAST Events (Newly Added!)
         $pastEvents = Announcement::where('type', 'event')
             ->where('is_published', true)
             ->where('event_date', '<', $today)
-            ->orderBy('event_date', 'desc') // Show most recently finished first
-            ->take(3)
+            ->orderBy('event_date', 'desc')
+            ->take(8)
             ->get();
 
         // 3. Fetch Notices
-        $notices = Announcement::whereIn('type', ['notice', 'news'])
-            ->where('is_published', true)
-            ->latest()
-            ->paginate(10);
+        $noticeQuery = Announcement::whereIn('type', ['notice', 'news'])
+            ->where('is_published', true);
+
+        if ($category !== 'All') {
+            $noticeQuery->where('category', $category);
+        }
+
+        $notices = $noticeQuery->latest()->paginate(20)->withQueryString();
 
         $noticeCategories = Announcement::whereIn('type', ['notice', 'news'])
             ->where('is_published', true)
             ->whereNotNull('category')
             ->distinct()
+            ->orderBy('category')
             ->pluck('category');
 
-        return view('pages.news-event', compact('upcomingEvents', 'pastEvents', 'notices', 'noticeCategories'));
+        return view('pages.news-event', compact('upcomingEvents', 'pastEvents', 'notices', 'noticeCategories', 'category'));
     }
   
 }

@@ -16,6 +16,17 @@
         </a>
     </div>
 
+    @if($errors->any())
+        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <p class="font-bold">The post could not be updated. Please correct the following:</p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- Initialize Alpine state with existing database values --}}
     <form action="{{ route('admin.announcements.update', $announcement->id) }}" method="POST" enctype="multipart/form-data" 
           x-data="{ postType: '{{ old('type', $announcement->type) }}', imageType: '{{ old('image_type', $announcement->image_type) }}' }" 
@@ -63,7 +74,7 @@
                     <div class="mb-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">Category *</label>
                         <select name="category" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1a5632]">
-                            @foreach(['Academic', 'Admission', 'Event', 'Sports', 'General'] as $cat)
+                            @foreach(collect(['Academic', 'Admission', 'Event', 'Sports', 'General', 'Result', 'Calendar', 'Download', 'Resource'])->merge([old('category', $announcement->category)])->filter()->unique() as $cat)
                                 <option value="{{ $cat }}" {{ old('category', $announcement->category) == $cat ? 'selected' : '' }}>{{ $cat }}</option>
                             @endforeach
                         </select>
@@ -78,28 +89,30 @@
                 {{-- Featured Image Settings --}}
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h3 class="font-bold text-gray-800 mb-4 border-b pb-2">Featured Image</h3>
-                    
-                    {{-- Show current image if exists --}}
-                    @if($announcement->featured_image)
-                    <div class="mb-4 rounded-lg overflow-hidden border border-gray-200">
-                        <img src="{{ $announcement->image_url }}" alt="Current Image" class="w-full h-32 object-cover">
-                        <div class="bg-gray-50 text-xs text-center py-1.5 text-gray-500">Current Image</div>
-                    </div>
-                    @endif
-                    
+
                     <div class="flex bg-gray-100 rounded-lg p-1 mb-4">
-                        <button type="button" @click="imageType = 'upload'" :class="imageType === 'upload' ? 'bg-white shadow text-[#1a5632]' : 'text-gray-500'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-all">Upload New</button>
-                        <button type="button" @click="imageType = 'link'" :class="imageType === 'link' ? 'bg-white shadow text-[#1a5632]' : 'text-gray-500'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-all">New Link</button>
+                        <button type="button" @click="imageType = 'upload'" :class="imageType === 'upload' ? 'bg-white shadow text-[#1a5632]' : 'text-gray-500'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-all">Upload / Media</button>
+                        <button type="button" @click="imageType = 'link'" :class="imageType === 'link' ? 'bg-white shadow text-[#1a5632]' : 'text-gray-500'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-all">Drive Link</button>
                     </div>
-                    
+
                     <input type="hidden" name="image_type" :value="imageType">
 
                     <div x-show="imageType === 'upload'">
-                        <input type="file" name="image_file" class="text-xs w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-green-50 file:text-[#1a5632] hover:file:bg-green-100">
+                        <x-admin-image-picker
+                            name="featured_image_media_path"
+                            file-name="image_file"
+                            label=""
+                            accept=".jpg,.jpeg,.png,.webp,.pdf"
+                            media-mode="document"
+                            help="Choose an image from Media, or upload JPG, PNG, WEBP, or PDF up to 5MB."
+                            :current-url="$announcement->featured_image && $announcement->image_type === 'upload' ? $announcement->image_url : null"
+                            :current-path="$announcement->featured_image && $announcement->image_type === 'upload' ? $announcement->featured_image : null"
+                        />
                     </div>
 
                     <div x-show="imageType === 'link'" style="display: none;">
-                        <input type="url" name="image_link" value="{{ old('image_link', $announcement->image_type === 'link' ? $announcement->featured_image : '') }}" placeholder="Paste Google Drive link here..." class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1a5632]">
+                        <input type="url" name="image_link" value="{{ old('image_link', $announcement->image_type === 'link' ? $announcement->featured_image : '') }}" :required="imageType === 'link'" placeholder="Paste Google Drive link here..." class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1a5632]">
+                        <p class="text-[10px] text-gray-400 mt-2">Ensure the Drive link is set to "Anyone with the link can view".</p>
                     </div>
                 </div>
 
@@ -129,9 +142,16 @@
 </div>
 
 <script>
+    let announcementEditor;
+
     ClassicEditor
         .create(document.querySelector('#editor'), {
             toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo' ]
+        })
+        .then(editor => {
+            announcementEditor = editor;
+            document.querySelector('form[action="{{ route('admin.announcements.update', $announcement->id) }}"]')
+                .addEventListener('submit', () => editor.updateSourceElement());
         })
         .catch(error => { console.error(error); });
 </script>

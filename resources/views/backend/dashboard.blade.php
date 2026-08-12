@@ -11,12 +11,12 @@
         <div class="absolute top-0 right-0 w-64 h-64 bg-[#e2a024] rounded-full blur-3xl opacity-20 -translate-y-1/2 translate-x-1/4"></div>
         <div class="relative z-10">
             <h2 class="text-2xl sm:text-3xl font-bold mb-2 leading-tight">Welcome back, {{ auth()->user()->name ?? 'Admin' }}! 👋</h2>
-            <p class="text-green-100">Here is your complete overview of Barchhain Secondary School's activities.</p>
+            <p class="text-green-100">Here is your complete overview of {{ $siteSettings->localized('site_name', config('app.name')) }}'s activities.</p>
         </div>
     </div>
 
     {{-- Quick Stats Grid (4 Columns) --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 sm:gap-6 mb-6 sm:mb-8">
         
         {{-- Admissions Stat --}}
         <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -28,6 +28,19 @@
                 <p class="text-2xl font-black text-gray-900">{{ $stats['new_admissions'] }}</p>
             </div>
         </div>
+
+        @if(auth()->user()?->canAccess(['work-tasks.view', 'work-tasks.submit', 'work-tasks.review']) && \App\Services\ModuleService::enabled('work_tasks'))
+        @php $workTaskCardLabel = auth()->user()?->canAccess(['work-tasks.review', 'work-tasks.create']) ? 'Work Reviews' : 'Assigned Tasks'; @endphp
+        <a href="{{ route('admin.work-tasks.index') }}" class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div class="w-14 h-14 {{ $stats['work_reviews'] > 0 ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-400' }} rounded-xl flex items-center justify-center">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5h6m-7 4h8m-8 4h5m-6 8h10a2 2 0 002-2V7.5L15.5 4H7a2 2 0 00-2 2v13a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ $workTaskCardLabel }}</p>
+                <p class="text-2xl font-black text-gray-900">{{ $stats['work_reviews'] }}</p>
+            </div>
+        </a>
+        @endif
 
         {{-- Contact Messages Stat --}}
         <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -61,6 +74,27 @@
                 <p class="text-2xl font-black text-gray-900">{{ $stats['active_notices'] }}</p>
             </div>
         </div>
+
+        {{-- Library Stat --}}
+        @if($libraryStats !== null)
+        <a href="{{ route('admin.library.fines.index') }}"
+           class="{{ $libraryStats['overdue'] > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100' }} rounded-2xl p-5 sm:p-6 shadow-sm border flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div class="w-14 h-14 {{ $libraryStats['overdue'] > 0 ? 'bg-red-100 text-red-600' : 'bg-teal-50 text-teal-600' }} rounded-xl flex items-center justify-center">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            </div>
+            <div>
+                <p class="text-xs font-bold {{ $libraryStats['overdue'] > 0 ? 'text-red-500' : 'text-gray-400' }} uppercase tracking-wider">
+                    Library {{ $libraryStats['overdue'] > 0 ? '— Overdue' : '' }}
+                </p>
+                <p class="text-2xl font-black {{ $libraryStats['overdue'] > 0 ? 'text-red-700' : 'text-gray-900' }}">
+                    {{ $libraryStats['overdue'] > 0 ? $libraryStats['overdue'].' overdue' : $libraryStats['issued'].' issued' }}
+                </p>
+                @if($libraryStats['fine_due'] > 0)
+                    <p class="text-xs font-bold text-red-500 mt-0.5">Rs. {{ number_format($libraryStats['fine_due'], 2) }} fine pending</p>
+                @endif
+            </div>
+        </a>
+        @endif
     </div>
 
     {{-- MAIN 2x2 GRID FOR DATA PANELS --}}

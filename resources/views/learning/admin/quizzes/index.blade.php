@@ -32,6 +32,10 @@
             selSubject: '',
             selCourse: '{{ request('course') }}',
             isPublished: false,
+            addFirstQuestion: false,
+            qType: 'mcq',
+            options: ['', '', '', ''],
+            correctIdx: 0,
             allSubjects: {{ $subjects->toJson() }},
             allCourses:  {{ $courses->toJson() }},
             get filteredSubjects() {
@@ -148,8 +152,75 @@
                     </div>
                 </div>
 
+                {{-- Optional first question --}}
+                <div class="rounded-2xl border border-dashed border-amber-200 bg-amber-50/40 p-4"
+                     :class="addFirstQuestion ? 'border-solid bg-white' : ''">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-700">⑤ First Question</p>
+                            <p class="mt-0.5 text-xs font-semibold text-gray-500">Optional. You can add more questions after creating the quiz.</p>
+                        </div>
+                        <button type="button"
+                                @click="addFirstQuestion = ! addFirstQuestion"
+                                class="inline-flex items-center justify-center rounded-xl border px-4 py-2 text-xs font-extrabold transition"
+                                :class="addFirstQuestion ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50'">
+                            <span x-text="addFirstQuestion ? 'Remove Question' : '+ Add Question Now'"></span>
+                        </button>
+                    </div>
+
+                    <div x-show="addFirstQuestion" x-cloak class="mt-4 space-y-3">
+                        <textarea name="first_question[question_text]" rows="3"
+                                  :required="addFirstQuestion"
+                                  class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1a5632]/30"
+                                  placeholder="Question text..."></textarea>
+
+                        <div class="grid gap-2 sm:grid-cols-[1fr_120px_1fr]">
+                            <select name="first_question[type]" x-model="qType"
+                                    :required="addFirstQuestion"
+                                    class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1a5632]/30">
+                                <option value="mcq">Multiple Choice (MCQ)</option>
+                                <option value="short_answer">Short Answer</option>
+                            </select>
+                            <input type="number" name="first_question[marks]" value="1" min="1"
+                                   :required="addFirstQuestion"
+                                   class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1a5632]/30"
+                                   placeholder="Marks">
+                            <input name="first_question[explanation]" placeholder="Explanation (optional)"
+                                   class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1a5632]/30">
+                        </div>
+
+                        <div x-show="qType === 'mcq'" class="space-y-2">
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-[10px] font-extrabold uppercase tracking-widest text-gray-500">Answer Options</p>
+                                <p class="text-[11px] font-semibold text-gray-400">Mark the correct answer</p>
+                            </div>
+                            <template x-for="(opt, i) in options" :key="i">
+                                <div class="flex items-center gap-2 rounded-xl border-2 px-3 py-2 transition"
+                                     :class="correctIdx == i ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-white hover:border-gray-300'">
+                                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold"
+                                          :class="correctIdx == i ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-500'"
+                                          x-text="String.fromCharCode(65 + i)"></span>
+                                    <input :name="'first_question[options][' + i + ']'" x-model="options[i]"
+                                           :required="addFirstQuestion && qType === 'mcq' && i < 2"
+                                           :placeholder="'Option ' + String.fromCharCode(65 + i)"
+                                           class="min-w-0 flex-1 bg-transparent text-sm font-semibold focus:outline-none placeholder:text-gray-300">
+                                    <button type="button" @click="correctIdx = i"
+                                            class="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition"
+                                            :class="correctIdx == i ? 'bg-emerald-500 text-white' : 'border border-gray-200 text-gray-400 hover:border-emerald-400 hover:text-emerald-600'">
+                                        <span x-text="correctIdx == i ? 'Correct' : 'Mark'"></span>
+                                    </button>
+                                </div>
+                            </template>
+                            <input type="hidden" name="first_question[correct_option]" :value="correctIdx">
+                            <button type="button" @click="options.push('')"
+                                    class="text-xs font-bold text-blue-600 hover:text-blue-800">+ Add another option</button>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Publish toggle + Submit --}}
-                <div class="flex items-center gap-3 pt-1">
+                <div class="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
                     <input type="hidden" name="is_published" value="0">
                     <input type="checkbox" name="is_published" value="1" x-model="isPublished" class="sr-only">
                     <button type="button" @click="isPublished = !isPublished"
@@ -165,10 +236,17 @@
                         </span>
                         Publish immediately
                     </button>
-                    <button type="submit"
-                            class="rounded-xl bg-[#1a5632] px-6 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415] transition-colors shadow-sm">
-                        Create Quiz →
-                    </button>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="submit"
+                                class="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-extrabold text-gray-700 hover:bg-gray-50">
+                            Create Quiz
+                        </button>
+                        <button type="submit" name="_redirect_manage" value="1"
+                                class="rounded-xl bg-[#1a5632] px-6 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415] transition-colors shadow-sm">
+                            Create & Manage Questions →
+                        </button>
+                    </div>
                 </div>
             </div>
 

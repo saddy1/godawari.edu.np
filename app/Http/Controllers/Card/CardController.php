@@ -27,17 +27,30 @@ class CardController extends Controller
 
     /**
      * Render — returns raw card HTML for use as an iframe src.
-     * Fixes the srcdoc HTML-escaping problem.
      * Route: GET /cards/{student}/render/{type}
      */
     public function render(Student $student, string $type, Request $request)
     {
         $flip = $request->boolean('flip', false);
-        return response(
-            view($this->resolveView($type), compact('student', 'flip'))->render(),
-            200,
-            ['Content-Type' => 'text/html']
-        );
+        $view = $this->resolveView($type);
+        $viewPath = resource_path('views/' . str_replace('.', '/', $view) . '.blade.php');
+        $viewVersion = is_file($viewPath) ? filemtime($viewPath) : time();
+        $etag = '"' . md5($student->updated_at->timestamp . $type . $viewVersion . ($flip ? '1' : '0')) . '"';
+
+        // Return 304 if browser already has the latest version cached
+        if ($request->header('If-None-Match') === $etag) {
+            return response('', 304);
+        }
+
+        $html = view($view, compact('student', 'flip'))->render();
+
+        return response($html, 200, [
+            'Content-Type'  => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma'        => 'no-cache',
+            'Expires'       => '0',
+            'ETag'          => $etag,
+        ]);
     }
 
     public function download(Student $student, string $type)
@@ -55,13 +68,14 @@ class CardController extends Controller
         $cards = [[
             'student'    => $student,
             'type'       => $type,
-            'render_url' => route('cards.render', [$student, $type]),
+            'render_url' => $this->renderUrl($student, $type),
         ]];
 
         return view('card.cards.print-preview', [
             'title'  => $student->full_name . ' — ' . ucfirst($type) . ' Card',
             'cards'  => $cards,
             'layout' => $this->buildLayout(1),
+            'studentIds' => [$student->id],
         ]);
     }
 
@@ -70,14 +84,14 @@ class CardController extends Controller
         $cards = [[
             'student'    => $student,
             'type'       => 'id',
-            'render_url' => route('cards.render', [$student, 'id']),
+            'render_url' => $this->renderUrl($student, 'id'),
         ]];
 
         if ($student->has_library_card) {
             $cards[] = [
                 'student'    => $student,
                 'type'       => 'library',
-                'render_url' => route('cards.render', [$student, 'library']),
+                'render_url' => $this->renderUrl($student, 'library'),
             ];
         }
 
@@ -85,7 +99,7 @@ class CardController extends Controller
             $cards[] = [
                 'student'    => $student,
                 'type'       => 'bus',
-                'render_url' => route('cards.render', [$student, 'bus']),
+                'render_url' => $this->renderUrl($student, 'bus'),
             ];
         }
 
@@ -93,6 +107,7 @@ class CardController extends Controller
             'title'  => $student->full_name . ' — All Cards',
             'cards'  => $cards,
             'layout' => $this->buildLayout(count($cards)),
+            'studentIds' => [$student->id],
         ]);
     }
 
@@ -112,25 +127,43 @@ class CardController extends Controller
         };
     }
 
+    private function renderUrl(Student $student, string $type): string
+    {
+        $view = $this->resolveView($type);
+        $viewPath = resource_path('views/' . str_replace('.', '/', $view) . '.blade.php');
+        $version = is_file($viewPath) ? filemtime($viewPath) : time();
+
+        return route('cards.render', [$student, $type, 'v' => $version]);
+    }
+
     private function buildLayout(int $count): array
     {
+        $perPage   = self::COLS * self::ROWS;
         $positions = [];
+
         for ($i = 0; $i < $count; $i++) {
-            $col = $i % self::COLS;
-            $row = intdiv($i, self::COLS);
+            $posOnPage = $i % $perPage;
+            $col       = $posOnPage % self::COLS;
+            $row       = intdiv($posOnPage, self::COLS);
+
             $positions[] = [
                 'x'    => self::MARGIN_X + $col * (self::CARD_W + self::GAP_X),
                 'y'    => self::MARGIN_Y + $row * (self::CARD_H + self::GAP_Y),
-                'page' => intdiv($i, self::COLS * self::ROWS),
+                'page' => intdiv($i, $perPage),
             ];
         }
+
         return [
             'positions' => $positions,
             'card_w'    => self::CARD_W,
             'card_h'    => self::CARD_H,
+            'margin_x'  => self::MARGIN_X,
+            'margin_y'  => self::MARGIN_Y,
+            'gap_x'     => self::GAP_X,
+            'gap_y'     => self::GAP_Y,
             'cols'      => self::COLS,
             'rows'      => self::ROWS,
-            'per_page'  => self::COLS * self::ROWS,
+            'per_page'  => $perPage,
         ];
     }
 }

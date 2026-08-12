@@ -128,6 +128,7 @@
     {{-- RIGHT Sidebar --}}
     <div class="flex flex-col gap-4">
 
+        @if($showPersonalAttendance)
         {{-- ① Today's Attendance — Check In + Check Out in one card --}}
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Today's Attendance</p>
@@ -171,6 +172,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         {{-- ② Leave Balances — compact --}}
         @if($leaveBalances->isNotEmpty())
@@ -350,6 +352,7 @@
     {{-- RIGHT Sidebar --}}
     <div class="flex flex-col gap-4">
 
+        @if($showPersonalAttendance)
         {{-- ① Personal Check In/Out — one combined card --}}
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Your Attendance Today</p>
@@ -393,6 +396,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         {{-- ② Quick links --}}
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">

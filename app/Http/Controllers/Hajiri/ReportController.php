@@ -277,8 +277,8 @@ class ReportController extends Controller
         $isHoliday = $this->holiday->whereDate('date',"{$date->format('Y-m-d')}")->where('status','=',true)->first();
         // return $date;
         if($isLeaveTaken != null){ $labelToPrint[] = $this->leaveLabel($isLeaveTaken); }
-        if($isHoliday !=null){ $labelToPrint[] = $isHoliday['label']; }
-        if($isWeekendHoliday){ $labelToPrint[] = $this->weekendLabel($date); }
+        if($isHoliday !=null){ $labelToPrint[] = $this->holidayLabel($isHoliday); }
+        elseif($isWeekendHoliday){ $labelToPrint[] = $this->weekendLabel($date); }
         
         $attendanceSummary = AttendanceWindow::summary($attendanceData, $this->setting);
         $checkIN = $attendanceSummary['in']['time'];
@@ -398,8 +398,8 @@ class ReportController extends Controller
             // return $date;
             $labelToPrint  = [];
             if($isLeaveTaken != null){ $labelToPrint[] = $this->leaveLabel($isLeaveTaken); }
-            if($isHoliday !=null){ $labelToPrint[] = $this->str_replace_first(" "," ",$isHoliday['label']); }
-            if($isWeekendHoliday){ $labelToPrint[] = $this->weekendLabel($periodData); }
+            if($isHoliday !=null){ $labelToPrint[] = $this->holidayLabel($isHoliday); }
+            elseif($isWeekendHoliday){ $labelToPrint[] = $this->weekendLabel($periodData); }
 
             
             if(count($attendanceData) == 0){
@@ -445,6 +445,17 @@ class ReportController extends Controller
         return preg_replace($search, $replace, $subject, 1);
     }
 
+    private function holidayLabel($holiday): string
+    {
+        $label = trim((string) ($holiday->alias ?: $holiday->label));
+
+        if (mb_strlen($label) <= 12) {
+            return $label;
+        }
+
+        return mb_substr($label, 0, 11) . '.';
+    }
+
     private function weekendLabel(Carbon $date): string
     {
         return match ($date->dayOfWeek) {
@@ -474,11 +485,8 @@ class ReportController extends Controller
     private function attendanceProfileQuery(array $relations = ['designation','employment'])
     {
         return $this->users->with($relations)
-            ->where('status', 1)
             ->whereNotNull('device_id')
-            ->whereNotNull('designation_id')
-            ->whereNotNull('employment_type_id')
-            ->whereNotNull('work_assigned_id');
+            ->where('device_id', '<>', '');
     }
 
     private function getDateCalendar($year,$month)

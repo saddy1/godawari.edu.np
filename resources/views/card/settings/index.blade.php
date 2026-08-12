@@ -48,7 +48,7 @@
             @csrf
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Name</label>
-                <input type="text" name="name" placeholder="e.g. Barchhain Secondary School" required
+                <input type="text" name="name" placeholder="e.g. School Name" required
                     class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
             </div>
             <div>
@@ -172,7 +172,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
     <div class="bg-white rounded-2xl border p-6">
-        <h3 class="font-bold text-primary text-sm mb-4">Add Department</h3>
+        <h3 class="font-bold text-primary text-sm mb-4">Add Class / Department</h3>
         <form method="POST" action="{{ route('settings.departments.store') }}" class="space-y-3">
             @csrf
             <div>
@@ -185,8 +185,8 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Department Name</label>
-                <input type="text" name="name" placeholder="e.g. BSCCSIT" required
+                <label class="block text-xs font-medium text-gray-600 mb-1">Department/Class Name</label>
+                <input type="text" name="name" placeholder="e.g. Class 1" required
                     class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
             </div>
             <div class="pt-2 border-t">
@@ -199,7 +199,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">College Name <span class="text-gray-400">(line 2)</span></label>
-                        <input type="text" name="university_college" placeholder="e.g. Barchhain Secondary School"
+                        <input type="text" name="university_college" placeholder="e.g. College Name"
                             class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
@@ -231,7 +231,7 @@
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
                 <tr>
-                    <th class="px-5 py-3 text-left">Department</th>
+                    <th class="px-5 py-3 text-left">Class / Department</th>
                     <th class="px-5 py-3 text-left">University (card header)</th>
                     <th class="px-5 py-3 text-left">Organization</th>
                     <th class="px-5 py-3 text-left">Status</th>
@@ -309,7 +309,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Department</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Class / Department</label>
                 <select name="department_id" id="sec-dept" required
                     class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     @if($deptId)
@@ -357,7 +357,7 @@
             <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
                 <tr>
                     <th class="px-5 py-3 text-left">Section</th>
-                    <th class="px-5 py-3 text-left">Department</th>
+                    <th class="px-5 py-3 text-left">Class / Department</th>
                     <th class="px-5 py-3 text-left">Organization</th>
                     <th class="px-5 py-3 text-left">Status</th>
                     <th class="px-5 py-3 text-left">Actions</th>
@@ -503,7 +503,7 @@
             @csrf
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Asset Name</label>
-                <input type="text" name="name" placeholder="e.g. Barchhain Stamp 2026" required
+                <input type="text" name="name" placeholder="e.g.   Stamp 2026" required
                     class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
             </div>
             <div>

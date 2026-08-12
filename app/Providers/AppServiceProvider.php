@@ -3,12 +3,16 @@
 namespace App\Providers;
 
 use App\Models\Setting;
+use App\Models\CmsMenu;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View; // Import View facade
 use App\Models\Announcement; // Import Announcement model
+use App\Models\CmsMenuItem;
+use App\Services\ModuleService;
 use App\Support\SiteSettings;
+use Illuminate\Support\Collection;
 use Throwable;
 
 class AppServiceProvider extends ServiceProvider
@@ -32,17 +36,78 @@ class AppServiceProvider extends ServiceProvider
 
         // Bind the latest 10 active notices specifically to the navbar view
         View::composer('partials.header', function ($view) {
-            
-            // Fetch the latest 10 announcements of type 'notice' that are published
-            $notices = Announcement::where('type', 'notice')
-                                        ->where('is_published', true)
-                                        ->orderBy('created_at', 'desc')
-                                        ->take(10)
-                                        ->get();
+            $notices = collect();
+            $headerMenuItems = collect();
 
-            // Pass the variable to the view
-            $view->with('notices', $notices);
+            if (Schema::hasTable('announcements')) {
+                $notices = Announcement::where('type', 'notice')
+                    ->where('is_published', true)
+                    ->orderBy('created_at', 'desc')
+                    ->take(10)
+                    ->get();
+            }
+
+            if (Schema::hasTable('cms_menus') && Schema::hasTable('cms_menu_items')) {
+                $headerMenu = CmsMenu::where('location', 'header')
+                    ->where('is_active', true)
+                    ->with(['rootItems.page'])
+                    ->first();
+
+                $headerMenuItems = $this->visibleHeaderMenuItems($headerMenu?->rootItems ?? collect());
+            }
+
+            $view->with([
+                'notices' => $notices,
+                'headerMenuItems' => $headerMenuItems,
+            ]);
         });
+    }
+
+    private function visibleHeaderMenuItems(Collection $items): Collection
+    {
+        return $items
+            ->filter(fn (CmsMenuItem $item) => $this->menuItemIsVisible($item))
+            ->map(function (CmsMenuItem $item) {
+                if ($item->relationLoaded('children')) {
+                    $item->setRelation('children', $this->visibleHeaderMenuItems($item->children));
+                }
+
+                return $item;
+            })
+            ->values();
+    }
+
+    private function menuItemIsVisible(CmsMenuItem $item): bool
+    {
+        if (ModuleService::disabled('vacancy') && $this->menuItemMatchesAny($item, ['vacanc', 'applicant'])) {
+            return false;
+        }
+
+        if (ModuleService::disabled('admissions') && $this->menuItemMatchesAny($item, ['admission'])) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function menuItemMatchesAny(CmsMenuItem $item, array $needles): bool
+    {
+        $haystack = strtolower(implode(' ', array_filter([
+            $item->label,
+            $item->label_ne,
+            $item->subtitle,
+            $item->subtitle_ne,
+            $item->url,
+            $item->resolved_url,
+        ])));
+
+        foreach ($needles as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function applyDatabaseMailSettings(): void

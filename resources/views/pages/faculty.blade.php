@@ -5,37 +5,29 @@
 @section('content')
 
 {{-- Hero Section --}}
-<section class="relative py-24 overflow-hidden bg-linear-to-br from-[#0b2415] via-[#1a5632] to-[#0b2415]">
+<section class="directory-hero relative overflow-hidden bg-linear-to-br from-[#0b2415] via-[#1a5632] to-[#0b2415] py-12 sm:py-16">
 
-    {{-- Animated background: floating leaf-like circles --}}
-    <div class="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <div class="dir-orb dir-orb-1"></div>
-        <div class="dir-orb dir-orb-2"></div>
-        <div class="dir-orb dir-orb-3"></div>
-        <div class="dir-orb dir-orb-4"></div>
-        {{-- Subtle dot grid on top --}}
-        <div class="absolute inset-0 opacity-[0.06]"
-             style="background-image: radial-gradient(circle, white 1px, transparent 1px); background-size: 28px 28px;"></div>
-    </div>
+    <div class="absolute inset-0 opacity-[0.08] pointer-events-none"
+         style="background-image: radial-gradient(circle, white 1px, transparent 1px); background-size: 30px 30px;" aria-hidden="true"></div>
 
-    <div class="max-w-7xl mx-auto px-4 relative z-10">
-        <nav class="flex items-center gap-2 text-green-200 text-sm font-medium mb-8" aria-label="Breadcrumb">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <nav class="flex items-center gap-2 text-green-200 text-sm font-medium mb-5" aria-label="Breadcrumb">
             <a href="{{ route('home') }}" class="hover:text-[#e2a024] transition-colors">{{ __('site.common.home') }}</a>
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             <span class="text-white">{{ __('site.faculty.breadcrumb') }}</span>
         </nav>
 
-        <h1 class="text-4xl lg:text-6xl font-bold text-white mb-4 dir-hero-title">
+        <h1 class="text-4xl lg:text-5xl font-bold text-white mb-4 dir-hero-title">
             {{ __('site.faculty.hero_h1') }}
         </h1>
-        <p class="text-green-100/80 text-lg max-w-2xl dir-hero-sub">
+        <p class="text-green-100/80 text-base sm:text-lg max-w-2xl dir-hero-sub">
             {{ __('site.faculty.hero_sub') }}
         </p>
     </div>
 </section>
 
 {{-- Directory Section --}}
-<section class="py-16 bg-[#fdfbf7] min-h-screen"
+<section class="py-10 sm:py-12 bg-[#fdfbf7] min-h-screen"
          x-data="{
              activeCategory: 'All',
              gridLayout: 3,
@@ -49,16 +41,16 @@
              }
          }">
 
-    <div class="max-w-7xl mx-auto px-4 lg:px-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {{-- ── Toolbar ── --}}
-        <div class="flex flex-col gap-5 mb-12">
+        <div class="mb-10 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
 
             {{-- Row 1: Title --}}
             <h2 class="text-2xl sm:text-3xl font-bold text-[#0b2415]">{{ __('site.faculty.board_title') }}</h2>
 
             {{-- Row 2: Filters + Grid Toggles --}}
-            <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="mt-5 flex flex-wrap items-center justify-between gap-4">
 
                 {{-- Category filters --}}
                 <div class="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
@@ -74,12 +66,12 @@
 
                     @foreach($categories ?? ['Leadership', 'Education', 'Management', 'Technical', 'Basic Level'] as $cat)
                     <button
-                        @click="activeCategory = '{{ $cat }}'"
-                        :class="activeCategory === '{{ $cat }}'
+                        @click="activeCategory = @js($cat)"
+                        :class="activeCategory === @js($cat)
                             ? 'bg-[#1a5632] text-white border-[#1a5632]'
                             : 'bg-white text-gray-600 border-gray-200 hover:border-[#1a5632] hover:text-[#1a5632]'"
                         class="dir-filter-btn shadow-sm"
-                        :aria-pressed="activeCategory === '{{ $cat }}'">
+                        :aria-pressed="activeCategory === @js($cat)">
                         {{ $cat }}
                     </button>
                     @endforeach
@@ -112,80 +104,78 @@
             </div>
         </div>
 
-        {{-- ── True CSS Grid ── --}}
-        <div id="dir-grid"
-             class="grid gap-6 transition-all duration-300"
-             :class="{
-                 'grid-cols-1 max-w-2xl mx-auto': gridLayout === 1,
-                 'grid-cols-1 sm:grid-cols-2 max-w-4xl mx-auto': gridLayout === 2,
-                 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-w-6xl mx-auto': gridLayout === 3,
-                 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4': gridLayout === 4
-             }">
-
-       @forelse($faculties ?? [] as $i => $member)
-            <div x-show="activeCategory === 'All' || activeCategory === '{{ $member->category ?? 'Leadership' }}'"
-                 x-transition:enter="dir-enter-transition"
-                 x-transition:enter-start="dir-enter-start"
-                 x-transition:enter-end="dir-enter-end"
-                 x-transition:leave="dir-leave-transition"
-                 x-transition:leave-start="dir-leave-start"
-                 x-transition:leave-end="dir-leave-end"
-                 class="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex"
-                 :class="gridLayout === 1 ? 'flex-col sm:flex-row items-stretch' : 'flex-col'">
-
-                {{-- INCREASED IMAGE HEIGHT: Changed from aspect-[3/2] to aspect-4/3 --}}
-                <div class="relative bg-gray-50 shrink-0 border-b border-gray-100"
-                     :class="gridLayout === 1 ? 'w-full sm:w-1/3 aspect-4/3 sm:aspect-auto sm:min-h-full' : 'w-full aspect-4/3'">
-                    
-                    {{-- object-top ensures heads aren't cut off --}}
-                    <img src="{{ asset($member->image ?? 'assets/image/placeholder.jpg') }}"
-                         alt="{{ $member->name ?? 'Name' }}"
-                         loading="lazy"
-                         class="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500 ease-out">
-
-                    {{-- Floating White Badge --}}
-                    <div class="absolute top-4 right-4">
-                        <span class="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-[#0b2415]/80 backdrop-blur-sm text-white shadow-sm">
-                            {{ $member->category ?? 'Leadership' }}
-                        </span>
+        <div class="space-y-10">
+            @forelse($groups ?? [] as $group)
+                <section x-show="activeCategory === 'All' || activeCategory === @js($group->name)"
+                         x-transition:enter="dir-enter-transition"
+                         x-transition:enter-start="dir-enter-start"
+                         x-transition:enter-end="dir-enter-end"
+                         x-transition:leave="dir-leave-transition"
+                         x-transition:leave-start="dir-leave-start"
+                         x-transition:leave-end="dir-leave-end">
+                    <div class="mb-5">
+                        <h3 class="text-xl sm:text-2xl font-bold text-[#0b2415]">{{ $group->name }}</h3>
+                        @if($group->description)
+                            <p class="text-gray-600 text-sm mt-2 max-w-3xl">{{ $group->description }}</p>
+                        @endif
                     </div>
-                </div>
 
-                {{-- Content Area --}}
-                <div class="p-6 flex flex-col flex-1"
-                     :class="gridLayout === 1 ? 'justify-center items-start text-left' : 'items-start text-left'">
+                    <div class="grid gap-5 transition-all duration-300"
+                         :class="{
+                             'grid-cols-1 max-w-2xl': gridLayout === 1,
+                             'grid-cols-1 sm:grid-cols-2 max-w-4xl': gridLayout === 2,
+                             'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-w-6xl': gridLayout === 3,
+                             'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4': gridLayout === 4
+                        }">
+                        @foreach($group->activeMembers as $member)
+                            <div class="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex"
+                                 :class="gridLayout === 1 ? 'flex-col sm:flex-row items-stretch' : 'flex-col'">
+                                <div class="relative bg-gray-100 shrink-0 border-b border-gray-100"
+                                     :class="gridLayout === 1 ? 'w-full sm:w-1/3 aspect-[4/3] sm:aspect-auto sm:min-h-full' : 'w-full aspect-[4/3]'">
+                                    <img src="{{ $member->image_url }}"
+                                         alt="{{ $member->name ?? 'Name' }}"
+                                         loading="lazy"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                         class="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500 ease-out">
+                                    <div class="absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-4xl font-black text-gray-400">
+                                        {{ strtoupper(mb_substr($member->name ?? 'M', 0, 1)) }}
+                                    </div>
 
-                    <h3 class="text-[19px] font-bold text-[#0b2415] mb-1 leading-tight group-hover:text-[#1a5632] transition-colors">
-                        {{ $member->name ?? 'Full Name' }}
-                    </h3>
+                                    <div class="absolute top-4 right-4">
+                                        <span class="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full bg-[#0b2415]/80 backdrop-blur-sm text-white shadow-sm">
+                                            {{ $group->name }}
+                                        </span>
+                                    </div>
+                                </div>
 
-                    <p class="text-sm font-medium text-gray-600 mb-4">
-                        {{ $member->role ?? 'Position' }}
-                    </p>
+                                <div class="p-5 flex flex-col flex-1"
+                                     :class="gridLayout === 1 ? 'justify-center items-start text-left' : 'items-start text-left'">
+                                    <h3 class="text-lg font-bold text-[#0b2415] mb-1 leading-tight group-hover:text-[#1a5632] transition-colors">
+                                        {{ $member->name ?? 'Full Name' }}
+                                    </h3>
 
-                    <div class="w-full h-px bg-gray-100 mb-4 mt-auto"></div>
+                                    <p class="text-sm font-medium text-gray-600 mb-3">
+                                        {{ $member->role ?? 'Position' }}
+                                    </p>
 
-                    <div class="flex flex-col gap-1 text-gray-500 text-xs font-medium w-full">
-                        <span class="font-bold text-[#0b2415] mb-0.5">{{ __('site.faculty.education_label') }}</span>
-                        <span>{{ $member->education ?? 'University Degree, Specialization' }}</span>
+                                    <div class="w-full h-px bg-gray-100 mb-3 mt-auto"></div>
+
+                                    <div class="flex flex-col gap-1 text-gray-500 text-xs font-medium w-full">
+                                        <span class="font-bold text-[#0b2415] mb-0.5">{{ __('site.faculty.education_label') }}</span>
+                                        <span>{{ $member->education ?? 'University Degree, Specialization' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                </div>
-            </div>
+                </section>
             @empty
-            <div class="col-span-full flex flex-col items-center justify-center py-20 bg-white border border-gray-100 rounded-3xl shadow-sm">
-                <svg class="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                <p class="text-gray-500 font-medium text-lg">{{ __('site.faculty.empty_title') }}</p>
-            </div>
+                <div class="flex flex-col items-center justify-center py-20 bg-white border border-gray-100 rounded-3xl shadow-sm">
+                    <svg class="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <p class="text-gray-500 font-medium text-lg">{{ __('site.faculty.empty_title') }}</p>
+                </div>
             @endforelse
-
         </div>
-
-        {{-- Add Pagination Links --}}
-        @if(isset($faculties) && method_exists($faculties, 'links'))
-        <div class="mt-12 flex justify-center">
-            {{ $faculties->links('pagination::tailwind') }}
-        </div>
-        @endif
 
     </div>
 </section>
@@ -193,31 +183,12 @@
 {{-- ── Styles ── --}}
 <style>
 /* =========================================
-   HERO BACKGROUND ORBS
-   ========================================= */
-.dir-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    animation: dir-float linear infinite;
-    pointer-events: none;
-}
-.dir-orb-1 { width: 320px; height: 320px; background: rgba(46,160,67,0.25); top: -80px; left: -60px; animation-duration: 18s; animation-delay: 0s; }
-.dir-orb-2 { width: 240px; height: 240px; background: rgba(226,160,36,0.18); top: 20px; right: 80px; animation-duration: 22s; animation-delay: -6s; }
-.dir-orb-3 { width: 180px; height: 180px; background: rgba(46,160,67,0.15); bottom: -40px; left: 40%; animation-duration: 16s; animation-delay: -10s; }
-.dir-orb-4 { width: 140px; height: 140px; background: rgba(255,255,255,0.08); bottom: 30px; right: 20%; animation-duration: 26s; animation-delay: -4s; }
-
-@keyframes dir-float {
-    0%   { transform: translateY(0px)   translateX(0px)  rotate(0deg);   opacity: 0.7; }
-    25%  { transform: translateY(-18px) translateX(10px)  rotate(5deg);  opacity: 1;   }
-    50%  { transform: translateY(-8px)  translateX(-12px) rotate(-3deg); opacity: 0.8; }
-    75%  { transform: translateY(14px)  translateX(6px)   rotate(4deg);  opacity: 0.9; }
-    100% { transform: translateY(0px)   translateX(0px)   rotate(0deg);  opacity: 0.7; }
-}
-
-/* =========================================
    UI ELEMENTS
    ========================================= */
+.directory-hero {
+    background: linear-gradient(120deg, var(--theme-dark) 0%, var(--theme-primary) 54%, var(--theme-header-gradient-end) 100%) !important;
+}
+
 .dir-filter-btn {
     font-size: 0.85rem;
     font-weight: 600;

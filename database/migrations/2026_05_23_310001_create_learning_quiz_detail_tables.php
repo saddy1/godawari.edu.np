@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('learning_quiz_questions') && Schema::hasTable('learning_quizzes')) {
+            return;
+        }
+
         Schema::create('learning_quiz_questions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('learning_quiz_id')->constrained()->cascadeOnDelete();
@@ -25,17 +29,6 @@ return new class extends Migration
             $table->text('option_text');
             $table->boolean('is_correct')->default(false);
             $table->unsignedSmallInteger('sort_order')->default(0);
-            $table->timestamps();
-        });
-
-        Schema::create('learning_quiz_answers', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('learning_quiz_attempt_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('learning_quiz_question_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('selected_option_id')->nullable()->constrained('learning_quiz_options')->nullOnDelete();
-            $table->text('text_answer')->nullable();
-            $table->boolean('is_correct')->nullable();
-            $table->decimal('marks_awarded', 5, 2)->nullable();
             $table->timestamps();
         });
 
@@ -67,6 +60,17 @@ return new class extends Migration
             $table->boolean('passed')->default(false);
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('learning_quiz_answers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('learning_quiz_attempt_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('learning_quiz_question_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('selected_option_id')->nullable()->constrained('learning_quiz_options')->nullOnDelete();
+            $table->text('text_answer')->nullable();
+            $table->boolean('is_correct')->nullable();
+            $table->decimal('marks_awarded', 5, 2)->nullable();
             $table->timestamps();
         });
     }

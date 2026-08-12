@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Card Management System') - {{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</title>
+    <title>@yield('title', 'Student Management') - {{ $siteSettings->localized('site_name', 'Godawari College') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -51,6 +51,7 @@
         }
         ::selection      { background-color: var(--theme-primary); color: #fff; }
         ::-moz-selection { background-color: var(--theme-primary); color: #fff; }
+        [x-cloak] { display: none !important; }
     </style>
     @stack('styles')
 </head>
@@ -77,8 +78,8 @@
                     <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <div class="min-w-0">
-                    <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'Barchhain ERP') }}</p>
-                    <p class="text-[9px] uppercase tracking-widest font-semibold mt-0.5" style="color: var(--theme-secondary, #e2a024);">ID Card Module</p>
+                    <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'Godawari College ERP') }}</p>
+                    <p class="text-[9px] uppercase tracking-widest font-semibold mt-0.5" style="color: var(--theme-secondary, #e2a024);">Student Module</p>
                 </div>
             </a>
             <button type="button" @click="sidebarOpen = false" class="lg:hidden p-1 text-white/40 hover:text-white rounded-md hover:bg-white/10 transition-colors shrink-0" aria-label="Close sidebar">
@@ -97,6 +98,8 @@
                 $canCards = auth()->user()->canAccess(['cards.view', 'cards.print']);
                 $canRequests = auth()->user()->canAccess('students.card-request');
                 $canCardSettings = auth()->user()->canAccess('card-settings.view');
+                $canCertView = auth()->user()->canAccess('hr.certificates.view');
+                $canCertCreate = auth()->user()->canAccess('hr.certificates.create');
             @endphp
 
             {{-- Members --}}
@@ -120,31 +123,50 @@
             </a>
             @endif
             @if($canImport)
-            <a href="{{ route('import.index') }}"
+            <a href="{{ route('admin.hr.members.import') }}"
                @click="sidebarOpen = false"
-               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('import.*') ? 'active' : 'erp-card-muted' }}">
+               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all erp-card-muted">
                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 <span class="flex-1 truncate">Import</span>
             </a>
-            @endif
-            @if($canPromote && (auth()->user()->isSuperAdmin() || auth()->user()->organizationSlug() === 'school'))
-                <a href="{{ route('promote.index') }}"
-                   @click="sidebarOpen = false"
-                   class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('promote.*') ? 'active' : 'erp-card-muted' }}">
-                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
-                    <span class="flex-1 truncate">Promote</span>
-                </a>
             @endif
 
             {{-- Cards --}}
             @if($canCards)
             <p class="erp-card-section px-2 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest">Cards</p>
-            <a href="{{ route('bulk.index') }}"
+            <a href="{{ route('bulk.index', ['type' => 'student']) }}"
                @click="sidebarOpen = false"
-               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('bulk.*') ? 'active' : 'erp-card-muted' }}">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                <span class="flex-1 truncate">Bulk Print Cards</span>
+               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('bulk.*') && request('type') === 'student' ? 'active' : 'erp-card-muted' }}">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-9 14a5 5 0 0110 0M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
+                <span class="flex-1 truncate">Student ID Card Print</span>
             </a>
+            <a href="{{ route('bulk.index', ['type' => 'staff_teacher']) }}"
+               @click="sidebarOpen = false"
+               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('bulk.*') && in_array(request('type'), ['staff_teacher', 'staff', 'teacher'], true) ? 'active' : 'erp-card-muted' }}">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1m0 6H7m10 0v-2a5 5 0 00-10 0v2m10 0H7m0 0H2v-2a4 4 0 014-4h1m9-7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span class="flex-1 truncate">Staff / Teacher ID Print</span>
+            </a>
+            @endif
+
+            {{-- Certificates --}}
+            @if($canCertView || $canCertCreate)
+            <p class="erp-card-section px-2 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest">Certificates</p>
+            @if($canCertView)
+            <a href="{{ route('certificates.index') }}"
+               @click="sidebarOpen = false"
+               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('certificates.index') ? 'active' : 'erp-card-muted' }}">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span class="flex-1 truncate">All Certificates</span>
+            </a>
+            @endif
+            @if($canCertCreate)
+            <a href="{{ route('certificates.create') }}"
+               @click="sidebarOpen = false"
+               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('certificates.create') ? 'active' : 'erp-card-muted' }}">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span class="flex-1 truncate">Issue Certificate</span>
+            </a>
+            @endif
             @endif
 
             {{-- Student Requests --}}
@@ -263,14 +285,18 @@
             @endif
         </div>
 
+        {{-- Optional sub-header (sticky toolbar injected by individual pages) --}}
+        @yield('sub-header')
+
         {{-- Page Content --}}
-        <main class="flex-1 overflow-y-auto p-4 sm:p-8 bg-gray-50">
+        <main class="flex-1 overflow-y-auto p-4 sm:p-8 bg-gray-50" data-page-scroll-root>
             @yield('content')
         </main>
 
     </div>
 </div>
 
+@include('partials.page-wheel-scroll')
 @stack('scripts')
 </body>
 </html>

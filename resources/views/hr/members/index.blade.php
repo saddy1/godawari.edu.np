@@ -36,6 +36,9 @@
     @if(session('success'))
         <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ session('success') }}</div>
     @endif
+    @if(session('error'))
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ session('error') }}</div>
+    @endif
 
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         @foreach($counts as $key => $count)
@@ -46,18 +49,83 @@
         @endforeach
     </div>
 
-    <form method="GET" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div class="grid gap-3 md:grid-cols-[1fr_180px_120px]">
-            <input name="search" value="{{ request('search') }}" placeholder="Search name, ID, email, mobile..." class="rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
-            <select name="type" class="rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
-                <option value="">All types</option>
-                @foreach($typeLabels as $value => $label)
-                    <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
-            <button class="rounded-xl bg-[#1a5632] px-4 py-3 text-sm font-extrabold text-white">Filter</button>
+    <form id="hr-member-filter-form" method="GET" action="{{ route('admin.hr.members.index') }}" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" x-data="districtFilter()">
+        <div class="grid gap-3">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.8fr_1fr_1fr_1fr_1fr]">
+                <input name="search" value="{{ request('search') }}" placeholder="Search name, ID, email, mobile..." autocomplete="off" data-ajax-search class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+
+                <select name="type" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    <option value="">All types</option>
+                    @foreach($typeLabels as $value => $label)
+                        <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+
+                <select name="stream" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    <option value="">All classes</option>
+                    @foreach($streams ?? [] as $stream)
+                        <option value="{{ $stream }}" @selected(request('stream') === $stream)>{{ $stream }}</option>
+                    @endforeach
+                </select>
+
+                <select name="section" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    <option value="">All sections</option>
+                    @foreach($sections ?? [] as $section)
+                        <option value="{{ $section }}" @selected(request('section') === $section)>{{ $section }}</option>
+                    @endforeach
+                </select>
+
+                <select name="per_page" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    @foreach([10,20,50,100] as $p)
+                        <option value="{{ $p }}" @selected((int)request('per_page', 20) === $p)>{{ $p }} per page</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-3">
+                <select name="permanent_district" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15" @change="loadMunicipalities($el.value)" x-ref="district">
+                    <option value="">All districts</option>
+                    @foreach($districts ?? [] as $d)
+                        <option value="{{ $d }}" @selected(request('permanent_district') === $d)>{{ $d }}</option>
+                    @endforeach
+                </select>
+
+                <select name="permanent_municipality" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15" x-ref="municipality">
+                    <option value="">All municipalities</option>
+                    @foreach($municipalities ?? [] as $m)
+                        <option value="{{ $m }}" @selected(request('permanent_municipality') === $m)>{{ $m }}</option>
+                    @endforeach
+                </select>
+
+                <button class="w-full rounded-xl bg-[#1a5632] px-4 py-3 text-sm font-extrabold text-white">Filter</button>
+            </div>
         </div>
     </form>
+
+    <script>
+        function districtFilter() {
+            return {
+                loadMunicipalities(district) {
+                    if (!district) {
+                        this.$refs.municipality.innerHTML = '<option value="">All municipalities</option>';
+                        return;
+                    }
+
+                    fetch(`/api/hr/municipalities-by-district/${encodeURIComponent(district)}`)
+                        .then(res => res.json())
+                        .then(municipalities => {
+                            let options = '<option value="">All municipalities</option>';
+                            municipalities.forEach(m => {
+                                const selected = '{{ request("permanent_municipality") }}' === m ? ' selected' : '';
+                                options += `<option value="${m}"${selected}>${m}</option>`;
+                            });
+                            this.$refs.municipality.innerHTML = options;
+                        })
+                        .catch(err => console.error('Error loading municipalities:', err));
+                }
+            };
+        }
+    </script>
 
     @if($orphanUsers->isNotEmpty())
         <div class="rounded-2xl border border-amber-200 bg-amber-50 shadow-sm overflow-hidden">
@@ -90,6 +158,24 @@
                                     Create HR Profile
                                 </a>
                             @endif
+                            @if(auth()->user()?->canAccess('hr.members.delete'))
+                                @if($user->library_clearance_hold)
+                                    <button type="button" disabled title="{{ $user->library_clearance_message }}"
+                                            class="cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-extrabold text-gray-400">
+                                        Clearance Pending
+                                    </button>
+                                @else
+                                    <form method="POST" action="{{ route('admin.hr.members.orphan-users.destroy', $user) }}"
+                                          onsubmit="return confirm('Delete this user account? This removes the login/Hajiri account because it is not linked to HR yet.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                                class="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-extrabold text-red-700 hover:bg-red-50 transition-colors">
+                                            Delete User
+                                        </button>
+                                    </form>
+                                @endif
+                            @endif
                         </div>
                     </div>
                 @endforeach
@@ -97,83 +183,259 @@
         </div>
     @endif
 
-    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-100">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Member</th>
-                        <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Type</th>
-                        <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Class / Section</th>
-                        <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Linked Modules</th>
-                        <th class="px-5 py-3 text-right text-xs font-extrabold uppercase tracking-widest text-gray-500">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($members as $member)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-3">
-                                    <img src="{{ $member->photo_url }}" alt="{{ $member->full_name }}" class="h-11 w-11 rounded-full object-cover ring-1 ring-gray-200">
-                                    <div>
-                                        <p class="font-extrabold text-gray-950">{{ $member->full_name }}</p>
-                                        <p class="text-sm font-medium text-gray-500">{{ $member->roll_number }} · {{ $member->email ?: 'No email' }}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-5 py-4">
-                                <span class="inline-flex rounded-full border px-3 py-1 text-xs font-extrabold {{ $typeStyles[$member->member_type] ?? 'bg-gray-50 text-gray-600 border-gray-100' }}">
-                                    {{ $typeLabels[$member->member_type] ?? ucfirst($member->member_type) }}
-                                </span>
-                            </td>
-                            <td class="px-5 py-4 text-sm font-semibold text-gray-700">
-                                {{ $member->stream ?: '—' }}
-                                <span class="text-gray-400">/</span>
-                                {{ $member->section ?: '—' }}
-                            </td>
-                            <td class="px-5 py-4">
-                                <div class="flex flex-wrap gap-1.5">
-                                    <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700">ID Card</span>
-                                    @if($member->user)
-                                        <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">Login</span>
-                                        @if($member->user->device_id)
-                                            <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">Hajiri</span>
-                                        @endif
-                                        @if($member->user->hasAnyRole(['student', 'teacher']))
-                                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">Learning</span>
-                                        @endif
-                                    @else
-                                        <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-500">No Login</span>
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="px-5 py-4 text-right">
-                                <div class="flex justify-end gap-2">
-                                    @if(auth()->user()?->canAccess('hr.members.edit'))
-                                        <a href="{{ route('admin.hr.members.edit', $member) }}" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-extrabold text-gray-700 hover:bg-gray-50">Edit</a>
-                                    @endif
-                                    @if(auth()->user()?->canAccess('hr.members.delete'))
-                                        <form method="POST" action="{{ route('admin.hr.members.destroy', $member) }}" onsubmit="return confirm('Remove this member from HR master?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-extrabold text-red-600 hover:bg-red-100">Delete</button>
-                                        </form>
-                                    @endif
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="px-5 py-12 text-center">
-                                <p class="font-extrabold text-gray-900">No HR members yet.</p>
-                                <p class="mt-1 text-sm text-gray-500">Create the first student, teacher, or staff member from HR.</p>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    @if(auth()->user()?->canAccess('hr.members.delete'))
+    {{-- Bulk-action toolbar — separate form to avoid nesting inside results --}}
+    <form id="hr-bulk-form" method="POST" action="{{ route('admin.hr.members.bulk-destroy') }}">
+        @csrf
+        {{-- Hidden id inputs injected by JS before submit --}}
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 shadow-sm">
+            <p class="text-sm font-semibold text-gray-500">
+                Tick checkboxes in the table to select members.
+                <span id="hr-bulk-count-label" class="hidden font-extrabold text-red-700"> <span id="hr-bulk-count">0</span> selected</span>
+            </p>
+            <button id="hr-bulk-btn" type="button" disabled
+                class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-extrabold text-red-400 transition-colors disabled:cursor-not-allowed" style="opacity:.5">
+                Delete Selected
+            </button>
         </div>
-        <div class="border-t border-gray-100 px-5 py-4">{{ $members->links() }}</div>
+    </form>
+    @endif
+
+    {{-- Results: standalone div so individual delete forms are never nested --}}
+    <div id="hr-member-results" class="mt-3">
+        @include('hr.members._table', ['members' => $members])
+    </div>
+</div>
+
+{{-- Custom Delete Confirmation Modal --}}
+<div id="hr-delete-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
+        <h3 class="text-lg font-extrabold text-gray-900">Confirm Permanent Deletion</h3>
+        <p id="hr-delete-modal-info" class="mt-2 text-sm text-gray-600"></p>
+        <div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+            <p class="text-xs font-extrabold text-red-700 mb-2">Type <span class="font-black tracking-widest">DELETE</span> to confirm:</p>
+            <input id="hr-delete-modal-input" type="text" placeholder="DELETE" autocomplete="off" spellcheck="false"
+                class="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold tracking-widest focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200">
+        </div>
+        <div class="mt-4 flex justify-end gap-3">
+            <button id="hr-delete-modal-cancel" type="button"
+                class="rounded-lg border border-gray-200 px-5 py-2 text-sm font-extrabold text-gray-700 hover:bg-gray-50 transition-colors">
+                Cancel
+            </button>
+            <button id="hr-delete-modal-confirm" type="button" disabled
+                class="rounded-lg bg-red-600 px-5 py-2 text-sm font-extrabold text-white transition-colors hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                Delete
+            </button>
+        </div>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const filterForm = document.getElementById('hr-member-filter-form');
+    const results    = document.getElementById('hr-member-results');
+    if (!filterForm || !results) return;
+
+    const searchInput = filterForm.querySelector('[data-ajax-search]');
+    let searchTimer = null;
+    let controller  = null;
+
+    const escapeRegex = v => String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const highlightMatches = () => {
+        const query = String(searchInput?.value || '').trim();
+        results.querySelectorAll('[data-highlight]').forEach(el => {
+            const text = el.textContent || '';
+            if (!query) { el.textContent = text; return; }
+            const pattern = new RegExp(`(${escapeRegex(query)})`, 'ig');
+            el.innerHTML = text.replace(pattern, '<mark class="rounded bg-yellow-200 px-0.5 font-black text-gray-950">$1</mark>');
+        });
+    };
+
+    const currentUrl = pageUrl => {
+        const params = new URLSearchParams(new FormData(filterForm));
+        [...params.entries()].forEach(([k, v]) => { if (v === '') params.delete(k); });
+        if (pageUrl) {
+            const p = new URL(pageUrl, window.location.origin).searchParams;
+            if (p.get('page')) params.set('page', p.get('page'));
+        }
+        const url = new URL(filterForm.action || window.location.pathname, window.location.origin);
+        url.search = params.toString();
+        return `${url.pathname}${url.search}`;
+    };
+
+    const loadMembers = async (pageUrl = null) => {
+        if (controller) controller.abort();
+        controller = new AbortController();
+        const url = currentUrl(pageUrl);
+        results.classList.add('opacity-60');
+        try {
+            const res = await fetch(url, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                signal: controller.signal,
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const payload = await res.json();
+            results.innerHTML = payload.html || '';
+            window.history.replaceState({}, '', url);
+            highlightMatches();
+            wireSelectAll();
+            clearBulkSelection();
+        } catch (err) {
+            if (err.name !== 'AbortError') console.error('Unable to load HR members:', err);
+        } finally {
+            results.classList.remove('opacity-60');
+        }
+    };
+
+    filterForm.addEventListener('submit', e => { e.preventDefault(); loadMembers(); });
+    searchInput?.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadMembers(), 250);
+    });
+    filterForm.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => loadMembers()));
+    results.addEventListener('click', e => {
+        const link = e.target.closest('a[href]');
+        if (!link || !link.closest('nav')) return;
+        e.preventDefault();
+        loadMembers(link.href);
+    });
+
+    // ── Bulk selection ──────────────────────────────────────────
+    const bulkBtn        = document.getElementById('hr-bulk-btn');
+    const bulkForm       = document.getElementById('hr-bulk-form');
+    const bulkCountEl    = document.getElementById('hr-bulk-count');
+    const bulkCountLabel = document.getElementById('hr-bulk-count-label');
+
+    const updateBulkBar = () => {
+        if (!bulkBtn) return;
+        const n = results.querySelectorAll('.bulk-row-check:checked').length;
+        if (n > 0) {
+            bulkBtn.disabled = false;
+            bulkBtn.style.opacity = '1';
+            bulkBtn.className = 'rounded-lg border border-red-500 bg-red-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-red-700 transition-colors';
+            if (bulkCountEl) bulkCountEl.textContent = n;
+            bulkCountLabel?.classList.remove('hidden');
+        } else {
+            bulkBtn.disabled = true;
+            bulkBtn.style.opacity = '.5';
+            bulkBtn.className = 'rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-extrabold text-red-400 transition-colors disabled:cursor-not-allowed';
+            if (bulkCountEl) bulkCountEl.textContent = 0;
+            bulkCountLabel?.classList.add('hidden');
+        }
+    };
+
+    const wireSelectAll = () => {
+        const selectAll = document.getElementById('bulk-select-all');
+        if (!selectAll) return;
+        selectAll.addEventListener('change', () => {
+            results.querySelectorAll('.bulk-row-check:not(:disabled)').forEach(cb => { cb.checked = selectAll.checked; });
+            updateBulkBar();
+        });
+    };
+
+    const clearBulkSelection = () => {
+        const selectAll = document.getElementById('bulk-select-all');
+        if (selectAll) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        }
+        results.querySelectorAll('.bulk-row-check').forEach(cb => { cb.checked = false; });
+        updateBulkBar();
+    };
+
+    results.addEventListener('change', e => {
+        if (!e.target.classList.contains('bulk-row-check')) return;
+        const allChecks = results.querySelectorAll('.bulk-row-check:not(:disabled)');
+        const selectAll = document.getElementById('bulk-select-all');
+        if (selectAll) {
+            const n = results.querySelectorAll('.bulk-row-check:checked').length;
+            selectAll.indeterminate = n > 0 && n < allChecks.length;
+            selectAll.checked = n === allChecks.length;
+            if (n === 0) { selectAll.checked = false; selectAll.indeterminate = false; }
+        }
+        updateBulkBar();
+    });
+
+    wireSelectAll();
+    highlightMatches();
+    clearBulkSelection();
+
+    // ── Custom "type DELETE" modal ──────────────────────────────
+    const modal        = document.getElementById('hr-delete-modal');
+    const modalInput   = document.getElementById('hr-delete-modal-input');
+    const modalInfo    = document.getElementById('hr-delete-modal-info');
+    const modalConfirm = document.getElementById('hr-delete-modal-confirm');
+    const modalCancel  = document.getElementById('hr-delete-modal-cancel');
+    if (!modal) return;
+
+    let pendingAction = null;
+
+    const openModal = (info, action) => {
+        pendingAction = action;
+        modalInfo.textContent = info;
+        modalInput.value = '';
+        modalConfirm.disabled = true;
+        modal.classList.remove('hidden');
+        setTimeout(() => modalInput.focus(), 50);
+    };
+
+    const closeModal = () => {
+        modal.classList.add('hidden');
+        pendingAction = null;
+        modalInput.value = '';
+        modalConfirm.disabled = true;
+    };
+
+    modalInput.addEventListener('input', () => {
+        modalConfirm.disabled = modalInput.value !== 'DELETE';
+    });
+    modalInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !modalConfirm.disabled) modalConfirm.click();
+        if (e.key === 'Escape') closeModal();
+    });
+    modalConfirm.addEventListener('click', () => {
+        if (modalConfirm.disabled || !pendingAction) return;
+        const action = pendingAction;
+        closeModal();
+        action();
+    });
+    modalCancel.addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+    // Single-delete forms: intercept submit
+    document.addEventListener('submit', e => {
+        const f = e.target;
+        if (!f.classList.contains('hr-member-delete-form')) return;
+        e.preventDefault();
+        const name = f.dataset.memberName || 'this member';
+        openModal(
+            `Permanently remove "${name}" from HR master? This cannot be undone.`,
+            () => f.submit()
+        );
+    });
+
+    // Bulk delete button: gather IDs, inject into form, submit
+    if (bulkBtn && bulkForm) {
+        bulkBtn.addEventListener('click', () => {
+            const n = results.querySelectorAll('.bulk-row-check:checked').length;
+            if (n === 0) return;
+            openModal(
+                `Permanently delete ${n} selected member(s) and their linked logins? This cannot be undone.`,
+                () => {
+                    bulkForm.querySelectorAll('input[name="ids[]"]').forEach(el => el.remove());
+                    results.querySelectorAll('.bulk-row-check:checked').forEach(cb => {
+                        const inp = document.createElement('input');
+                        inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = cb.value;
+                        bulkForm.appendChild(inp);
+                    });
+                    bulkForm.submit();
+                }
+            );
+        });
+    }
+});
+</script>
+@endpush

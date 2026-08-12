@@ -1,0 +1,9 @@
+endpoint: "https://godawari.edu.np/api/hajiri/attendance/sync"
+token: "PASTE_THE_SERVER_HAJIRI_SYNC_TOKEN_HERE"
+attendance_days: 90
+device_timeout: 10
+
+devices:
+  device1:
+    host: "10.20.8.253"
+    port: 4370

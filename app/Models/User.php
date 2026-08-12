@@ -56,12 +56,22 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isAdmin(): bool
     {
-        return $this->hasAnyRole(['administrator', 'super-admin', 'principal', 'accountant']);
+        return $this->hasAnyRole(['administrator', 'super-admin', 'principal', 'accountant', 'store-keeper', 'librarian', 'technical']);
     }
 
     public function isSuperAdmin(): bool
     {
         return $this->hasRole('super-admin');
+    }
+
+    /**
+     * True only for the designated system owner — the single account that may
+     * grant or revoke the super-admin role. Set APP_OWNER_EMAIL in .env.
+     */
+    public function isOwner(): bool
+    {
+        $ownerEmail = config('app.owner_email', env('APP_OWNER_EMAIL', ''));
+        return $ownerEmail && strtolower($this->email) === strtolower($ownerEmail);
     }
 
     public function isPrincipal(): bool
@@ -136,17 +146,17 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function organizationSlug(): ?string
     {
-        return $this->organization?->slug;
+        return $this->organization?->slug ?: $this->student?->organization;
     }
 
     public function organizationName(): ?string
     {
-        return $this->organization?->name;
+        return $this->organization?->name ?: $this->student?->organization_record?->name;
     }
 
     public function departmentName(): ?string
     {
-        return $this->department?->name;
+        return $this->department?->name ?: $this->student?->stream;
     }
 
     public function applyStudentScope($query)

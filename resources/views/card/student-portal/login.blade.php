@@ -1,182 +1,227 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+@extends('layouts.app')
 
-    <title>Student Portal | {{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</title>
+@section('title', __('site.student_login.title'))
+@section('meta_description', __('site.student_login.meta_desc'))
+@section('seo_page_name', 'student-login')
 
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="font-sans antialiased text-gray-900 bg-gray-50 min-h-screen lg:h-screen lg:overflow-hidden selection:bg-[#1a5632] selection:text-white">
+@section('content')
+    <style>
+        .student-login-page {
+            min-height: calc(100dvh - 7.5rem);
+            position: relative;
+            overflow: hidden;
+            background:
+                linear-gradient(135deg,
+                    color-mix(in srgb, var(--theme-primary) 7%, white) 0%,
+                    #fff 52%,
+                    color-mix(in srgb, var(--theme-secondary) 10%, white) 100%);
+        }
+        .student-login-page::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(90deg, rgba(15,23,42,.055) 1px, transparent 1px),
+                linear-gradient(180deg, rgba(15,23,42,.055) 1px, transparent 1px);
+            background-size: 42px 42px;
+            pointer-events: none;
+        }
+        .student-login-shell {
+            position: relative;
+            z-index: 1;
+        }
+        .student-login-card {
+            width: min(100%, 62rem);
+            background: rgba(255,255,255,.92);
+            border: 1px solid rgba(15,23,42,.10);
+            box-shadow: 0 24px 70px rgba(15,23,42,.14);
+            backdrop-filter: blur(16px);
+        }
+        .student-id-panel {
+            background:
+                linear-gradient(145deg, var(--theme-dark) 0%, var(--theme-primary) 62%, var(--theme-header-gradient-end) 100%);
+        }
+        .student-id-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(rgba(255,255,255,.18) 1px, transparent 1.2px);
+            background-size: 24px 24px;
+            opacity: .24;
+            pointer-events: none;
+        }
+        .student-field {
+            width: 100%;
+            min-height: 3.15rem;
+            border-radius: .875rem;
+            border: 1.5px solid #dbe3ea;
+            background: #f8fafc;
+            padding: .8rem 1rem;
+            color: #0f172a;
+            font-size: .92rem;
+            font-weight: 800;
+            outline: none;
+            transition: border-color .18s, background .18s, box-shadow .18s;
+        }
+        .student-field:focus {
+            border-color: var(--theme-primary);
+            background: #fff;
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-primary) 14%, transparent);
+        }
+        .student-login-button {
+            background: var(--theme-primary);
+            box-shadow: 0 14px 30px color-mix(in srgb, var(--theme-primary) 26%, transparent);
+        }
+        .student-login-button:hover {
+            background: var(--theme-dark);
+            box-shadow: 0 18px 38px color-mix(in srgb, var(--theme-primary) 32%, transparent);
+        }
+        .student-brand-link:hover {
+            border-color: var(--theme-primary);
+            color: var(--theme-primary);
+        }
+        @media (max-width: 640px) {
+            .student-login-card {
+                border-radius: 1rem;
+                box-shadow: 0 16px 42px rgba(15,23,42,.12);
+            }
+            .student-id-panel {
+                min-height: auto;
+            }
+        }
+    </style>
 @php
     $fieldErrors = collect($errors->getMessages())
         ->except('credentials')
         ->flatMap(fn ($messages) => $messages);
-
-    $features = [
-        ['label' => 'Digital ID Card', 'text' => 'View card details and submit update requests.'],
-        ['label' => 'E-Learning', 'text' => 'Access courses, resources, lessons, and quizzes.'],
-        ['label' => 'Profile Requests', 'text' => 'Request correction for personal and guardian details.'],
-    ];
 @endphp
 
-<main class="min-h-screen lg:h-screen grid lg:grid-cols-[1.08fr_.92fr]">
-    <section class="relative hidden overflow-hidden bg-[#0b2415] px-12 py-10 lg:flex lg:flex-col lg:justify-between">
-        <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 30px 30px;"></div>
-        <div class="absolute -top-28 -left-28 h-96 w-96 rounded-full bg-[#1a5632] opacity-50 blur-3xl"></div>
-        <div class="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-[#e2a024] opacity-20 blur-3xl"></div>
-        <div class="absolute left-10 right-10 top-10 h-px bg-white/10"></div>
-
-        <div class="relative z-10">
-            <a href="{{ url('/') }}" class="inline-flex items-center gap-3 rounded-2xl bg-white/8 px-3 py-2 text-white/80 ring-1 ring-white/10 hover:bg-white/12">
-                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1.5 shadow-lg">
-                    <img src="{{ $siteSettings->logoUrl() }}" alt="{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }} Logo" class="h-full w-full object-contain">
-                </span>
-                <span>
-                    <span class="block max-w-80 truncate text-sm font-extrabold text-white">{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</span>
-                    <span class="block text-[11px] font-bold uppercase tracking-widest text-white/45">Student Portal</span>
-                </span>
-            </a>
-        </div>
-
-        <div class="relative z-10 max-w-xl">
-            <p class="mb-4 inline-flex rounded-full bg-[#e2a024]/15 px-4 py-2 text-xs font-extrabold uppercase tracking-widest text-[#f4b63e] ring-1 ring-[#e2a024]/25">
-                Unified Student Access
-            </p>
-            <h1 class="text-5xl font-extrabold leading-tight tracking-tight text-white">
-                One secure login for every student service.
-            </h1>
-            <p class="mt-5 max-w-lg text-base font-medium leading-8 text-white/65">
-                Sign in with your school-issued User ID or email to manage ID card requests, learning resources, and profile update requests from one place.
-            </p>
-
-            <div class="mt-8 grid gap-3">
-                @foreach($features as $feature)
-                    <div class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/8 p-4">
-                        <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e2a024] text-[#0b2415]">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                            </svg>
-                        </span>
-                        <span>
-                            <span class="block text-sm font-extrabold text-white">{{ $feature['label'] }}</span>
-                            <span class="mt-1 block text-sm font-medium leading-6 text-white/55">{{ $feature['text'] }}</span>
-                        </span>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
-        <div class="relative z-10 flex items-center justify-between border-t border-white/10 pt-5 text-xs font-bold text-white/45">
-            <span>Protected student access</span>
-            <span>{{ date('Y') }}</span>
-        </div>
-    </section>
-
-    <section class="flex min-h-screen items-center justify-center overflow-y-auto px-5 py-8 sm:px-8 lg:min-h-0 lg:px-14 lg:py-10">
-        <div class="w-full max-w-md">
-            <div class="mb-8 text-center lg:hidden">
-                <a href="{{ url('/') }}" class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
-                    <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="h-full w-full object-contain">
-                </a>
-                <h1 class="text-2xl font-extrabold text-[#0b2415]">Student Portal</h1>
-                <p class="mt-1 text-sm font-medium text-gray-500">{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</p>
-            </div>
-
-            <div class="mb-8">
-                <p class="text-xs font-extrabold uppercase tracking-widest text-[#1a5632]">Student Login</p>
-                <h2 class="mt-2 text-3xl font-extrabold tracking-tight text-[#0b2415]">Welcome Back</h2>
-                <p class="mt-2 text-sm font-medium leading-6 text-gray-500">
-                    Enter your User ID or email and password provided by the school.
-                </p>
-            </div>
-
-            @if($errors->has('credentials'))
-                <div class="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                    <svg class="mt-0.5 h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                    </svg>
-                    <span>{{ $errors->first('credentials') }}</span>
-                </div>
-            @endif
-
-            @if($fieldErrors->isNotEmpty())
-                <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                    <ul class="list-inside list-disc space-y-1">
-                        @foreach($fieldErrors as $e)
-                            <li>{{ $e }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            @if(session('success'))
-                <div class="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
-                    {{ session('success') }}
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('student.login.post') }}" class="space-y-5">
-                @csrf
-
-                <div>
-                    <label for="login" class="mb-2 block text-sm font-bold text-gray-700">User ID or Email</label>
-                    <input id="login"
-                           type="text"
-                           name="login"
-                           value="{{ old('login') }}"
-                           required
-                           autofocus
-                           autocomplete="username"
-                           placeholder="e.g. STU-2083-001 or student@email.com"
-                           class="w-full rounded-xl border border-gray-200 bg-gray-50 px-5 py-3.5 text-sm font-semibold text-gray-900 transition-all focus:border-[#1a5632] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20">
-                    <p class="mt-2 text-xs font-medium text-gray-400">Use your HR-issued login ID. Email also works if registered.</p>
-                </div>
-
-                <div>
-                    <label for="password" class="mb-2 block text-sm font-bold text-gray-700">Password</label>
-                    <input id="password"
-                           type="password"
-                           name="password"
-                           required
-                           autocomplete="current-password"
-                           placeholder="Enter password"
-                           class="w-full rounded-xl border border-gray-200 bg-gray-50 px-5 py-3.5 text-sm font-semibold text-gray-900 transition-all focus:border-[#1a5632] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20">
-                </div>
-
-                <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a5632] px-5 py-4 text-base font-extrabold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0b2415] hover:shadow-lg">
-                    Sign In to Student Portal
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                    </svg>
-                </button>
-            </form>
-
-            <div class="mt-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <div class="flex gap-3">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1a5632]/10 text-[#1a5632]">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </span>
+<section class="student-login-page flex items-center px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div class="student-login-shell mx-auto flex w-full justify-center">
+        <div class="student-login-card grid overflow-hidden rounded-3xl lg:grid-cols-[.82fr_1fr]">
+            <section class="student-id-panel relative overflow-hidden p-5 text-white sm:p-7 lg:min-h-[34rem] lg:p-8">
+                <div class="relative z-10 flex h-full flex-col justify-between gap-8">
                     <div>
-                        <p class="text-sm font-extrabold text-gray-900">Cannot sign in?</p>
-                        <p class="mt-1 text-xs font-medium leading-5 text-gray-500">Contact your class teacher or administration office to reset your student portal password.</p>
+                        <a href="{{ url('/') }}" class="inline-flex max-w-full items-center gap-3 rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white p-1.5 shadow-lg">
+                                <img src="{{ $siteSettings->logoUrl() }}" alt="{{ $siteSettings->localized('site_name', 'School') }} Logo" class="h-full w-full object-contain">
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block truncate text-sm font-black">{{ $siteSettings->localized('site_name', 'School') }}</span>
+                                <span class="block text-[11px] font-black uppercase tracking-[0.18em] text-white/55">{{ __('site.student_login.access_label') }}</span>
+                            </span>
+                        </a>
+
+                        <div class="mt-8 rounded-2xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur">
+                            <p class="text-xs font-black uppercase tracking-[0.22em]" style="color: var(--theme-secondary);">{{ __('site.student_login.portal_badge') }}</p>
+                            <h1 class="mt-3 text-3xl font-black leading-tight sm:text-4xl">
+                                {{ __('site.student_login.panel_title') }}
+                            </h1>
+                            <div class="mt-6 grid gap-3 text-sm font-bold text-white/78">
+                                <div class="flex items-center gap-3">
+                                    <span class="h-2.5 w-2.5 rounded-full" style="background: var(--theme-secondary);"></span>
+                                    {{ __('site.student_login.feature_card') }}
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-white"></span>
+                                    {{ __('site.student_login.feature_profile') }}
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-white/70"></span>
+                                    {{ __('site.student_login.feature_learning') }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hidden rounded-2xl border border-white/15 bg-black/10 p-4 text-xs font-bold text-white/58 lg:block">
+                        {{ __('site.student_login.office_note') }}
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <p class="mt-8 text-center text-xs font-medium text-gray-400">
-                <a href="{{ url('/') }}" class="font-extrabold text-[#1a5632] hover:text-[#e2a024]">Back to website</a>
-                <span class="mx-2 text-gray-300">|</span>
-                Secure access only
-            </p>
+            <section class="flex items-center p-5 sm:p-7 lg:p-9">
+                <div class="w-full">
+                    <div class="mb-6">
+                        <p class="text-xs font-black uppercase tracking-[0.22em]" style="color: var(--theme-primary);">{{ __('site.student_login.eyebrow') }}</p>
+                        <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-950">{{ __('site.student_login.welcome') }}</h2>
+                    </div>
+
+                    @if($errors->has('credentials'))
+                        <div class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                            <svg class="mt-0.5 h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                            <span>{{ $errors->first('credentials') }}</span>
+                        </div>
+                    @endif
+
+                    @if($fieldErrors->isNotEmpty())
+                        <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                            <ul class="list-inside list-disc space-y-1">
+                                @foreach($fieldErrors as $e)
+                                    <li>{{ $e }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    @if(session('success'))
+                        <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('student.login.post') }}" class="space-y-4">
+                        @csrf
+
+                        <div>
+                            <label for="login" class="mb-2 block text-sm font-black text-slate-700">{{ __('site.student_login.login_label') }}</label>
+                            <input id="login"
+                                   type="text"
+                                   name="login"
+                                   value="{{ old('login') }}"
+                                   required
+                                   autofocus
+                                   autocomplete="username"
+                                   placeholder="{{ __('site.student_login.login_placeholder') }}"
+                                   class="student-field">
+                        </div>
+
+                        <div>
+                            <label for="password" class="mb-2 block text-sm font-black text-slate-700">{{ __('site.student_login.password_label') }}</label>
+                            <input id="password"
+                                   type="password"
+                                   name="password"
+                                   required
+                                   autocomplete="current-password"
+                                   placeholder="{{ __('site.student_login.password_placeholder') }}"
+                                   class="student-field">
+                        </div>
+
+                        <button type="submit" class="student-login-button flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-base font-black text-white transition duration-200 hover:-translate-y-0.5">
+                            {{ __('site.student_login.submit') }}
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                        <a href="{{ url('/') }}" class="student-brand-link rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-black text-slate-700">
+                            {{ __('site.student_login.back_website') }}
+                        </a>
+                        <a href="{{ route('login') }}" class="student-brand-link rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-black text-slate-700">
+                            {{ __('site.student_login.staff_login') }}
+                        </a>
+                    </div>
+
+                    <p class="mt-5 text-center text-xs font-bold leading-5 text-slate-400">
+                        {{ __('site.student_login.help_text') }}
+                    </p>
+                </div>
+            </section>
         </div>
-    </section>
-</main>
-</body>
-</html>
+    </div>
+</section>
+@endsection

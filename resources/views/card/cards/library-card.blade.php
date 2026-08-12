@@ -115,7 +115,7 @@
 
     <div class="body">
         <div class="photo">
-            <img src="{{ $student->photo ? public_path('storage/' . $student->photo) : public_path('images/default-avatar.png') }}" alt="">
+            <img src="{{ $student->photo ? public_path('storage/' . $student->photo) : public_path('images/default-avatar.svg') }}" alt="">
         </div>
         <div class="info">
             <div class="name">{{ $student->full_name }}</div>

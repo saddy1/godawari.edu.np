@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Change Password | {{ $siteSettings->localized("site_name", "Barchhain Secondary School") }}</title>
+    <title>Change Password | {{ $siteSettings->localized("site_name", "School") }}</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -57,7 +57,17 @@
         </form>
 
         <p class="text-center text-sm text-gray-500 mt-6">
-            <a href="{{ route('vacancies') }}" class="text-[#1a5632] font-bold hover:underline">Back to vacancies</a>
+            @if(auth()->user()?->isAdmin())
+                <a href="{{ route('admin.dashboard') }}" class="text-[#1a5632] font-bold hover:underline">← Back to Dashboard</a>
+            @elseif(session('student_id'))
+                <a href="{{ route('student.dashboard') }}" class="text-[#1a5632] font-bold hover:underline">← Back to Student Portal</a>
+            @elseif(auth()->user()?->isTeacher() && \App\Services\ModuleService::enabled('learning') && auth()->user()?->assignedLearningClasses()->exists())
+                <a href="{{ route('admin.learning.dashboard') }}" class="text-[#1a5632] font-bold hover:underline">← Back to Learning</a>
+            @elseif(\App\Services\ModuleService::enabled('hajiri'))
+                <a href="{{ route('hajiri.home') }}" class="text-[#1a5632] font-bold hover:underline">← Back to Hajiri</a>
+            @else
+                <a href="{{ url('/') }}" class="text-[#1a5632] font-bold hover:underline">← Back to Home</a>
+            @endif
         </p>
     </div>
 </div>

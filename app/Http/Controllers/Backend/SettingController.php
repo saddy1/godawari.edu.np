@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Media;
 use App\Models\Setting;
 use App\Support\SiteSettings;
 use Illuminate\Http\Request;
@@ -20,14 +21,7 @@ class SettingController extends Controller
 
         $settings = Setting::pluck('value', 'key')->toArray();
 
-        $websiteImages = [
-            'home_hero_image'            => ['label' => 'Home Hero School Image',      'fallback' => 'assets/image/school_building.jpg'],
-            'academics_elementary_image' => ['label' => 'Basic / Early Level Image',   'fallback' => 'assets/image/kids.jpg'],
-            'academics_primary_image'    => ['label' => 'Primary / Basic Level Image', 'fallback' => 'assets/image/school_building.jpg'],
-            'academics_secondary_image'  => ['label' => 'Secondary Level Image',       'fallback' => 'assets/image/school_building.jpg'],
-        ];
-
-        return view('backend.settings.index', compact('settings', 'websiteImages'));
+        return view('backend.settings.index', compact('settings'));
     }
 
     public function update(Request $request)
@@ -38,7 +32,13 @@ class SettingController extends Controller
             'admission_year' => 'required|string|max:255',
             'school_phone'   => 'required|string|max:255',
             'school_email'   => 'required|email|max:255',
-            'office_hours'   => 'required|string|max:255',
+            'office_hours'        => 'required|string|max:255',
+            'office_hours_days'   => 'nullable|string|max:100',
+            'office_hours_time'   => 'nullable|string|max:100',
+            'office_hours_closed' => 'nullable|string|max:100',
+            'map_latitude'        => ['nullable', 'regex:/^-?\d{1,3}(\.\d+)?$/'],
+            'map_longitude'       => ['nullable', 'regex:/^-?\d{1,3}(\.\d+)?$/'],
+            'map_zoom'            => 'nullable|integer|min:1|max:20',
             'site_name_en'   => 'required|string|max:255',
             'site_name_ne'   => 'nullable|string|max:255',
             'app_name'       => 'required|string|max:255',
@@ -46,33 +46,52 @@ class SettingController extends Controller
             'site_tagline_ne' => 'nullable|string|max:255',
             'site_address_en' => 'required|string|max:255',
             'site_address_ne' => 'nullable|string|max:255',
+            'school_code'     => 'nullable|string|max:100',
             'website_url'    => 'nullable|url|max:255',
+            'default_locale' => 'required|in:en,ne',
             'primary_color'         => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color'       => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'dark_color'            => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'primary_light_color'   => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'body_bg_color'         => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'body_bg_gradient_end'  => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'surface_color'         => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'muted_surface_color'   => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'border_color'          => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'text_color'            => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'muted_text_color'      => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'header_gradient_end'   => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'hero_gradient_end'     => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'cta_gradient_end'      => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'footer_gradient_end'   => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'notice_bg_color'       => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'notice_accent_color'   => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'sidebar_gradient_end'  => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'body_font'      => 'required|in:DM Sans,Inter,Noto Sans Devanagari,Poppins',
             'heading_font'   => 'required|in:Playfair Display,Lora,Merriweather,Noto Sans Devanagari',
+            'school_alternate_name'      => 'nullable|string|max:255',
+            'school_street'              => 'nullable|string|max:255',
+            'school_locality'            => 'nullable|string|max:255',
+            'school_region'              => 'nullable|string|max:255',
+            'school_area_served'         => 'nullable|string|max:255',
+            'school_founding_date_ad'    => 'nullable|string|max:10',
+            'school_hours_schema'        => 'nullable|string|max:100',
+            'seo_default_title_en'       => 'nullable|string|max:255',
+            'seo_default_title_ne'       => 'nullable|string|max:255',
+            'seo_default_description_en' => 'nullable|string|max:500',
+            'seo_default_description_ne' => 'nullable|string|max:500',
+            'seo_default_keywords_en'    => 'nullable|string|max:500',
+            'seo_default_keywords_ne'    => 'nullable|string|max:500',
             'social_facebook'  => 'nullable|url|max:255',
             'social_instagram' => 'nullable|url|max:255',
             'social_tiktok'    => 'nullable|url|max:255',
             'social_twitter'   => 'nullable|url|max:255',
             'social_whatsapp'  => 'nullable|url|max:255',
             'social_youtube'   => 'nullable|url|max:255',
+            'site_logo_media_path' => 'nullable|string|max:500',
+            'site_favicon_media_path' => 'nullable|string|max:500',
             'site_logo'      => 'nullable|file|mimes:png,jpg,jpeg,webp,svg|max:2048',
             'site_favicon'   => 'nullable|file|mimes:png,jpg,jpeg,webp,ico|max:512',
-            'home_hero_image' => 'nullable|file|mimes:png,jpg,jpeg,webp|max:4096',
-            'home_principal_image' => 'nullable|file|mimes:png,jpg,jpeg,webp|max:4096',
-            'academics_elementary_image' => 'nullable|file|mimes:png,jpg,jpeg,webp|max:4096',
-            'academics_primary_image' => 'nullable|file|mimes:png,jpg,jpeg,webp|max:4096',
-            'academics_secondary_image' => 'nullable|file|mimes:png,jpg,jpeg,webp|max:4096',
         ];
 
         if ($request->user()?->isSuperAdmin()) {
@@ -95,6 +114,12 @@ class SettingController extends Controller
             'school_phone',
             'school_email',
             'office_hours',
+            'office_hours_days',
+            'office_hours_time',
+            'office_hours_closed',
+            'map_latitude',
+            'map_longitude',
+            'map_zoom',
             'site_name_en',
             'site_name_ne',
             'app_name',
@@ -102,7 +127,22 @@ class SettingController extends Controller
             'site_tagline_ne',
             'site_address_en',
             'site_address_ne',
+            'school_code',
             'website_url',
+            'default_locale',
+            'school_alternate_name',
+            'school_street',
+            'school_locality',
+            'school_region',
+            'school_area_served',
+            'school_founding_date_ad',
+            'school_hours_schema',
+            'seo_default_title_en',
+            'seo_default_title_ne',
+            'seo_default_description_en',
+            'seo_default_description_ne',
+            'seo_default_keywords_en',
+            'seo_default_keywords_ne',
             'social_facebook',
             'social_instagram',
             'social_tiktok',
@@ -115,7 +155,14 @@ class SettingController extends Controller
             'primary_light_color',
             'body_bg_color',
             'body_bg_gradient_end',
+            'surface_color',
+            'muted_surface_color',
+            'border_color',
+            'text_color',
+            'muted_text_color',
             'header_gradient_end',
+            'hero_gradient_end',
+            'cta_gradient_end',
             'footer_gradient_end',
             'notice_bg_color',
             'notice_accent_color',
@@ -150,55 +197,74 @@ class SettingController extends Controller
             );
         }
 
-        if ($request->hasFile('site_logo')) {
-            $logo = $request->file('site_logo');
-            $filename = 'logo-'.Str::slug(pathinfo($logo->getClientOriginalName(), PATHINFO_FILENAME)).'-'.time().'.'.$logo->getClientOriginalExtension();
-            File::ensureDirectoryExists(public_path('uploads/site'));
-            $logo->move(public_path('uploads/site'), $filename);
-
-            Setting::updateOrCreate(
-                ['key' => 'site_logo'],
-                ['value' => 'uploads/site/'.$filename]
-            );
+        if ($mediaPath = $this->selectedMediaPath($request, 'site_logo_media_path')) {
+            $this->setSettingImagePath('site_logo', $mediaPath);
+        } elseif ($request->hasFile('site_logo')) {
+            $this->replaceSettingImage($request, 'site_logo', 'site-logo');
         }
 
-        if ($request->hasFile('site_favicon')) {
-            $favicon = $request->file('site_favicon');
-            $filename = 'favicon-'.time().'.'.$favicon->getClientOriginalExtension();
-            File::ensureDirectoryExists(public_path('uploads/site'));
-            $favicon->move(public_path('uploads/site'), $filename);
-
-            Setting::updateOrCreate(
-                ['key' => 'site_favicon'],
-                ['value' => 'uploads/site/'.$filename]
-            );
-        }
-
-        foreach ([
-            'home_hero_image',
-            'home_principal_image',
-            'academics_elementary_image',
-            'academics_primary_image',
-            'academics_secondary_image',
-        ] as $imageKey) {
-            if (! $request->hasFile($imageKey)) {
-                continue;
-            }
-
-            $image = $request->file($imageKey);
-            $filename = Str::slug($imageKey).'-'.time().'.'.$image->getClientOriginalExtension();
-            File::ensureDirectoryExists(public_path('uploads/site'));
-            $image->move(public_path('uploads/site'), $filename);
-
-            Setting::updateOrCreate(
-                ['key' => $imageKey],
-                ['value' => 'uploads/site/'.$filename]
-            );
+        if ($mediaPath = $this->selectedMediaPath($request, 'site_favicon_media_path')) {
+            $this->setSettingImagePath('site_favicon', $mediaPath);
+        } elseif ($request->hasFile('site_favicon')) {
+            $this->replaceSettingImage($request, 'site_favicon', 'site-favicon');
         }
 
         app(SiteSettings::class)->clearCache();
 
+        if ($request->filled('default_locale')) {
+            session(['locale' => $request->default_locale]);
+            cookie()->queue(cookie('locale', $request->default_locale, 60 * 24 * 365));
+        }
+
         return back()->with('success', 'Global settings updated successfully.');
+    }
+
+    private function replaceSettingImage(Request $request, string $key, ?string $filenameBase = null): void
+    {
+        $file = $request->file($key);
+        $extension = strtolower($file->getClientOriginalExtension());
+        $filename = Str::slug($filenameBase ?: $key) . '.' . $extension;
+        $relativePath = 'uploads/site/' . $filename;
+        $targetPath = public_path($relativePath);
+
+        File::ensureDirectoryExists(public_path('uploads/site'));
+
+        $oldPath = Setting::where('key', $key)->value('value');
+        if ($oldPath && str_starts_with($oldPath, 'uploads/site/')) {
+            $oldFullPath = public_path($oldPath);
+            if (File::exists($oldFullPath)) {
+                File::delete($oldFullPath);
+            }
+        }
+
+        if (File::exists($targetPath)) {
+            File::delete($targetPath);
+        }
+
+        $file->move(public_path('uploads/site'), $filename);
+
+        Setting::updateOrCreate(
+            ['key' => $key],
+            ['value' => $relativePath]
+        );
+    }
+
+    private function selectedMediaPath(Request $request, string $field): ?string
+    {
+        $path = $request->input($field);
+
+        if (! $path) {
+            return null;
+        }
+
+        return Media::where('file_path', $path)
+            ->where('mime_type', 'like', 'image/%')
+            ->value('file_path');
+    }
+
+    private function setSettingImagePath(string $key, string $relativePath): void
+    {
+        Setting::updateOrCreate(['key' => $key], ['value' => $relativePath]);
     }
 
     public function testMail(Request $request)
@@ -210,11 +276,12 @@ class SettingController extends Controller
         ]);
 
         try {
+            $schoolName = app(\App\Support\SiteSettings::class)->get('site_name_en', config('app.name'));
             Mail::raw(
-                'This is a test email from Barchhain Secondary School mail settings.',
-                function ($message) use ($request) {
+                "This is a test email from {$schoolName} mail settings.",
+                function ($message) use ($request, $schoolName) {
                     $message->to($request->test_email)
-                        ->subject('Barchhain Mail Settings Test');
+                        ->subject($schoolName . ' — Mail Settings Test');
                 }
             );
         } catch (Throwable $exception) {

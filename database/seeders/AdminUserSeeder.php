@@ -24,15 +24,5 @@ class AdminUserSeeder extends Seeder
         );
         $superAdmin->syncRoles(['super-admin']);
 
-        $admin = User::updateOrCreate(
-            ['email' => 'admin@barchhainsecondary.edu.np'],
-            [
-                'name'              => 'Admin',
-                'password'          => Hash::make('Barchhain@admin@!@!'),
-                'email_verified_at' => now(),
-                'is_active'         => true,
-            ]
-        );
-        $admin->syncRoles(['administrator']);
     }
 }

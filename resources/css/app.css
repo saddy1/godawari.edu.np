@@ -5,14 +5,14 @@
 @source "../**/*.js";
 
 @theme {
-  /* Barchhain Secondary School brand colors */
-  --color-barchhain-green: #1a5632;
-  --color-barchhain-green-light: #237042;
-  --color-barchhain-gold: #e2a024;
-  --color-barchhain-gold-light: #f4b63e;
+  /* Godawari College brand colors */
+  --color-godawari-green: #1a5632;
+  --color-godawari-green-light: #237042;
+  --color-godawari-gold: #e2a024;
+  --color-godawari-gold-light: #f4b63e;
 
-  --color-primary: var(--color-barchhain-green);
-  --color-secondary: var(--color-barchhain-gold);
+  --color-primary: var(--color-godawari-green);
+  --color-secondary: var(--color-godawari-gold);
 }
 
 @layer base {

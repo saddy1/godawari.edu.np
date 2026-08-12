@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Card\Student;
+use App\Models\Card\Department;
+use App\Models\Card\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
@@ -17,8 +19,10 @@ class MemberAccountService
 
         $user = $member->user ?: User::where('student_code', $loginCode)->first();
 
-        if (!$user && $member->email) {
-            $emailOwner = User::where('email', $member->email)->first();
+        if ($member->email) {
+            $emailOwner = User::where('email', $member->email)
+                ->when($user?->id, fn ($q) => $q->where('id', '!=', $user->id))
+                ->first();
             $email = $emailOwner ? $fallbackEmail : $member->email;
         }
 
@@ -29,12 +33,23 @@ class MemberAccountService
             $user->password = Hash::make($password);
         }
 
+        $organization = filled($member->organization)
+            ? Organization::where('slug', $member->organization)->first()
+            : null;
+        $department = $organization && filled($member->stream)
+            ? Department::where('organization_id', $organization->id)
+                ->where('name', $member->stream)
+                ->first()
+            : null;
+
         $user->fill([
             'name' => $member->full_name,
             'email' => $email,
             'student_code' => $loginCode,
             'class_grade' => $member->stream,
             'section' => $member->section,
+            'organization_id' => $organization?->id,
+            'department_id' => $department?->id,
             'phone' => $member->mobile,
             'province' => $member->permanent_province ?: $member->zone,
             'district' => $member->permanent_district ?: $member->district,

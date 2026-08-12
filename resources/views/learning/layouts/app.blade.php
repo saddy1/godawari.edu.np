@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'E-Learning') | {{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</title>
+    <title>@yield('title', 'E-Learning') | {{ $siteSettings->localized('site_name', 'School') }}</title>
     <link rel="icon" type="image/x-icon" href="{{ $siteSettings->faviconUrl() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -13,7 +13,121 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
     <script>
+        function sanitizeLessonHtml(container) {
+            container.querySelectorAll('script, style, object, embed').forEach(function (node) {
+                node.remove();
+            });
+            container.querySelectorAll('*').forEach(function (node) {
+                Array.from(node.attributes).forEach(function (attr) {
+                    var name = attr.name.toLowerCase();
+                    var value = attr.value.trim().toLowerCase();
+                    if (name.indexOf('on') === 0 || ((name === 'href' || name === 'src') && value.indexOf('javascript:') === 0)) {
+                        node.removeAttribute(attr.name);
+                    }
+                });
+            });
+        }
+        function renderTrustedHtmlBlocks(root) {
+            root.querySelectorAll('.lesson-body pre').forEach(function (pre) {
+                var html = pre.textContent.trim();
+                if (!/^<(div|section|article|figure)\b[^>]*class=["'][^"']*\blesson-/i.test(html)) return;
+
+                var template = document.createElement('template');
+                template.innerHTML = html;
+                sanitizeLessonHtml(template.content);
+                pre.replaceWith(template.content.cloneNode(true));
+            });
+        }
+        function normalizeLessonMarkdown(root) {
+            root.querySelectorAll('.lesson-body').forEach(function (body) {
+                Array.from(body.children).forEach(function (node) {
+                    if ((node.tagName === 'P' || node.tagName === 'DIV') && !node.textContent.trim()) {
+                        node.remove();
+                    }
+                });
+
+                Array.from(body.querySelectorAll('p')).forEach(function (p) {
+                    var text = p.textContent.trim();
+                    var heading = text.match(/^(#{1,4})\s+(.+)$/);
+                    var boldLine = text.match(/^\*\*(.+)\*\*$/);
+                    var replacement = null;
+
+                    if (heading) {
+                        replacement = document.createElement('h' + Math.min(heading[1].length, 4));
+                        replacement.textContent = heading[2];
+                    } else if (boldLine) {
+                        replacement = document.createElement('h3');
+                        replacement.textContent = boldLine[1];
+                    }
+
+                    if (replacement) {
+                        p.replaceWith(replacement);
+                    }
+                });
+
+                var nodes = Array.from(body.children);
+                for (var i = 0; i < nodes.length; i++) {
+                    if (!nodes[i] || nodes[i].tagName !== 'P') continue;
+
+                    var first = nodes[i].textContent.trim().match(/^([a-z])[\).]\s+(.+)$/i);
+                    if (!first) continue;
+
+                    var ol = document.createElement('ol');
+                    ol.type = 'a';
+
+                    for (var j = i; j < nodes.length; j++) {
+                        if (!nodes[j] || nodes[j].tagName !== 'P') break;
+                        var item = nodes[j].textContent.trim().match(/^([a-z])[\).]\s+(.+)$/i);
+                        if (!item) break;
+
+                        var li = document.createElement('li');
+                        li.textContent = item[2];
+                        ol.appendChild(li);
+                    }
+
+                    nodes[i].replaceWith(ol);
+                    for (var k = i + 1; k < j; k++) {
+                        nodes[k].remove();
+                    }
+                    nodes = Array.from(body.children);
+                }
+            });
+        }
+        function normalizeQuillDisplayMath(root) {
+            root.querySelectorAll('.lesson-body').forEach(function (body) {
+                var nodes = Array.from(body.children);
+                for (var i = 0; i < nodes.length; i++) {
+                    var start = nodes[i];
+                    if (!start || start.textContent.trim() !== '$$') continue;
+
+                    var parts = [];
+                    var end = null;
+                    for (var j = i + 1; j < nodes.length; j++) {
+                        if (nodes[j].textContent.trim() === '$$') {
+                            end = nodes[j];
+                            break;
+                        }
+                        parts.push(nodes[j].textContent);
+                    }
+                    if (!end || parts.length === 0) continue;
+
+                    var math = document.createElement('div');
+                    math.className = 'lesson-display-math';
+                    math.textContent = '$$' + parts.join('\n') + '$$';
+                    start.replaceWith(math);
+                    parts.forEach(function (_, offset) {
+                        nodes[i + 1 + offset].remove();
+                    });
+                    end.remove();
+                    nodes = Array.from(body.children);
+                    i--;
+                }
+            });
+        }
         document.addEventListener('DOMContentLoaded', function () {
+            renderTrustedHtmlBlocks(document);
+            normalizeLessonMarkdown(document);
+            normalizeQuillDisplayMath(document);
             if (typeof renderMathInElement === 'function') {
                 renderMathInElement(document.body, {
                     delimiters: [
@@ -49,10 +163,12 @@
         .lesson-body h1 { font-size: 1.5rem; }
         .lesson-body h2 { font-size: 1.25rem; }
         .lesson-body h3 { font-size: 1.1rem; }
-        .lesson-body p  { color: #374151; line-height: 1.75; margin-bottom: .75rem; }
+        .lesson-body p  { color: #374151; line-height: 1.7; margin-bottom: .75rem; }
         .lesson-body ul { list-style: disc; padding-left: 1.5rem; margin-bottom: .75rem; color: #374151; }
         .lesson-body ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: .75rem; color: #374151; }
-        .lesson-body li { margin-bottom: .25rem; line-height: 1.6; }
+        .lesson-body ol[type="a"] { list-style-type: lower-alpha; }
+        .lesson-body ol[type="A"] { list-style-type: upper-alpha; }
+        .lesson-body li { margin-bottom: .45rem; line-height: 1.55; }
         .lesson-body strong { font-weight: 700; color: #111827; }
         .lesson-body em { font-style: italic; }
         .lesson-body blockquote {
@@ -70,7 +186,63 @@
         .lesson-body pre code { background: none; color: inherit; padding: 0; }
         .lesson-body hr { border-color: #e5e7eb; margin: 1.5rem 0; }
         .lesson-body a { color: var(--theme-primary); text-decoration: underline; }
+        .lesson-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .95em; }
+        .lesson-body th, .lesson-body td { border: 1px solid #e5e7eb; padding: .65rem .75rem; text-align: left; vertical-align: top; }
+        .lesson-body th { background: #f9fafb; color: #111827; font-weight: 800; }
+        .lesson-callout { border-left: 4px solid var(--theme-primary); background: #f8fafc; border-radius: 0 .75rem .75rem 0; padding: .85rem 1rem; margin: 1rem 0; }
+        .lesson-callout.warning { border-left-color: #d97706; background: #fffbeb; }
+        .lesson-callout.success { border-left-color: #059669; background: #ecfdf5; }
+        .lesson-figure { margin: 1.25rem 0; text-align: center; }
+        .lesson-figure img, .lesson-figure svg { max-width: 100%; height: auto; display: inline-block; }
+        .lesson-figure figcaption { margin-top: .5rem; color: #6b7280; font-size: .875rem; }
+        .lesson-media-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; margin: 1rem 0; }
         main { min-width: 0; }
+        .lesson-display-math {
+            margin: .85rem 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: .25rem 0;
+        }
+        .lesson-body .katex-display {
+            margin: .65rem 0;
+        }
+        .lesson-venn-layout {
+            display: flow-root;
+            margin: 1.25rem 0;
+        }
+        .lesson-venn-layout ol {
+            list-style-type: lower-alpha;
+            padding-left: 1.5rem;
+            margin: 0;
+        }
+        .lesson-venn-layout li {
+            padding-left: .25rem;
+        }
+        .lesson-venn-layout figure {
+            float: right;
+            width: min(42%, 30rem);
+            min-width: 22rem;
+            margin: .1rem 0 1rem 1.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: .75rem;
+            background: #fff;
+            padding: .75rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+        }
+        .lesson-venn-layout svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        @media (max-width: 860px) {
+            .lesson-venn-layout figure {
+                float: none;
+                width: 100%;
+                min-width: 0;
+                max-width: 30rem;
+                margin: 0 0 1rem;
+            }
+        }
     </style>
     @stack('styles')
 </head>
@@ -98,7 +270,7 @@
                     <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <div class="min-w-0">
-                    <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'Barchhain ERP') }}</p>
+                    <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'School ERP') }}</p>
                     <p class="text-[9px] uppercase tracking-widest font-semibold mt-0.5" style="color: var(--theme-secondary, #e2a024);">E-Learning</p>
                 </div>
             </a>
@@ -179,7 +351,7 @@
     </aside>
 
     {{-- Main area --}}
-    <div class="relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+    <div class="relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden" data-page-scroll-root>
 
         {{-- Mobile top bar (hamburger) --}}
         <div class="sticky top-0 z-30 flex items-center gap-3 h-14 px-4 bg-white border-b border-gray-200 lg:hidden shrink-0">
@@ -215,11 +387,12 @@
         </main>
 
         <footer class="shrink-0 px-6 py-3 border-t border-gray-100 bg-white">
-            <p class="text-xs text-gray-400 text-center">&copy; {{ date('Y') }} {{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }} — E-Learning</p>
+            <p class="text-xs text-gray-400 text-center">&copy; {{ date('Y') }} {{ $siteSettings->localized('site_name', 'School') }} — E-Learning</p>
         </footer>
     </div>
 
 </div>
+@include('partials.page-wheel-scroll')
 @stack('scripts')
 </body>
 </html>

@@ -42,14 +42,14 @@
 
             <div class="p-8 grid sm:grid-cols-[180px_1fr] gap-8 items-start">
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Current Photo</label>
-                    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-2 flex items-center justify-center h-44 overflow-hidden">
-                        <img src="{{ $siteSettings->imageUrl('home_principal_image', 'assets/image/school_building.jpg') }}"
-                             alt="Principal photo" class="h-full w-full object-cover object-top rounded-xl">
-                    </div>
-                    <input type="file" name="home_principal_image" accept="image/png,image/jpeg,image/webp"
-                           class="mt-4 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#1a5632] file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:file:bg-[#0b2415]">
-                    <p class="text-xs text-gray-400 mt-1">PNG, JPG, WEBP up to 4 MB.</p>
+                    <x-admin-image-picker
+                        name="home_principal_image_media_path"
+                        file-name="home_principal_image"
+                        label="Principal Photo"
+                        :current-url="$siteSettings->imageUrl('home_principal_image', 'assets/image/default-placeholder.jpg')"
+                        :current-path="$settings['home_principal_image'] ?? null"
+                        help="Choose from Media or upload a new principal photo. PNG, JPG, WEBP up to 4 MB."
+                    />
                 </div>
 
                 <div class="space-y-5">
@@ -73,7 +73,7 @@
                             <label class="block text-sm font-bold text-gray-700 mb-2">Role (English) <span class="text-red-500">*</span></label>
                             <input type="text" name="principal_role_en"
                                    value="{{ old('principal_role_en', $settings['principal_role_en'] ?? $siteSettings->get('principal_role_en')) }}"
-                                   required placeholder="Principal, Barchhain Secondary School"
+                                   required placeholder="e.g. Principal, School Name"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
                         </div>
                         <div>

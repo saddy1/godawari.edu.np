@@ -9,6 +9,14 @@ use Illuminate\Http\Request;
 
 class WorkGroupController extends Controller
 {
+    public function index()
+    {
+        $groups = WorkGroup::with('members')->latest()->paginate(12);
+        $teachers = User::role('teacher')->where('is_active', true)->orderBy('name')->get();
+
+        return view('work-tasks.groups.index', compact('groups', 'teachers'));
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -53,7 +61,11 @@ class WorkGroupController extends Controller
 
     public function destroy(WorkGroup $group)
     {
-        abort_if($group->tasks()->exists(), 422, 'This group has assigned tasks and cannot be deleted.');
+        if ($group->tasks()->exists()) {
+            return back()->withErrors([
+                'group' => 'This group has assigned tasks and cannot be deleted.',
+            ]);
+        }
 
         $group->delete();
 

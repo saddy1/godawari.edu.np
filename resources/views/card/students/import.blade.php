@@ -16,13 +16,18 @@
         // Which tab and which step are we in?
         $isCsvPreview   = isset($rows);
         $isPhotoPreview = isset($photoRows);
-        $tab = $isCsvPreview ? 'csv' : ($isPhotoPreview ? 'photos' : (request('tab') ?: 'csv'));
+        $tab = $isCsvPreview ? 'csv' : ($isPhotoPreview ? 'photos' : (request('tab') ?: 'excel'));
         $selectedOrg = old('organization', array_key_first($formOptions ?? []) ?: 'college');
     @endphp
 
     {{-- ── Tab switcher (hidden during preview steps) ─────────────────── --}}
     @if(!$isCsvPreview && !$isPhotoPreview)
     <div class="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <a href="{{ route('import.index') }}?tab=excel"
+           class="px-5 py-2 rounded-lg text-sm font-medium transition
+                  {{ $tab === 'excel' ? 'bg-white shadow text-primary' : 'text-gray-500 hover:text-gray-700' }}">
+            Excel / IEMIS Import
+        </a>
         <a href="{{ route('import.index') }}?tab=csv"
            class="px-5 py-2 rounded-lg text-sm font-medium transition
                   {{ $tab === 'csv' ? 'bg-white shadow text-primary' : 'text-gray-500 hover:text-gray-700' }}">
@@ -37,12 +42,83 @@
     @endif
 
     {{-- ═══════════════════════════════════════════════════════════════════
+         EXCEL / IEMIS TAB
+    ════════════════════════════════════════════════════════════════════════ --}}
+    @if($tab === 'excel' && !$isCsvPreview && !$isPhotoPreview)
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+        <h2 class="font-semibold text-primary text-sm uppercase tracking-wide">Excel / IEMIS Import</h2>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1.5">
+            <p class="font-semibold">Upload your IEMIS Excel (.xlsx) export directly — no column renaming needed.</p>
+            <p>Recognized columns are mapped automatically:</p>
+            <div class="grid grid-cols-2 gap-x-6 gap-y-0.5 mt-1 font-mono text-blue-700">
+                <span>FullName → first/middle/last name</span>
+                <span>Student Id → Registration No</span>
+                <span>DOB → BS Date (dob_bs)</span>
+                <span>S.N → Roll Number (auto if missing)</span>
+                <span>Father Name / Mother Name</span>
+                <span>Guardian Name / Contact Number</span>
+                <span>Gender, Permanent Address</span>
+                <span>Year → Batch</span>
+            </div>
+            <p class="mt-1 text-blue-600">Unknown columns are simply ignored. DOB is treated as Nepali (BS) date.</p>
+        </div>
+
+        <form method="POST" action="{{ route('import.xlsx.preview') }}" enctype="multipart/form-data" class="space-y-5">
+            @csrf
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Organization <span class="text-red-500">*</span></label>
+                    <select name="organization" id="xlsxOrgSelect" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        @foreach($formOptions as $slug => $organization)
+                            <option value="{{ $slug }}" @selected($selectedOrg === $slug)>{{ $organization['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Member Type <span class="text-red-500">*</span></label>
+                    <select name="member_type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        <option value="student">Student</option>
+                        <option value="teacher">Teacher</option>
+                        <option value="staff">Staff</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Stream / Class</label>
+                    <select name="stream" id="xlsxStreamSelect"
+                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Section</label>
+                    <select name="section" id="xlsxSectionSelect"
+                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Valid Till (all rows)</label>
+                    <input type="date" name="valid_till"
+                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Excel File (.xlsx / .xls) <span class="text-red-500">*</span></label>
+                    <input type="file" name="xlsx_file" accept=".xlsx,.xls,.ods,.csv" required
+                           class="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-light">
+                </div>
+            </div>
+            <button type="submit"
+                    class="bg-primary text-white px-8 py-2.5 rounded-lg text-sm font-semibold hover:bg-primary-light transition">
+                Preview Import →
+            </button>
+        </form>
+    </div>
+    @endif
+
+    {{-- ═══════════════════════════════════════════════════════════════════
          CSV TAB
     ════════════════════════════════════════════════════════════════════════ --}}
-    @if($tab === 'csv')
+    @if($tab === 'csv' || $isCsvPreview)
 
       @if($isCsvPreview)
-      {{-- ── CSV STEP 2: Preview ──────────────────────────────────────── --}}
+      {{-- ── CSV / Excel STEP 2: Preview (shared) ────────────────────── --}}
       @php
           $valid   = collect($rows)->where('error', null);
           $invalid = collect($rows)->whereNotNull('error');
@@ -50,7 +126,7 @@
       <div class="flex items-center gap-3 text-sm text-gray-500">
           <a href="{{ route('import.index') }}" class="hover:text-primary">← Back to upload</a>
           <span class="text-gray-300">|</span>
-          <span>CSV Preview</span>
+          <span>Preview</span>
       </div>
 
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
@@ -220,10 +296,12 @@
       </div>
       @endif
 
-    @else
+    @endif
+
     {{-- ═══════════════════════════════════════════════════════════════════
          PHOTOS TAB
     ════════════════════════════════════════════════════════════════════════ --}}
+    @if($tab === 'photos' || $isPhotoPreview)
 
       @if($isPhotoPreview)
       {{-- ── PHOTO STEP 2: Preview ────────────────────────────────────── --}}
@@ -490,6 +568,7 @@ function wireImportSelectors(orgId, streamId, sectionId) {
     refreshStreams();
 }
 
+wireImportSelectors('xlsxOrgSelect', 'xlsxStreamSelect', 'xlsxSectionSelect');
 wireImportSelectors('csvOrgSelect', 'csvStreamSelect', 'csvSectionSelect');
 wireImportSelectors('photoOrgSelect', 'photoStreamSelect', 'photoSectionSelect');
 

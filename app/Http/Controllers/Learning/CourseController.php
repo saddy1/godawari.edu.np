@@ -17,7 +17,15 @@ class CourseController extends Controller
             'learningClass',
             'subject',
             'chapters' => fn ($q) => $q->orderBy('sort_order'),
-            'chapters.lessons' => fn ($q) => $q->where('is_published', true)->orderBy('sort_order')->with('quiz'),
+            'chapters.lessons' => fn ($q) => $q->where('is_published', true)
+                ->orderBy('sort_order')
+                ->with(['quiz' => fn ($quiz) => $quiz
+                    ->where('is_published', true)
+                    ->withCount('questions')
+                    ->with([
+                        'questions',
+                        'attempts' => fn ($attempt) => $attempt->where('user_id', $request->user()->id),
+                    ])]),
         ]);
 
         LearningProgress::firstOrCreate(
@@ -47,7 +55,10 @@ class CourseController extends Controller
             }
         }
 
-        $quizzes = $course->quizzes()->where('is_published', true)->orderBy('sort_order')
+        $quizzes = $course->quizzes()
+            ->where('is_published', true)
+            ->whereNull('learning_lesson_id')
+            ->orderBy('sort_order')
             ->withCount('questions')
             ->with(['questions', 'attempts' => fn ($q) => $q->where('user_id', $request->user()->id)])
             ->get();

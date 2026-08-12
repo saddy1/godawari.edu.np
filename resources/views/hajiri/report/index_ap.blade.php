@@ -76,14 +76,15 @@
         writing-mode: vertical-rl;
         transform: rotate(180deg);
         overflow: hidden;
-        max-height: 14mm;
+        max-height: 13.5mm;
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto;
+        line-height: .95;
     }
   </style>
-  <script src="{{ asset('erp/hajiri/admin/plugins/jquery/jquery.min.js') }}"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 </head>
@@ -93,16 +94,17 @@
         <article class="w-100">
             <div class="w-100 text-center">
                 <img style="width: 26mm; display: block; margin: 0 auto 3mm;" src="{{ $siteSettings->logoUrl() }}" alt="">
-                <div class="report-school">{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</div>
-                <div class="report-address">{{ $siteSettings->localized('site_address', 'Barchhain, Doti, Sudurpashchim Province, Nepal') }}</div>
+                <div class="report-school">{{ $siteSettings->localized('site_name', 'School') }}</div>
+                <div class="report-address">{{ $siteSettings->localized('site_address', 'Nepal') }}</div>
                 <div class="w-100 text-center report-title">हाजिरी प्रतिवेदन / A/P Attendance Report · <span class="date-text">{{$nowData['yearBS']}}</span> {{$nowData['nmonthBS']}}</div>
                 <div class="w-100 text-center mt-5 h3"><span id="numOfLoadedUser">0</span> out of {{count($users)}} Loaded</div>
             </div>
             <div class="w-100 d-none">
                 <table class="table-hajiri table table-bordered d-none">
                     @foreach($users as $user)
+                        @php $designationLabel = $user->designation->label ?? ''; @endphp
                         <tr  class="d-flex hajiri-data-table"  style="height:16mm;"  data-device-id="{{$user->device_id}}" id="tr-user-{{$user->device_id}}">
-                            <td style="width:45mm; font-size:3mm; vertical-align: center;"><b>{{$user["name"]}} <span style="font-size:2mm;">{{$user['device_id']}}</span></b><br/><span style="font-size:{{(strlen($user['designation']['label']) > 80)?'2.5mm;':'3mm'}}">{{$user['designation']['label']}}</span></td>
+                            <td style="width:45mm; font-size:3mm; vertical-align: center;"><b>{{$user["name"]}} <span style="font-size:2mm;">{{$user['device_id']}}</span></b><br/><span style="font-size:{{ strlen($designationLabel) > 80 ? '2.5mm;' : '3mm' }}">{{ $designationLabel }}</span></td>
                             <td style="width:230mm; font-size:3mm;">Loading Data for Employee: <b>{{$user->name}}</b> : {{$user->device_id}}</td>
                         </tr>
                     @endforeach
@@ -140,9 +142,9 @@ var countUser = {
 $(document).ready(function(){
 
     var pageHeader  = '<div class="w-100 report-brand">'+
-                            '<img class="report-logo" src="{{ $siteSettings->logoUrl() }}" alt="{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}">'+
-                            '<div class="report-school">{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</div>'+
-                            '<div class="report-address">{{ $siteSettings->localized('site_address', 'Barchhain, Doti, Sudurpashchim Province, Nepal') }}</div>'+
+                            '<img class="report-logo" src="{{ $siteSettings->logoUrl() }}" alt="{{ $siteSettings->localized('site_name', 'School') }}">'+
+                            '<div class="report-school">{{ $siteSettings->localized('site_name', 'School') }}</div>'+
+                            '<div class="report-address">{{ $siteSettings->localized('site_address', 'Nepal') }}</div>'+
                             '<div class="w-100 report-title" onclick="download();">हाजिरी प्रतिवेदन / A/P Attendance Report · <span class="date-text">{{$nowData['yearBS']}}</span> {{$nowData['nmonthBS']}}</div>'+
                             '<div class="report-meta">Generated: {{ now()->format('d M Y, h:i A') }}</div>'+
                             @if($labelDepart != "")
@@ -236,16 +238,16 @@ $(document).ready(function(){
                             var cell_content = '';
                             if(typeof value === 'string') {
                                 if(value.length > 1){
-                                    fontS = '2mm';
+                                    fontS = value.length > 10 ? '1.35mm' : (value.length > 6 ? '1.7mm' : '2mm');
                                     date_90 = 'date_90';
-                                    cell_content = '<div class="w-100 '+date_90+'" style="font-size:'+fontS+'; line-height:1.1;">'+value+'</div>';
+                                    cell_content = '<div class="w-100 '+date_90+'" style="font-size:'+fontS+';">'+value+'</div>';
                                 } else {
                                     cell_content = '<div style="text-align:center; line-height:1; padding-top:5mm; font-size:'+fontS+';">'+value+'</div>';
                                 }
                             } else {
-                                fontS = '2mm';
+                                fontS = '1.35mm';
                                 date_90 = 'date_90';
-                                cell_content = '<div class="w-100 '+date_90+'" style="font-size:'+fontS+'; line-height:1.1;">'+value+'</div>';
+                                cell_content = '<div class="w-100 '+date_90+'" style="font-size:'+fontS+';">'+value+'</div>';
                             }
                             $('#tr-user-'+device_id).append('<td id="hajiri_'+device_id+'_'+index.replaceAll('-','_')+'" style="width:7mm; text-align:center;">'+cell_content+'</td>');
                         });
@@ -285,7 +287,7 @@ function download()
     wb.Props = {
         Title: 'Attendance Report',
         Subject: 'Attendance Report',
-        Author: 'Barchhain Secondary School',
+        Author: 'School',
         CreatedDate: new Date(),
     };
 
@@ -301,7 +303,7 @@ function download()
 
     let ws = XLSX.utils.aoa_to_sheet(wsData);
     XLSX.utils.book_append_sheet(wb, ws, wsName);
-    XLSX.writeFile(wb, 'barchhain-ap-attendance-{{$nowData['yearBS']}}-{{$nowData['monthBS']}}.xlsx');
+    XLSX.writeFile(wb, 'ap-attendance-{{$nowData['yearBS']}}-{{$nowData['monthBS']}}.xlsx');
 
 }
 syncNepali();

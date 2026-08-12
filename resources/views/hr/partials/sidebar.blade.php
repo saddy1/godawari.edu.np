@@ -15,7 +15,7 @@
                 <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="w-full h-full object-contain">
             </div>
             <div class="min-w-0">
-                <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'Barchhain ERP') }}</p>
+                <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'School ERP') }}</p>
                 <p class="text-[9px] uppercase tracking-widest font-semibold mt-0.5" style="color: var(--theme-secondary, #e2a024);">HR Module</p>
             </div>
         </a>
@@ -29,7 +29,6 @@
         $canHrView = $sidebarUser?->canAccess('hr.members.view');
         $canHrCreate = $sidebarUser?->canAccess('hr.members.create');
         $canHrEdit = $sidebarUser?->canAccess('hr.members.edit');
-        $canCardSettings = $sidebarUser?->canAccess(['card-settings.view', 'card-settings.create', 'card-settings.edit']);
         $navActive = fn(string ...$patterns) => collect($patterns)->contains(fn ($pattern) => request()->routeIs($pattern) || request()->is($pattern));
     @endphp
 
@@ -58,38 +57,23 @@
             </a>
         @endif
 
-        <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Setup</p>
-
-        @if($canCardSettings)
-            <a href="{{ route('settings.index', ['tab' => 'organizations', 'from' => 'hr']) }}"
-               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->is('admin/id-card/settings*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9h1m-1 4h1m-1 4h1"/></svg>
-                <span class="flex-1 truncate">Organization Setup</span>
-            </a>
-            <a href="{{ route('settings.index', ['tab' => 'departments', 'from' => 'hr']) }}"
-               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request('tab') === 'departments' ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-                <span class="flex-1 truncate">Classes / Departments</span>
-            </a>
-            <a href="{{ route('settings.index', ['tab' => 'sections', 'from' => 'hr']) }}"
-               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request('tab') === 'sections' ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6M9 12h6M9 19h6M5 5h.01M5 12h.01M5 19h.01"/></svg>
-                <span class="flex-1 truncate">Sections</span>
-            </a>
-            <a href="{{ route('settings.index', ['tab' => 'member_types', 'from' => 'hr']) }}"
-               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request('tab') === 'member_types' ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 12h.01M7 17h.01M11 7h6M11 12h6M11 17h6"/></svg>
-                <span class="flex-1 truncate">Member Types</span>
+        @if($canHrEdit)
+            <a href="{{ route('admin.hr.members.promote.index') }}"
+               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.hr.members.promote.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                <span class="flex-1 truncate">Promote Students</span>
             </a>
         @endif
 
-        @if($sidebarUser?->canAccess('students.view'))
-            <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Linked Modules</p>
-            <a href="{{ route('students.index') }}"
-               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all text-white/60 hover:text-white hover:bg-white/8">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h10M10 12h10M10 18h10M4 6h.01M4 12h.01M4 18h.01"/></svg>
-                <span class="flex-1 truncate">ID Card Members</span>
-            </a>
+        @if($sidebarUser?->canAccess('settings.view'))
+        <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Settings</p>
+        <a href="{{ route('admin.hr.designations.index') }}"
+           class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.hr.designations.*', 'admin/hr/designations*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            <span class="flex-1 truncate">Designations</span>
+        </a>
         @endif
     </nav>
 

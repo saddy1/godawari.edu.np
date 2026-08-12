@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Create Account | {{ $siteSettings->localized("site_name", "Barchhain Secondary School") }} Jobs</title>
+    <title>Create Account | {{ $siteSettings->localized("site_name", "School") }} Jobs</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -20,7 +20,7 @@
             </div>
         </a>
         <h1 class="text-2xl font-bold text-[#0b2415]">Create Job Portal Account</h1>
-        <p class="text-gray-500 text-sm mt-1">Register to apply for vacancies at {{ $siteSettings->localized("site_name", "Barchhain Secondary School") }}</p>
+        <p class="text-gray-500 text-sm mt-1">Register to apply for vacancies at {{ $siteSettings->localized("site_name", "School") }}</p>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">

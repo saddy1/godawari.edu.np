@@ -17,11 +17,45 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use ZipArchive;
 
 class ImportController extends Controller
 {
     private array $imageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+    // Maps normalized IEMIS/Excel column names → internal field names.
+    // _fullname is a special marker: split on spaces into first/middle/last.
+    private array $xlsxColumnMap = [
+        'sn'                      => 'roll_number',
+        's_n'                     => 'roll_number',
+        'roll_number'             => 'roll_number',
+        'student_id'              => 'registration_no',
+        'registration_no'         => 'registration_no',
+        'fullname'                => '_fullname',
+        'full_name'               => '_fullname',
+        'first_name'              => 'first_name',
+        'middle_name'             => 'middle_name',
+        'last_name'               => 'last_name',
+        'gender'                  => 'gender',
+        'father_name'             => 'father_name',
+        'mother_name'             => 'mother_name',
+        'dob'                     => 'dob_bs',       // IEMIS DOB is always in BS
+        'dob_bs'                  => 'dob_bs',
+        'permanent_address'       => 'address_en',
+        'address_en'              => 'address_en',
+        'guardian_name'           => 'guardian_name',
+        'guardian_contact_number' => 'guardian_contact',
+        'guardian_contact'        => 'guardian_contact',
+        'mobile'                  => 'mobile',
+        'email'                   => 'email',
+        'citizenship_no'          => 'citizenship_no',
+        'year'                    => 'batch',
+        'batch'                   => 'batch',
+        'program'                 => 'program',
+        'designation'             => 'designation',
+        'employment_type'         => 'employment_type',
+    ];
 
     private function cleanupTempPhotoDirectory(?string $uuid): void
     {
@@ -76,11 +110,16 @@ class ImportController extends Controller
         $headers = array_map('trim', fgetcsv($handle));
         $headers = array_map(fn($h) => strtolower(str_replace([' ', '-'], '_', $h)), $headers);
 
-        $required = ['first_name', 'last_name', 'roll_number', 'dob', 'mobile'];
+        $required = ['first_name', 'last_name', 'roll_number'];
         $missing  = array_diff($required, $headers);
         if ($missing) {
             fclose($handle);
             return back()->withErrors(['csv_file' => 'CSV is missing columns: ' . implode(', ', $missing)]);
+        }
+
+        if (!in_array('dob', $headers) && !in_array('dob_bs', $headers)) {
+            fclose($handle);
+            return back()->withErrors(['csv_file' => 'CSV must have either a "dob" (AD date) or "dob_bs" (BS date) column.']);
         }
 
         $rows   = [];
@@ -92,8 +131,10 @@ class ImportController extends Controller
             $data = array_combine($headers, array_map('trim', $row));
             if (empty(array_filter($data))) continue;
 
-            $dob   = $this->normalizeDate($data['dob'] ?? '');
-            $error = null;
+            $dob    = $this->normalizeDate($data['dob'] ?? '');
+            $dobBs  = $data['dob_bs'] ?? '';
+            $mobile = $data['mobile'] ?: ($data['guardian_contact'] ?? '');
+            $error  = null;
 
             $exists = Student::where('organization', $org)
                 ->where('stream', $stream)
@@ -107,31 +148,37 @@ class ImportController extends Controller
                 $error = 'First name is empty';
             } elseif (empty($data['last_name'])) {
                 $error = 'Last name is empty';
-            } elseif (empty($data['dob'])) {
-                $error = 'DOB is empty';
-            } elseif ($dob === null) {
+            } elseif (empty($data['dob']) && empty($dobBs)) {
+                $error = 'DOB is empty (provide dob or dob_bs)';
+            } elseif (!empty($data['dob']) && $dob === null) {
                 $error = "DOB '{$data['dob']}' is not a recognizable date";
-            } elseif (empty($data['mobile'])) {
-                $error = 'Mobile is empty';
             } elseif ($exists) {
                 $error = "Roll #{$data['roll_number']} already exists in this group";
             }
 
             $rows[] = [
-                'line'            => $lineNo,
-                'roll_number'     => $data['roll_number']     ?? '',
-                'first_name'      => $data['first_name']      ?? '',
-                'middle_name'     => $data['middle_name']     ?? '',
-                'last_name'       => $data['last_name']       ?? '',
-                'dob'             => $dob ?? ($data['dob']    ?? ''),
-                'mobile'          => $data['mobile']          ?? '',
-                'email'           => $data['email']           ?? '',
-                'citizenship_no'  => $data['citizenship_no']  ?? '',
-                'designation'     => $data['designation']     ?? '',
-                'employment_type' => $data['employment_type'] ?? '',
-                'program'         => $data['program']         ?? '',
-                'batch'           => $data['batch']           ?? '',
-                'error'           => $error,
+                'line'             => $lineNo,
+                'roll_number'      => $data['roll_number']      ?? '',
+                'first_name'       => $data['first_name']       ?? '',
+                'middle_name'      => $data['middle_name']      ?? '',
+                'last_name'        => $data['last_name']        ?? '',
+                'gender'           => $data['gender']           ?? '',
+                'dob'              => $dob ?? ($data['dob']     ?? ''),
+                'dob_bs'           => $dobBs,
+                'mobile'           => $mobile,
+                'email'            => $data['email']            ?? '',
+                'citizenship_no'   => $data['citizenship_no']   ?? '',
+                'father_name'      => $data['father_name']      ?? '',
+                'mother_name'      => $data['mother_name']      ?? '',
+                'guardian_name'    => $data['guardian_name']    ?? '',
+                'guardian_contact' => $data['guardian_contact'] ?? '',
+                'address_en'       => $data['address_en']       ?? '',
+                'registration_no'  => $data['registration_no']  ?? '',
+                'designation'      => $data['designation']      ?? '',
+                'employment_type'  => $data['employment_type']  ?? '',
+                'program'          => $data['program']          ?? '',
+                'batch'            => $data['batch']            ?? '',
+                'error'            => $error,
             ];
         }
         fclose($handle);
@@ -161,26 +208,36 @@ class ImportController extends Controller
 
         DB::transaction(function () use ($valid, $context, &$imported) {
             foreach ($valid as $row) {
+                $dobAd = $row['dob'] ?: ($row['dob_bs'] ? $this->bsToAdDate($row['dob_bs']) : null);
+
                 $student = Student::create([
-                    'organization'    => $context['org'],
-                    'member_type'     => $context['type'],
-                    'stream'          => $context['stream'],
-                    'section'         => $context['section'],
-                    'valid_till'      => $context['validTill'],
-                    'roll_number'     => $row['roll_number'],
-                    'first_name'      => $row['first_name'],
-                    'middle_name'     => $row['middle_name'] ?: null,
-                    'last_name'       => $row['last_name'],
-                    'dob'             => $row['dob'],
-                    'mobile'          => $row['mobile'],
-                    'email'           => $row['email']           ?: null,
-                    'citizenship_no'  => $row['citizenship_no']  ?: null,
-                    'designation'     => $row['designation']     ?: null,
-                    'employment_type' => $row['employment_type'] ?: null,
-                    'program'         => $row['program']         ?: null,
-                    'batch'           => $row['batch']           ?: null,
-                    'has_bus_pass'    => false,
-                    'has_library_card'=> false,
+                    'organization'     => $context['org'],
+                    'member_type'      => $context['type'],
+                    'stream'           => $context['stream'],
+                    'section'          => $context['section'],
+                    'valid_till'       => $context['validTill'],
+                    'roll_number'      => $row['roll_number'],
+                    'registration_no'  => $row['registration_no']  ?: null,
+                    'first_name'       => $row['first_name'],
+                    'middle_name'      => $row['middle_name']       ?: null,
+                    'last_name'        => $row['last_name'],
+                    'gender'           => $row['gender']            ?: null,
+                    'dob'              => $dobAd,
+                    'dob_bs'           => $row['dob_bs']            ?: null,
+                    'mobile'           => $row['mobile']            ?: null,
+                    'email'            => $row['email']             ?: null,
+                    'citizenship_no'   => $row['citizenship_no']    ?: null,
+                    'father_name'      => $row['father_name']       ?: null,
+                    'mother_name'      => $row['mother_name']       ?: null,
+                    'guardian_name'    => $row['guardian_name']     ?: null,
+                    'guardian_contact' => $row['guardian_contact']  ?: null,
+                    'address_en'       => $row['address_en']        ?: null,
+                    'designation'      => $row['designation']       ?: null,
+                    'employment_type'  => $row['employment_type']   ?: null,
+                    'program'          => $row['program']           ?: null,
+                    'batch'            => $row['batch']             ?: null,
+                    'has_bus_pass'     => false,
+                    'has_library_card' => false,
                 ]);
 
                 if (($context['createLearningAccounts'] ?? false) && in_array($context['type'], ['student', 'teacher'], true)) {
@@ -199,6 +256,163 @@ class ImportController extends Controller
 
         return redirect()->route('students.index')
                          ->with('success', "{$imported} members imported successfully.");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // EXCEL (XLSX/XLS) IMPORT — accepts IEMIS-style exports directly
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function previewXlsx(Request $request)
+    {
+        $request->validate([
+            'xlsx_file'    => 'required|file|mimes:xlsx,xls,ods,csv,txt|max:10240',
+            'organization' => 'required|string|max:100|exists:organizations,slug',
+            'stream'       => 'nullable|string|max:100',
+            'section'      => 'nullable|string|max:50',
+            'valid_till'   => ['nullable', Rule::requiredIf($request->member_type === 'student'), 'date'],
+            'member_type'  => 'required|in:student,teacher,staff',
+        ]);
+
+        $org       = $request->organization;
+        $stream    = $request->stream ?: null;
+        $section   = $request->section ?: null;
+        $type      = $request->member_type;
+        $validTill = $request->valid_till ?: null;
+
+        $this->assertScopedImport($org, $stream, $section);
+
+        try {
+            $spreadsheet = IOFactory::load($request->file('xlsx_file')->getRealPath());
+        } catch (\Throwable $e) {
+            return back()->withErrors(['xlsx_file' => 'Could not read file: ' . $e->getMessage()]);
+        }
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $data  = $sheet->toArray(null, true, true, false);
+
+        if (empty($data)) {
+            return back()->withErrors(['xlsx_file' => 'The file is empty.']);
+        }
+
+        // First non-empty row is the header
+        $rawHeaders = array_shift($data);
+        $headers = array_map(
+            fn($h) => strtolower(trim((string) $h)),
+            $rawHeaders
+        );
+        // Normalize: spaces/hyphens → underscore, strip parentheses
+        $headers = array_map(
+            fn($h) => preg_replace('/[^a-z0-9_]/', '_', str_replace([' ', '-'], '_', $h)),
+            $headers
+        );
+        $headers = array_map(fn($h) => preg_replace('/_+/', '_', trim($h, '_')), $headers);
+
+        // Map raw headers → internal field names using xlsxColumnMap
+        $fieldMap = [];   // column index → internal field name (or null to skip)
+        foreach ($headers as $i => $h) {
+            $fieldMap[$i] = $this->xlsxColumnMap[$h] ?? null;
+        }
+
+        $hasRollCol = in_array('roll_number', $fieldMap);
+
+        $rows   = [];
+        $lineNo = 1;
+        $autoRoll = 0;
+
+        foreach ($data as $rawRow) {
+            $lineNo++;
+            // Skip fully empty rows
+            if (empty(array_filter(array_map('strval', $rawRow)))) continue;
+
+            // Build $data keyed by internal field name
+            $row = [];
+            foreach ($rawRow as $i => $val) {
+                $field = $fieldMap[$i] ?? null;
+                if (!$field) continue;
+
+                $val = trim((string) $val);
+
+                // Special: split FullName into first/middle/last
+                if ($field === '_fullname') {
+                    $parts = preg_split('/\s+/', $val, 3);
+                    $row['first_name']  = ucfirst(strtolower($parts[0] ?? ''));
+                    $row['last_name']   = ucfirst(strtolower($parts[count($parts) - 1] ?? ''));
+                    $row['middle_name'] = count($parts) === 3
+                        ? ucwords(strtolower($parts[1]))
+                        : '';
+                } else {
+                    $row[$field] = $val;
+                }
+            }
+
+            // Auto-assign roll number from row sequence if no column mapped
+            if (!$hasRollCol || empty($row['roll_number'])) {
+                $autoRoll++;
+                $row['roll_number'] = (string) $autoRoll;
+            }
+
+            $dob    = $this->normalizeDate($row['dob'] ?? '');   // AD dob if present
+            $dobBs  = $row['dob_bs'] ?? '';
+            $mobile = ($row['mobile'] ?? '') ?: ($row['guardian_contact'] ?? '');
+
+            $exists = Student::where('organization', $org)
+                ->where('stream', $stream)
+                ->where('section', $section)
+                ->where('roll_number', $row['roll_number'])
+                ->exists();
+
+            $error = null;
+            if (empty($row['first_name'])) {
+                $error = 'First name is empty';
+            } elseif (empty($row['last_name'])) {
+                $error = 'Last name is empty';
+            } elseif (empty($dob) && empty($dobBs)) {
+                $error = 'DOB is empty';
+            } elseif (!empty($row['dob']) && $dob === null) {
+                $error = "DOB '{$row['dob']}' is not a recognizable date";
+            } elseif ($exists) {
+                $error = "Roll #{$row['roll_number']} already exists in this group";
+            }
+
+            $rows[] = [
+                'line'             => $lineNo,
+                'roll_number'      => $row['roll_number'],
+                'first_name'       => $row['first_name']       ?? '',
+                'middle_name'      => $row['middle_name']      ?? '',
+                'last_name'        => $row['last_name']        ?? '',
+                'gender'           => $row['gender']           ?? '',
+                'dob'              => $dob ?? ($row['dob']     ?? ''),
+                'dob_bs'           => $dobBs,
+                'mobile'           => $mobile,
+                'email'            => $row['email']            ?? '',
+                'citizenship_no'   => $row['citizenship_no']   ?? '',
+                'father_name'      => $row['father_name']      ?? '',
+                'mother_name'      => $row['mother_name']      ?? '',
+                'guardian_name'    => $row['guardian_name']    ?? '',
+                'guardian_contact' => $row['guardian_contact'] ?? '',
+                'address_en'       => $row['address_en']       ?? '',
+                'registration_no'  => $row['registration_no']  ?? '',
+                'designation'      => $row['designation']      ?? '',
+                'employment_type'  => $row['employment_type']  ?? '',
+                'program'          => $row['program']          ?? '',
+                'batch'            => $row['batch']            ?? '',
+                'error'            => $error,
+            ];
+        }
+
+        if (empty($rows)) {
+            return back()->withErrors(['xlsx_file' => 'No data rows found in the file.']);
+        }
+
+        $context = compact('org', 'stream', 'section', 'type', 'validTill');
+        $context['createLearningAccounts'] = false;
+        $context['learningPasswordToken']  = null;
+
+        session(['import_rows' => $rows, 'import_context' => $context]);
+
+        return view('card.students.import', array_merge(compact('rows', 'context'), [
+            'formOptions' => $this->buildImportOptions(),
+        ]));
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -350,17 +564,52 @@ class ImportController extends Controller
     {
         $headers = [
             'roll_number', 'first_name', 'middle_name', 'last_name',
-            'dob', 'mobile', 'email', 'citizenship_no',
+            'gender', 'dob', 'dob_bs', 'mobile',
+            'father_name', 'mother_name', 'guardian_name', 'guardian_contact',
+            'email', 'citizenship_no', 'registration_no', 'address_en',
             'designation', 'employment_type', 'program', 'batch',
         ];
 
         $content  = implode(',', $headers) . "\n";
-        $content .= "ST-001,Ram,Kumar,Sharma,2005-01-15,9800000001,ram@email.com,123-456,,,Science,2080\n";
+        $content .= "ST-001,Ram,Kumar,Sharma,Male,2005-01-15,2062-09-30,9800000001,";
+        $content .= "Father Name,Mother Name,Guardian Name,9800000002,";
+        $content .= "ram@email.com,123-456,,Badikedar-2 Doti,,,Science,2080\n";
 
         return response($content, 200, [
             'Content-Type'        => 'text/csv',
             'Content-Disposition' => 'attachment; filename="students_template.csv"',
         ]);
+    }
+
+    // ── Convert BS (Bikram Sambat) date string to approximate AD date ─────
+    // Accuracy: ±15 days. Month and year are correct for students born after BS 2000.
+    private function bsToAdDate(string $bsDate): ?string
+    {
+        if (!preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', trim($bsDate), $m)) {
+            return null;
+        }
+
+        $bsYear  = (int) $m[1];
+        $bsMonth = (int) $m[2];
+        $bsDay   = (int) $m[3];
+
+        // BS months 1–9 (Baisakh–Ashwin): AD year = BS year − 57, AD month = BS month + 3
+        // BS months 10–12 (Kartik–Chaitra): AD year = BS year − 56, AD month = BS month − 9
+        if ($bsMonth <= 9) {
+            $adYear  = $bsYear - 57;
+            $adMonth = $bsMonth + 3;
+        } else {
+            $adYear  = $bsYear - 56;
+            $adMonth = $bsMonth - 9;
+        }
+
+        try {
+            $maxDay = (int) Carbon::createFromDate($adYear, $adMonth, 1)->endOfMonth()->day;
+            $adDay  = min($bsDay, $maxDay);
+            return sprintf('%04d-%02d-%02d', $adYear, $adMonth, $adDay);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     // ── Normalize any common date format → Y-m-d ─────────────────────────
@@ -392,7 +641,9 @@ class ImportController extends Controller
             return;
         }
 
-        abort_unless($organization === $user->organizationSlug(), 403);
+        if ($user->organizationSlug()) {
+            abort_unless($organization === $user->organizationSlug(), 403);
+        }
 
         if ($user->departmentName()) {
             abort_unless($stream === $user->departmentName(), 403);
@@ -405,7 +656,10 @@ class ImportController extends Controller
 
         if (Schema::hasTable('organizations') && Schema::hasTable('departments') && Schema::hasTable('sections')) {
             $organizations = Organization::where('is_active', true)
-                ->when(!$user->isSuperAdmin(), fn($query) => $query->where('slug', $user->organizationSlug()))
+                ->when(
+                    !$user->isSuperAdmin() && $user->organizationSlug(),
+                    fn($query) => $query->where('slug', $user->organizationSlug())
+                )
                 ->with(['activeDepartments.activeSections'])
                 ->orderBy('name')
                 ->get();

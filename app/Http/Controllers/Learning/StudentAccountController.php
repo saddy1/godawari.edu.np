@@ -11,15 +11,32 @@ use Spatie\Permission\Models\Role;
 
 class StudentAccountController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = trim((string) $request->input('q', ''));
+
         $students = User::role('student')
+            ->whereHas('student', fn ($query) => $query->where('member_type', 'student'))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($studentQuery) use ($search) {
+                    $studentQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('student_code', 'like', "%{$search}%")
+                        ->orWhere('class_grade', 'like', "%{$search}%")
+                        ->orWhere('section', 'like', "%{$search}%");
+                });
+            })
             ->orderBy('class_grade')
             ->orderBy('section')
             ->orderBy('name')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
-        return view('learning.admin.students.index', compact('students'));
+        if ($request->ajax()) {
+            return view('learning.admin.students.partials.table', compact('students'))->render();
+        }
+
+        return view('learning.admin.students.index', compact('students', 'search'));
     }
 
     public function store(Request $request)

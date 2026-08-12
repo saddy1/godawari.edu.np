@@ -9,7 +9,7 @@
                     <div class="row pt-3">
                         <div class="col-12 text-center">
                         <span class="brand-title">
-                                <img style="width:8rem" src="{{ $siteSettings->logoUrl() }}" alt="Barchhain Secondary School">
+                                <img style="width:8rem" src="{{ $siteSettings->logoUrl() }}" alt="{{ $siteSettings->localized('site_name', config('app.name')) }}">
                             </span>
                         </div>
                         <div class="col-12 text-center pt-4">

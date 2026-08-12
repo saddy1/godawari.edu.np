@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Broad ERP – Feature Sheet | Broad Tech Infosys Pvt. Ltd.</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:    #0D1B3E;
+      --blue:    #1A3A8F;
+      --accent:  #F59E0B;
+      --light:   #F7F9FC;
+      --border:  #E2E8F0;
+      --text:    #1E293B;
+      --muted:   #64748B;
+      --green:   #15803D;
+      --red:     #B91C1C;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #CBD5E1;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── PAGE ─── */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      background: #fff;
+      margin: 20px auto;
+      box-shadow: 0 4px 32px rgba(0,0,0,.18);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── HEADER ─── */
+    .hdr {
+      background: var(--navy);
+      padding: 0;
+      display: flex;
+      align-items: stretch;
+      min-height: 72px;
+    }
+    .hdr-logo {
+      background: #fff;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .hdr-logo img {
+      height: 46px;
+      width: auto;
+      display: block;
+    }
+    .hdr-divider {
+      width: 4px;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .hdr-text {
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex: 1;
+    }
+    .hdr-text h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -.4px;
+      line-height: 1.1;
+    }
+    .hdr-text h1 span { color: var(--accent); }
+    .hdr-text p {
+      font-size: 10.5px;
+      color: rgba(255,255,255,.6);
+      margin-top: 3px;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .hdr-tag {
+      display: flex;
+      align-items: center;
+      padding: 0 22px;
+      flex-shrink: 0;
+    }
+    .hdr-tag span {
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    /* ─── ACCENT LINE ─── */
+    .accent-line {
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent) 0%, #1A6BF5 100%);
+    }
+
+    /* ─── BODY ─── */
+    .body { padding: 20px 28px 18px; flex: 1; }
+
+    /* ─── SECTION LABEL ─── */
+    .sec-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .sec-label::before {
+      content: '';
+      display: block;
+      width: 18px; height: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .sec-label span {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--blue);
+    }
+    .sec-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── INTRO STRIP ─── */
+    .intro {
+      background: var(--light);
+      border-left: 3px solid var(--blue);
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      border-radius: 0 6px 6px 0;
+    }
+    .intro h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1.3;
+    }
+    .intro p {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 3px;
+      line-height: 1.55;
+    }
+
+    /* ─── STATS ─── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .stat {
+      padding: 10px 8px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-n {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1;
+    }
+    .stat-n span { color: var(--accent); }
+    .stat-l {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: .3px;
+      margin-top: 3px;
+      text-transform: uppercase;
+    }
+
+    /* ─── MODULE GRID ─── */
+    .mod-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .mod {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px 10px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .mod::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--blue);
+    }
+    .mod.a1::before { background: #1A3A8F; }
+    .mod.a2::before { background: #0D9488; }
+    .mod.a3::before { background: #7C3AED; }
+    .mod.a4::before { background: #B45309; }
+    .mod.a5::before { background: #0369A1; }
+    .mod.a6::before { background: #BE123C; }
+    .mod.a7::before { background: #15803D; }
+    .mod.a8::before { background: #6D28D9; }
+    .mod.a9::before { background: #C2410C; }
+
+    .mod-num {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .mod-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 5px;
+      line-height: 1.2;
+    }
+    .mod ul { list-style: none; }
+    .mod ul li {
+      font-size: 10px;
+      color: #374151;
+      padding: 1.5px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .mod ul li::before {
+      content: '–';
+      color: var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: .5px;
+    }
+
+    /* ─── ROLES ─── */
+    .roles {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .role {
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .role-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+      flex-shrink: 0;
+    }
+    .role-name {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .role-desc {
+      font-size: 9px;
+      color: var(--muted);
+    }
+
+    /* ─── PAGE 2 HEADER ─── */
+    .hdr2 {
+      background: var(--navy);
+      padding: 10px 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .hdr2 img { height: 32px; width: auto; }
+    .hdr2-div { width: 1px; height: 24px; background: rgba(255,255,255,.2); }
+    .hdr2 h2 { font-size: 12px; font-weight: 700; color: #fff; flex: 1; }
+    .hdr2 span {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 3px 10px;
+      border-radius: 3px;
+    }
+
+    /* ─── FEATURE TABLE ─── */
+    .ftable {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 10.5px;
+    }
+    .ftable thead tr {
+      background: var(--navy);
+    }
+    .ftable th {
+      color: #fff;
+      padding: 7px 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 9.5px;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+    .ftable td {
+      padding: 5.5px 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    .ftable tr:last-child td { border-bottom: none; }
+    .ftable tr:nth-child(even) td { background: #FAFBFD; }
+    .ftable td strong { color: var(--navy); font-weight: 700; }
+
+    .badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 3px;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+    .b-live  { background: #DCFCE7; color: #14532D; }
+    .b-soon  { background: #FEF3C7; color: #78350F; }
+    .b-plan  { background: #EFF6FF; color: #1E3A8A; }
+
+    /* ─── ROADMAP GRID ─── */
+    .road-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .road-card {
+      border: 1px dashed #CBD5E1;
+      border-radius: 6px;
+      padding: 12px 14px;
+      background: #FAFBFD;
+    }
+    .road-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .road-title { font-size: 11px; font-weight: 800; color: var(--navy); }
+    .road-tag {
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 1.5px 6px;
+      border-radius: 3px;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+    .road-tag.soon { background: #FEF3C7; color: #78350F; }
+    .road-tag.plan { background: #EFF6FF; color: #1E3A8A; }
+    .road-desc { font-size: 10px; color: var(--muted); line-height: 1.5; }
+
+    /* ─── TECH / WHY ─── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .infobox {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      background: var(--light);
+    }
+    .infobox h4 {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 7px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .infobox ul { list-style: none; }
+    .infobox li {
+      font-size: 10px;
+      color: var(--text);
+      padding: 2px 0;
+      display: flex;
+      gap: 5px;
+      align-items: flex-start;
+    }
+    .infobox li::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+      font-size: 9px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .why-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .why-card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: var(--light);
+    }
+    .why-card h5 {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 3px;
+    }
+    .why-card p { font-size: 9.5px; color: var(--muted); line-height: 1.45; }
+    .why-line {
+      display: block;
+      width: 18px; height: 2px;
+      background: var(--accent);
+      border-radius: 1px;
+      margin-bottom: 6px;
+    }
+
+    /* ─── CTA ─── */
+    .cta {
+      background: var(--navy);
+      border-radius: 6px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .cta-text h4 { font-size: 12px; font-weight: 800; color: #fff; }
+    .cta-text p  { font-size: 10px; color: rgba(255,255,255,.6); margin-top: 2px; }
+    .cta-contacts { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+    .cta-contacts a {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* ─── FOOTER ─── */
+    .ftr {
+      background: #0A1628;
+      padding: 9px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ftr-left { display: flex; align-items: center; gap: 10px; }
+    .ftr-left img { height: 20px; width: auto; opacity: .8; }
+    .ftr-left p { font-size: 9px; color: rgba(255,255,255,.45); }
+    .ftr-right { font-size: 9px; color: rgba(255,255,255,.35); }
+
+    /* ─── PRINT ─── */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    @media print {
+      @page { size: A4 portrait; margin: 0; }
+      html, body { background: #CBD5E1 !important; width: 210mm; }
+      .page {
+        margin: 0 !important;
+        box-shadow: none !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        overflow: hidden !important;
+        page-break-after: always;
+        break-after: page;
+      }
+      .page:last-child { page-break-after: avoid; break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════ PAGE 1 ══════════════════════════ -->
+<div class="page">
+
+  <div class="hdr">
+    <div class="hdr-logo">
+      <img src="Broad Tech LOGO.png" alt="Broad Tech Infosys" />
+    </div>
+    <div class="hdr-divider"></div>
+    <div class="hdr-text">
+      <h1>Broad <span>ERP</span></h1>
+      <p>Complete School Management System &nbsp;·&nbsp; Broad Tech Infosys Pvt. Ltd.</p>
+    </div>
+    <div class="hdr-tag"><span>Product Feature Sheet</span></div>
+  </div>
+  <div class="accent-line"></div>
+
+  <div class="body">
+
+    <!-- Intro -->
+    <div class="intro">
+      <h2>One Platform. Every School Operation.</h2>
+      <p>Broad ERP is a cloud-ready, purpose-built school management system that unifies administration, academics, HR, attendance, admissions, library, and examination management — giving school leadership real-time visibility and every department a streamlined way to work.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat"><div class="stat-n">10<span>+</span></div><div class="stat-l">Modules</div></div>
+      <div class="stat"><div class="stat-n">7</div><div class="stat-l">User Roles</div></div>
+      <div class="stat"><div class="stat-n">20<span>+</span></div><div class="stat-l">Permissions</div></div>
+      <div class="stat"><div class="stat-n">3</div><div class="stat-l">Portals</div></div>
+      <div class="stat"><div class="stat-n">100<span>%</span></div><div class="stat-l">Web-Based</div></div>
+    </div>
+
+    <!-- Modules -->
+    <div class="sec-label"><span>Core Modules</span></div>
+    <div class="mod-grid">
+
+      <div class="mod a1">
+        <div class="mod-num">01 &nbsp;Website & Portal</div>
+        <div class="mod-title">School Website &amp; Public Portal</div>
+        <ul>
+          <li>Home, About, Faculty &amp; Gallery pages</li>
+          <li>News, notices &amp; events calendar</li>
+          <li>Contact form &amp; message management</li>
+          <li>English / Nepali language toggle</li>
+          <li>Popup notices &amp; testimonials</li>
+          <li>SEO &amp; meta tag configuration</li>
+        </ul>
+      </div>
+
+      <div class="mod a2">
+        <div class="mod-num">02 &nbsp;Admissions</div>
+        <div class="mod-title">Admission Management</div>
+        <ul>
+          <li>Online admission application form</li>
+          <li>Application review &amp; tracking</li>
+          <li>Status updates &amp; approval flow</li>
+          <li>Applicant details management</li>
+          <li>Bulk admission data management</li>
+          <li>Admission editing &amp; record history</li>
+        </ul>
+      </div>
+
+      <div class="mod a3">
+        <div class="mod-num">03 &nbsp;Identity</div>
+        <div class="mod-title">ID Card Management</div>
+        <ul>
+          <li>Multi-template card design &amp; print</li>
+          <li>Bulk card generation &amp; print queue</li>
+          <li>Library cards &amp; bus passes</li>
+          <li>Card request &amp; approval workflow</li>
+          <li>CSV bulk student import</li>
+          <li>Student self-service portal</li>
+        </ul>
+      </div>
+
+      <div class="mod a4">
+        <div class="mod-num">04 &nbsp;Attendance &amp; HR</div>
+        <div class="mod-title">Hajiri — Attendance &amp; HR</div>
+        <ul>
+          <li>Daily attendance logging &amp; editing</li>
+          <li>Device-based attendance sync</li>
+          <li>Nepali calendar &amp; holiday management</li>
+          <li>Leave types, policies &amp; approval flow</li>
+          <li>Department &amp; designation management</li>
+          <li>Attendance reports &amp; export</li>
+        </ul>
+      </div>
+
+      <div class="mod a5">
+        <div class="mod-num">05 &nbsp;E-Learning</div>
+        <div class="mod-title">Learning Management (LMS)</div>
+        <ul>
+          <li>Courses, chapters &amp; lessons</li>
+          <li>Resource uploads &amp; materials library</li>
+          <li>Quizzes with auto-grading</li>
+          <li>Student progress tracking</li>
+          <li>Teacher–class &amp; subject mapping</li>
+          <li>Self-paced student learning portal</li>
+        </ul>
+      </div>
+
+      <div class="mod a6">
+        <div class="mod-num">06 &nbsp;Library</div>
+        <div class="mod-title">Library Management</div>
+        <ul>
+          <li>Complete book catalog (CRUD)</li>
+          <li>Book issue &amp; return tracking</li>
+          <li>Student borrowing history</li>
+          <li>Overdue alerts &amp; fine management</li>
+          <li>Search &amp; filter by category / author</li>
+          <li>Library card integration</li>
+        </ul>
+      </div>
+
+      <div class="mod a7">
+        <div class="mod-num">07 &nbsp;Examination</div>
+        <div class="mod-title">Exam &amp; Results</div>
+        <ul>
+          <li>Exam scheduling &amp; management</li>
+          <li>Mark entry by subject &amp; teacher</li>
+          <li>Auto result sheet generation</li>
+          <li>Grade card &amp; transcript printing</li>
+          <li>Student result portal access</li>
+          <li>Class-wise performance analytics</li>
+        </ul>
+      </div>
+
+      <div class="mod a8">
+        <div class="mod-num">08 &nbsp;Inventory</div>
+        <div class="mod-title">Store &amp; Inventory</div>
+        <ul>
+          <li>Product &amp; category management</li>
+          <li>Stock tracking &amp; low-stock alerts</li>
+          <li>Purchase order management</li>
+          <li>Sales &amp; issue recording</li>
+          <li>Inventory reports &amp; export</li>
+          <li>Supplier management</li>
+        </ul>
+      </div>
+
+      <div class="mod a9">
+        <div class="mod-num">09 &nbsp;Recruitment</div>
+        <div class="mod-title">Vacancy &amp; Recruitment</div>
+        <ul>
+          <li>Create &amp; publish job vacancies</li>
+          <li>Online application submission</li>
+          <li>Email verification for applicants</li>
+          <li>Application review &amp; status updates</li>
+          <li>Applicant self-service dashboard</li>
+          <li>Application history tracking</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Roles -->
+    <div class="sec-label"><span>User Roles</span></div>
+    <div class="roles">
+      <div class="role"><div class="role-dot" style="background:#0F2D5E"></div><div><div class="role-name">Super Admin</div><div class="role-desc">Full system access</div></div></div>
+      <div class="role"><div class="role-dot" style="background:#0369A1"></div><div><div class="role-name">Principal</div><div class="role-desc">School oversight</div></div></div>
+      <div class="role"><div class="role-dot" style="background:#0D9488"></div><div><div class="role-name">Administrator</div><div class="role-desc">Daily operations</div></div></div>
+      <div class="role"><div class="role-dot" style="background:#15803D"></div><div><div class="role-name">Accountant</div><div class="role-desc">Finance &amp; fees</div></div></div>
+      <div class="role"><div class="role-dot" style="background:#7C3AED"></div><div><div class="role-name">Teacher</div><div class="role-desc">Class &amp; LMS access</div></div></div>
+      <div class="role"><div class="role-dot" style="background:#B45309"></div><div><div class="role-name">Staff</div><div class="role-desc">Attendance &amp; tasks</div></div></div>
+      <div class="role"><div class="role-dot" style="background:#BE123C"></div><div><div class="role-name">Student</div><div class="role-desc">Learning &amp; results</div></div></div>
+      <div class="role"><div class="role-dot" style="background:#6D28D9"></div><div><div class="role-name">Applicant</div><div class="role-desc">Vacancy portal</div></div></div>
+    </div>
+
+  </div>
+
+  <div class="ftr">
+    <div class="ftr-left">
+      <img src="Broad Tech LOGO.png" alt="Broad Tech Infosys" />
+      <p>Broad Tech Infosys Pvt. Ltd. &nbsp;·&nbsp; Est. 2026</p>
+    </div>
+    <div class="ftr-right">Page 1 of 2</div>
+  </div>
+
+</div>
+<!-- END PAGE 1 -->
+
+
+<!-- ══════════════════════════ PAGE 2 ══════════════════════════ -->
+<div class="page">
+
+  <div class="hdr2">
+    <img src="Broad Tech LOGO.png" alt="Broad Tech Infosys" />
+    <div class="hdr2-div"></div>
+    <h2>Broad ERP &nbsp;—&nbsp; Advanced Capabilities, Security &amp; Roadmap</h2>
+    <span>Page 2 of 2</span>
+  </div>
+  <div class="accent-line"></div>
+
+  <div class="body" style="padding-top:16px;">
+
+    <!-- Feature Table -->
+    <div class="sec-label"><span>Module Status Overview</span></div>
+    <table class="ftable">
+      <thead>
+        <tr>
+          <th style="width:24%">Module</th>
+          <th>Key Capabilities</th>
+          <th style="width:14%; text-align:center;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Website &amp; Public Portal</strong></td><td>Faculty profiles, events, news, notices, gallery, multilingual EN/NE support</td><td style="text-align:center;"><span class="badge b-live">Live</span></td></tr>
+        <tr><td><strong>Admission Management</strong></td><td>Online applications, review workflow, applicant tracking, approval status management</td><td style="text-align:center;"><span class="badge b-live">Live</span></td></tr>
+        <tr><td><strong>ID Card Management</strong></td><td>Multi-template design, bulk print, library &amp; bus-pass cards, student self-portal</td><td style="text-align:center;"><span class="badge b-live">Live</span></td></tr>
+        <tr><td><strong>Hajiri — Attendance &amp; HR</strong></td><td>Device sync, leave workflow, Nepali calendar, department-wise reports, export</td><td style="text-align:center;"><span class="badge b-live">Live</span></td></tr>
+        <tr><td><strong>Learning Management (LMS)</strong></td><td>Courses, lessons, resources, auto-graded quizzes, student progress portal</td><td style="text-align:center;"><span class="badge b-live">Live</span></td></tr>
+        <tr><td><strong>Vacancy &amp; Recruitment</strong></td><td>Job postings, online applications, review workflow, applicant dashboard</td><td style="text-align:center;"><span class="badge b-live">Live</span></td></tr>
+        <tr><td><strong>Work Task Management</strong></td><td>Task assignment, group management, submission tracking, review &amp; feedback</td><td style="text-align:center;"><span class="badge b-live">Live</span></td></tr>
+        <tr><td><strong>Library Management</strong></td><td>Book catalog, issue &amp; return, borrowing history, overdue alerts, fine management</td><td style="text-align:center;"><span class="badge b-soon">Coming Soon</span></td></tr>
+        <tr><td><strong>Exam &amp; Results</strong></td><td>Exam scheduling, mark entry, result sheets, grade cards, student result portal</td><td style="text-align:center;"><span class="badge b-soon">Coming Soon</span></td></tr>
+        <tr><td><strong>Store &amp; Inventory</strong></td><td>Product catalog, stock tracking, purchase orders, sales recording, supplier mgmt</td><td style="text-align:center;"><span class="badge b-soon">Coming Soon</span></td></tr>
+        <tr><td><strong>Fee &amp; Accounting</strong></td><td>Student fee collection, invoices, receipts, expense tracking, financial reports</td><td style="text-align:center;"><span class="badge b-plan">Planned</span></td></tr>
+        <tr><td><strong>Transport Management</strong></td><td>Route planning, vehicle &amp; driver profiles, student bus-pass integration</td><td style="text-align:center;"><span class="badge b-plan">Planned</span></td></tr>
+        <tr><td><strong>Advanced Analytics</strong></td><td>School-wide dashboards, attendance trends, academic performance reporting</td><td style="text-align:center;"><span class="badge b-plan">Planned</span></td></tr>
+      </tbody>
+    </table>
+
+    <!-- Roadmap -->
+    <div class="sec-label"><span>Upcoming Modules</span></div>
+    <div class="road-grid">
+      <div class="road-card">
+        <div class="road-hd"><div class="road-title">Library Management</div><div class="road-tag soon">Coming Soon</div></div>
+        <div class="road-desc">Full book catalog, issue &amp; return tracking, borrowing history, overdue alerts and fine management integrated with ID cards.</div>
+      </div>
+      <div class="road-card">
+        <div class="road-hd"><div class="road-title">Exam &amp; Results</div><div class="road-tag soon">Coming Soon</div></div>
+        <div class="road-desc">Schedule exams, enter marks by subject, auto-generate result sheets and grade cards, and publish results directly to the student portal.</div>
+      </div>
+      <div class="road-card">
+        <div class="road-hd"><div class="road-title">Store &amp; Inventory</div><div class="road-tag soon">Coming Soon</div></div>
+        <div class="road-desc">Manage school stationery, uniforms and supplies — track stock levels, purchase orders, sales and supplier relationships in one place.</div>
+      </div>
+      <div class="road-card">
+        <div class="road-hd"><div class="road-title">Fee &amp; Accounting</div><div class="road-tag plan">Planned</div></div>
+        <div class="road-desc">Student fee collection with invoices and receipts, expense tracking, and complete financial reports for school management.</div>
+      </div>
+      <div class="road-card">
+        <div class="road-hd"><div class="road-title">Transport Management</div><div class="road-tag plan">Planned</div></div>
+        <div class="road-desc">Route planning, vehicle and driver profile management, and student transport tracking integrated with the bus-pass card module.</div>
+      </div>
+      <div class="road-card">
+        <div class="road-hd"><div class="road-title">Advanced Analytics</div><div class="road-tag plan">Planned</div></div>
+        <div class="road-desc">School-wide performance dashboards, attendance trend analysis, academic progress charts and downloadable management reports.</div>
+      </div>
+    </div>
+
+    <!-- Tech & Security -->
+    <div class="sec-label"><span>Technology &amp; Security</span></div>
+    <div class="two-col">
+      <div class="infobox">
+        <h4>Built on Modern Technology</h4>
+        <ul>
+          <li>Laravel 10 (PHP) — production-grade framework</li>
+          <li>Fully responsive — mobile, tablet &amp; desktop</li>
+          <li>Nepali calendar &amp; bilingual EN/NE support</li>
+          <li>Bulk CSV import &amp; structured data export</li>
+          <li>Google OAuth single sign-on</li>
+          <li>Modular — enable only what you need</li>
+          <li>Email notifications &amp; system alerts</li>
+          <li>Multi-school / multi-organization architecture</li>
+        </ul>
+      </div>
+      <div class="infobox">
+        <h4>Security &amp; Access Control</h4>
+        <ul>
+          <li>Role-based access control (20+ categories)</li>
+          <li>Email verification &amp; password reset flows</li>
+          <li>Separate login portals per user type</li>
+          <li>Middleware-enforced permission checks</li>
+          <li>Secure file upload &amp; storage management</li>
+          <li>CSRF protection on all forms</li>
+          <li>Module on/off control by Super Admin</li>
+          <li>Activity-level audit capability</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Why Choose -->
+    <div class="sec-label"><span>Why Schools Choose Broad ERP</span></div>
+    <div class="why-grid">
+      <div class="why-card">
+        <span class="why-line"></span>
+        <h5>Built for Nepal</h5>
+        <p>Nepali calendar, bilingual interface and local school workflows built into every module from day one.</p>
+      </div>
+      <div class="why-card">
+        <span class="why-line"></span>
+        <h5>Fully Integrated</h5>
+        <p>Website, HR, attendance, LMS, library, exam and cards — all connected under a single login.</p>
+      </div>
+      <div class="why-card">
+        <span class="why-line"></span>
+        <h5>Scales With You</h5>
+        <p>Start with the modules you need today. Activate additional modules as your school grows.</p>
+      </div>
+      <div class="why-card">
+        <span class="why-line"></span>
+        <h5>Dedicated Support</h5>
+        <p>Broad Tech Infosys provides hands-on onboarding, training and ongoing technical support.</p>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <div class="cta-text">
+        <h4>Ready to modernise your school operations?</h4>
+        <p>Contact Broad Tech Infosys Pvt. Ltd. to schedule a demo or discuss your requirements.</p>
+      </div>
+      <div class="cta-contacts">
+        <a href="mailto:info@broadtechinfosys.com">info@broadtechinfosys.com</a>
+        <a href="https://broadtechinfosys.com">www.broadtechinfosys.com</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="ftr">
+    <div class="ftr-left">
+      <img src="Broad Tech LOGO.png" alt="Broad Tech Infosys" />
+      <p>Broad Tech Infosys Pvt. Ltd. &nbsp;·&nbsp; Est. 2026 &nbsp;·&nbsp; All features subject to module availability</p>
+    </div>
+    <div class="ftr-right">Page 2 of 2</div>
+  </div>
+
+</div>
+<!-- END PAGE 2 -->
+
+</body>
+</html>

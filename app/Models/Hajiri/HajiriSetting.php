@@ -3,6 +3,7 @@
 namespace App\Models\Hajiri;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class HajiriSetting extends Model
 {
@@ -22,6 +23,16 @@ class HajiriSetting extends Model
 
     public static function current(): self
     {
+        if (! Schema::hasTable((new static)->getTable())) {
+            return new static([
+                'office_start_time' => '10:00:00',
+                'office_end_time' => '16:00:00',
+                'late_grace_minutes' => 10,
+                'early_grace_minutes' => 10,
+                'weekend_days' => [0, 6],
+            ]);
+        }
+
         $setting = static::query()->orderBy('id')->first();
 
         if ($setting) {

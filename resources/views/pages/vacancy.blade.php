@@ -2,7 +2,7 @@
 
 @section('title', __('site.vacancy.page_title'))
 @section('meta_description', __('site.vacancy.meta_desc'))
-@section('meta_keywords', 'school jobs Barchhain, teaching jobs Doti Nepal, Barchhain Secondary School vacancy, teacher vacancy Nepal, school staff jobs Barchhain, education jobs Sudurpashchim Province')
+@section('meta_keywords', 'school jobs, teaching jobs Nepal, teacher vacancy Nepal, school staff jobs, education jobs')
 
 @section('schema')
 @if($vacancies->count())
@@ -10,7 +10,7 @@
 {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "name": "Job Vacancies at Barchhain Secondary School",
+    "name": {{ json_encode('Job Vacancies at ' . $siteSettings->localized('site_name', config('app.name'))) }},
     "itemListElement": [
         @foreach($vacancies as $i => $v)
         {
@@ -22,7 +22,7 @@
                 "description": "{{ strip_tags($v->description) }}",
                 "hiringOrganization": {
                     "@type": "Organization",
-                    "name": "Barchhain Secondary School",
+                    "name": {{ json_encode($siteSettings->localized('site_name', config('app.name'))) }},
                     "sameAs": "{{ url('/') }}",
                     "logo": "{{ $siteSettings->logoUrl() }}"
                 },
@@ -30,9 +30,9 @@
                     "@type": "Place",
                     "address": {
                         "@type": "PostalAddress",
-                        "streetAddress": "Barchhain",
-                        "addressLocality": "Barchhain",
-                        "addressRegion": "Doti",
+                        "streetAddress": {{ json_encode($siteSettings->get('school_street', 'Nepal')) }},
+                        "addressLocality": {{ json_encode($siteSettings->get('school_locality', '')) }},
+                        "addressRegion": {{ json_encode($siteSettings->get('school_region', '')) }},
                         "addressCountry": "NP"
                     }
                 },
@@ -54,7 +54,7 @@
 {{-- ============================================================ --}}
 {{-- HERO SECTION --}}
 {{-- ============================================================ --}}
-<section class="relative py-24 overflow-hidden bg-linear-to-br from-[#0b2415] via-[#1a5632] to-[#0b2415]">
+<section class="relative py-12 sm:py-16 overflow-hidden bg-linear-to-br from-[#0b2415] via-[#1a5632] to-[#0b2415]">
     <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 30px 30px;"></div>
     <div class="absolute top-0 right-0 w-96 h-96 bg-[#e2a024]/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-[pulse_6s_infinite]"></div>
     <div class="absolute bottom-0 left-0 w-80 h-80 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
@@ -76,7 +76,7 @@
         </h1>
 
         <p class="text-green-100/90 text-lg md:text-xl max-w-2xl leading-relaxed" data-aos="fade-up" data-aos-delay="150">
-            {{ __('site.vacancy.hero_sub') }}
+            {{ __('site.vacancy.hero_sub', ['school_name' => $siteSettings->localized('site_name', config('app.name'))]) }}
         </p>
 
         @if($user)
@@ -227,7 +227,7 @@
             </div>
             <h3 class="text-xl font-bold text-[#0b2415] mb-2">{{ __('site.vacancy.no_vacancies') }}</h3>
             <p class="text-gray-500 text-sm max-w-md mx-auto">There are currently no open vacancies. Please check back later or send your CV to
-                <a href="mailto:info@barchhainsecondary.edu.np" class="text-[#1a5632] font-bold hover:underline">info@barchhainsecondary.edu.np</a>
+                <a href="mailto:{{ $siteSettings->get('school_email') }}" class="text-[#1a5632] font-bold hover:underline">{{ $siteSettings->get('school_email') }}</a>
                 for future consideration.
             </p>
         </div>
@@ -251,10 +251,10 @@
             @foreach([
                 ['icon' => 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', 'title' => 'Professional Development', 'desc' => 'Regular trainings, workshops, and opportunities to upgrade your skills and teaching methods.'],
                 ['icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', 'title' => 'Collaborative Community', 'desc' => 'Work alongside experienced and passionate educators in a supportive, team-oriented environment.'],
-                ['icon' => 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'title' => 'Recognized Institution', 'desc' => 'Join a historic community government school serving Barchhain, Doti since 2017 B.S. with general, technical, and inclusive education.'],
+                ['icon' => 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'title' => 'Recognized Institution', 'desc' => 'Join a historic community government school established since 2017 B.S. with general, technical, and inclusive education.'],
                 ['icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 'title' => 'Competitive Salary', 'desc' => 'Attractive and competitive remuneration packages with timely disbursement and performance incentives.'],
                 ['icon' => 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', 'title' => 'Modern Infrastructure', 'desc' => 'Access to well-equipped classrooms, laboratories, libraries, and modern teaching tools and resources.'],
-                ['icon' => 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z', 'title' => 'Meaningful Impact', 'desc' => 'Make a real difference in the lives of students and contribute to building the future of our community in Barchhain, Doti.'],
+                ['icon' => 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z', 'title' => 'Meaningful Impact', 'desc' => 'Make a real difference in the lives of students and contribute to building the future of our community.'],
             ] as $i => $benefit)
             <div class="group bg-[#fdfbf7] rounded-2xl p-6 border border-gray-100 hover:border-[#1a5632]/20 hover:shadow-md transition-all duration-300" data-aos="fade-up" data-aos-delay="{{ $i * 50 }}">
                 <div class="w-12 h-12 bg-[#1a5632]/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#1a5632] transition-colors duration-300">
@@ -277,7 +277,7 @@
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h2 class="text-3xl font-bold text-white mb-4">Don't See Your Role?</h2>
         <p class="text-green-100/80 text-lg mb-8 max-w-xl mx-auto">Send your CV and a brief cover letter to our email. We keep promising candidates on file for future openings.</p>
-        <a href="mailto:info@barchhainsecondary.edu.np"
+        <a href="mailto:{{ $siteSettings->get('school_email') }}"
            class="inline-flex items-center gap-2 px-8 py-4 bg-[#e2a024] text-[#0b2415] font-bold rounded-xl hover:bg-white transition-colors duration-300 shadow-lg text-base">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             Send Your CV

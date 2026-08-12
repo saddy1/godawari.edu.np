@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Admin Dashboard') | {{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</title>
+    <title>@yield('title', 'Admin Dashboard') | {{ $siteSettings->localized('site_name', 'School') }}</title>
 
     {{-- Dynamic Favicon --}}
     <link rel="icon" type="image/x-icon" href="{{ $siteSettings->faviconUrl() }}">
@@ -17,6 +17,7 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @stack('styles')
 
     {{-- Alpine.js for Sidebar & Dropdowns --}}
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -94,9 +95,6 @@
 </head>
 <body class="font-sans antialiased text-gray-900 bg-gray-50">
     
-    {{-- Page Loader --}}
-    @include('components.loader')
-    
     {{-- Alpine state for mobile sidebar toggle --}}
     <div x-data="{ sidebarOpen: false }" class="flex h-dvh overflow-hidden">
         
@@ -104,7 +102,7 @@
         @include('backend.partials.sidebar')
 
         {{-- Main Content Wrapper --}}
-        <div class="relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+        <div class="relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden" data-page-scroll-root>
             
             {{-- Header Component --}}
             @include('backend.partials.header')
@@ -120,6 +118,9 @@
         </div>
     </div>
 
+    @include('partials.page-wheel-scroll')
+    <x-media-manager />
+    @stack('modals')
     @stack('scripts')
 </body>
 </html>

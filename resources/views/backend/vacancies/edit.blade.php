@@ -86,23 +86,21 @@
 
             {{-- Featured Image --}}
             <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">Featured Image</label>
+                <x-admin-image-picker
+                    name="featured_image_media_path"
+                    file-name="featured_image"
+                    label="Featured Image"
+                    :current-url="$vacancy->featured_image ? asset($vacancy->featured_image) : null"
+                    :current-path="$vacancy->featured_image"
+                    accept="image/jpeg,image/png,image/webp"
+                    help="Choose from Media or upload JPG, PNG, WEBP. Leave unchanged to keep existing image."
+                />
                 @if($vacancy->featured_image)
-                <div class="mb-3 flex items-start gap-4">
-                    <img src="{{ asset($vacancy->featured_image) }}" alt="Current image"
-                        class="w-32 h-20 object-cover rounded-xl border border-gray-200">
-                    <div>
-                        <p class="text-xs text-gray-500 mb-2">Current image</p>
-                        <label class="flex items-center gap-2 text-xs text-red-600 font-bold cursor-pointer">
-                            <input type="checkbox" name="remove_image" value="1" class="w-3.5 h-3.5 rounded border-gray-300 text-red-600">
-                            Remove current image
-                        </label>
-                    </div>
-                </div>
+                    <label class="mt-3 flex items-center gap-2 text-xs font-bold text-red-600 cursor-pointer">
+                        <input type="checkbox" name="remove_image" value="1" class="w-3.5 h-3.5 rounded border-gray-300 text-red-600">
+                        Remove current image
+                    </label>
                 @endif
-                <input type="file" name="featured_image" accept=".jpg,.jpeg,.png,.webp"
-                    class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20 focus:border-[#1a5632] transition-all file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1a5632] file:text-white">
-                <p class="text-xs text-gray-400 mt-1">JPG/PNG/WebP. Max 4MB. Leave empty to keep existing image.</p>
             </div>
 
             <div class="flex items-center gap-3 pt-2">

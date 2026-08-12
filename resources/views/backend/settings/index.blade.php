@@ -69,23 +69,27 @@ $presets = [
             <div class="p-8 space-y-8">
                 <div class="grid lg:grid-cols-[220px_220px_1fr] gap-8 items-start">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-3">Current Logo</label>
-                        <div class="rounded-2xl border border-gray-200 bg-gray-50 p-5 flex items-center justify-center h-40">
-                            <img src="{{ $siteSettings->logoUrl() }}" alt="Current logo" class="max-h-28 max-w-full object-contain">
-                        </div>
-                        <input type="file" name="site_logo" accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                               class="mt-4 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#1a5632] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-[#0b2415]">
-                        <p class="text-xs text-gray-400 mt-2">PNG, JPG, WEBP, or SVG up to 2 MB.</p>
+                        <x-admin-image-picker
+                            name="site_logo_media_path"
+                            file-name="site_logo"
+                            label="Logo"
+                            :current-url="$siteSettings->logoUrl()"
+                            :current-path="$settings['site_logo'] ?? null"
+                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                            help="Choose from Media or upload PNG, JPG, WEBP, or SVG up to 2 MB."
+                        />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-3">Current Favicon</label>
-                        <div class="rounded-2xl border border-gray-200 bg-gray-50 p-5 flex items-center justify-center h-40">
-                            <img src="{{ $siteSettings->faviconUrl() }}" alt="Current favicon" class="max-h-20 max-w-full object-contain">
-                        </div>
-                        <input type="file" name="site_favicon" accept="image/png,image/jpeg,image/webp,image/x-icon"
-                               class="mt-4 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#1a5632] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-[#0b2415]">
-                        <p class="text-xs text-gray-400 mt-2">PNG, JPG, WEBP, or ICO. Recommended: 32×32 or 64×64 px, max 512 KB.</p>
+                        <x-admin-image-picker
+                            name="site_favicon_media_path"
+                            file-name="site_favicon"
+                            label="Favicon"
+                            :current-url="$siteSettings->faviconUrl()"
+                            :current-path="$settings['site_favicon'] ?? null"
+                            accept="image/png,image/jpeg,image/webp,image/x-icon"
+                            help="Choose from Media or upload PNG, JPG, WEBP, or ICO. Recommended: 32x32 or 64x64 px."
+                        />
                     </div>
 
                     <div class="grid sm:grid-cols-2 gap-6">
@@ -104,6 +108,19 @@ $presets = [
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Website URL</label>
                             <input type="url" name="website_url" value="{{ old('website_url', $settings['website_url'] ?? $siteSettings->get('website_url')) }}" placeholder="https://example.edu.np" class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">School Code</label>
+                            <input type="text" name="school_code" value="{{ old('school_code', $settings['school_code'] ?? $siteSettings->get('school_code')) }}" placeholder="School code used in official forms" class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                            <p class="text-xs text-gray-400 mt-2">Used in store requisition and other official forms.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Default Website Language <span class="text-red-500">*</span></label>
+                            <select name="default_locale" required class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                                <option value="en" {{ old('default_locale', $settings['default_locale'] ?? $siteSettings->get('default_locale', 'en')) === 'en' ? 'selected' : '' }}>English</option>
+                                <option value="ne" {{ old('default_locale', $settings['default_locale'] ?? $siteSettings->get('default_locale', 'en')) === 'ne' ? 'selected' : '' }}>Nepali</option>
+                            </select>
+                            <p class="text-xs text-gray-400 mt-2">Public visitors use this language unless they choose another from the header.</p>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">Tagline English</label>
@@ -235,6 +252,86 @@ $presets = [
 
                 <hr class="border-gray-100">
 
+                {{-- Surface, Border & Text Colors --}}
+                <div>
+                    <p class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                        Surface, Border &amp; Text Colors
+                    </p>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Surface (card / panel)</label>
+                            <input type="color" name="surface_color"
+                                   value="{{ old('surface_color', $settings['surface_color'] ?? $siteSettings->get('surface_color', '#ffffff')) }}"
+                                   class="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 p-1 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Muted Surface (alt rows)</label>
+                            <input type="color" name="muted_surface_color"
+                                   value="{{ old('muted_surface_color', $settings['muted_surface_color'] ?? $siteSettings->get('muted_surface_color', '#F8FAFC')) }}"
+                                   class="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 p-1 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Border Color</label>
+                            <input type="color" name="border_color"
+                                   value="{{ old('border_color', $settings['border_color'] ?? $siteSettings->get('border_color', '#E5E7EB')) }}"
+                                   class="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 p-1 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Body Text Color</label>
+                            <input type="color" name="text_color"
+                                   value="{{ old('text_color', $settings['text_color'] ?? $siteSettings->get('text_color', '#111827')) }}"
+                                   class="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 p-1 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Muted Text Color</label>
+                            <input type="color" name="muted_text_color"
+                                   value="{{ old('muted_text_color', $settings['muted_text_color'] ?? $siteSettings->get('muted_text_color', '#64748B')) }}"
+                                   class="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 p-1 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                {{-- Hero & CTA Gradients --}}
+                <div>
+                    <p class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                        Hero &amp; CTA Gradients
+                    </p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Hero Start (uses Dark)</label>
+                            <div class="h-11 rounded-xl border border-gray-200 flex items-center justify-center text-xs" style="background:{{ $siteSettings->get('dark_color','#0b2415') }};">
+                                <span class="text-white/60">= Dark Color</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Hero Gradient End</label>
+                            <input type="color" name="hero_gradient_end"
+                                   value="{{ old('hero_gradient_end', $settings['hero_gradient_end'] ?? $siteSettings->get('hero_gradient_end', '#0f3d22')) }}"
+                                   class="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 p-1 cursor-pointer">
+                            <p class="text-[10px] text-gray-400 mt-1">Page hero banner gradient end</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">CTA Start (uses Primary)</label>
+                            <div class="h-11 rounded-xl border border-gray-200 flex items-center justify-center text-xs" style="background:{{ $siteSettings->get('primary_color','#1a5632') }};">
+                                <span class="text-white/60">= Primary Color</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">CTA Gradient End</label>
+                            <input type="color" name="cta_gradient_end"
+                                   value="{{ old('cta_gradient_end', $settings['cta_gradient_end'] ?? $siteSettings->get('cta_gradient_end', '#0b2415')) }}"
+                                   class="h-11 w-full rounded-xl border border-gray-300 bg-gray-50 p-1 cursor-pointer">
+                            <p class="text-[10px] text-gray-400 mt-1">Call-to-action band gradient end</p>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
                 {{-- Header / Notice Bar --}}
                 <div>
                     <p class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
@@ -328,35 +425,6 @@ $presets = [
             </div>
         </div>
 
-        {{-- Website Images Card --}}
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-            <div class="bg-gray-50 border-b border-gray-100 px-8 py-5">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-[#e2a024]/10 flex items-center justify-center text-[#c98d1f]">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-lg text-[#0b2415]">Website Images</h3>
-                        <p class="text-xs text-gray-500">Super admin controls the school photos used on the home page and academic pages.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                @foreach($websiteImages as $field => $image)
-                    <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-3">{{ $image['label'] }}</label>
-                        <div class="h-36 rounded-xl border border-gray-200 bg-white p-2">
-                            <img src="{{ $siteSettings->imageUrl($field, $image['fallback']) }}" alt="{{ $image['label'] }}" class="h-full w-full rounded-lg object-cover">
-                        </div>
-                        <input type="file" name="{{ $field }}" accept="image/png,image/jpeg,image/webp"
-                               class="mt-4 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#1a5632] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-[#0b2415]">
-                        <p class="text-xs text-gray-400 mt-2">PNG, JPG, or WEBP up to 4 MB.</p>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
         {{-- Admission & Academic Settings Card --}}
         <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-8">
             <div class="bg-gray-50 border-b border-gray-100 px-8 py-5">
@@ -415,11 +483,188 @@ $presets = [
                 </div>
 
                 <div class="sm:col-span-2">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Office Hours <span class="text-red-500">*</span></label>
-                    <input type="text" name="office_hours" 
-                           value="{{ old('office_hours', $settings['office_hours'] ?? $siteSettings->get('office_hours', 'Mon-Fri 9:00 AM - 5:00 PM')) }}" 
-                           required 
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Office Hours (quick card) <span class="text-red-500">*</span></label>
+                    <input type="text" name="office_hours"
+                           value="{{ old('office_hours', $settings['office_hours'] ?? $siteSettings->get('office_hours', 'Sun-Fri 9:00 AM - 5:00 PM')) }}"
+                           required placeholder="Sun-Fri 9:00 AM - 5:00 PM"
                            class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                    <p class="text-xs text-gray-400 mt-1">Shown on the contact card strip at the top of the contact page.</p>
+                </div>
+            </div>
+
+            {{-- Map & Detailed Office Hours --}}
+            <div class="border-t border-gray-100 px-8 py-6">
+                <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Map Location & Detailed Office Hours</p>
+                <div class="grid sm:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Latitude</label>
+                        <input type="text" name="map_latitude"
+                               value="{{ old('map_latitude', $settings['map_latitude'] ?? $siteSettings->get('map_latitude', '29.2844')) }}"
+                               placeholder="e.g. 29.2844"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Longitude</label>
+                        <input type="text" name="map_longitude"
+                               value="{{ old('map_longitude', $settings['map_longitude'] ?? $siteSettings->get('map_longitude', '81.0897')) }}"
+                               placeholder="e.g. 81.0897"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Map Zoom <span class="text-gray-400 font-normal">(1–20)</span></label>
+                        <input type="number" name="map_zoom" min="1" max="20"
+                               value="{{ old('map_zoom', $settings['map_zoom'] ?? $siteSettings->get('map_zoom', '16')) }}"
+                               placeholder="16"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mb-6">
+                    💡 Find your coordinates on <a href="https://maps.google.com" target="_blank" class="underline text-blue-500">Google Maps</a> → right-click the school pin → copy the lat/lng numbers.
+                </p>
+                <div class="grid sm:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Working Days Label</label>
+                        <input type="text" name="office_hours_days"
+                               value="{{ old('office_hours_days', $settings['office_hours_days'] ?? $siteSettings->get('office_hours_days', 'Sunday – Friday')) }}"
+                               placeholder="Sunday – Friday"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Working Hours</label>
+                        <input type="text" name="office_hours_time"
+                               value="{{ old('office_hours_time', $settings['office_hours_time'] ?? $siteSettings->get('office_hours_time', '9:00 AM – 5:00 PM')) }}"
+                               placeholder="9:00 AM – 5:00 PM"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Closed Label</label>
+                        <input type="text" name="office_hours_closed"
+                               value="{{ old('office_hours_closed', $settings['office_hours_closed'] ?? $siteSettings->get('office_hours_closed', 'Saturday & Public Holidays')) }}"
+                               placeholder="Saturday & Public Holidays"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- SEO & School Identity Card --}}
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+            <div class="bg-gray-50 border-b border-gray-100 px-8 py-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg text-[#0b2415]">SEO & School Identity</h3>
+                        <p class="text-xs text-gray-500">These values are embedded in page titles, meta tags, and JSON-LD structured data. Change school name/address above and these will auto-generate — only override here if you want custom SEO text.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8 space-y-8">
+                {{-- School Identity for Structured Data --}}
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-5">School Identity (Structured Data / JSON-LD)</p>
+                    <div class="grid sm:grid-cols-2 gap-6">
+                        <div class="sm:col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Alternate / Short Name</label>
+                            <input type="text" name="school_alternate_name"
+                                   value="{{ old('school_alternate_name', $settings['school_alternate_name'] ?? $siteSettings->get('school_alternate_name')) }}"
+                                   placeholder="e.g. Godawari College"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                            <p class="text-xs text-gray-400 mt-1">Used in Google's schema.org alternateName field.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Street Address</label>
+                            <input type="text" name="school_street"
+                                   value="{{ old('school_street', $settings['school_street'] ?? $siteSettings->get('school_street')) }}"
+                                   placeholder="e.g. Street / Ward"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Locality (City/VDC)</label>
+                            <input type="text" name="school_locality"
+                                   value="{{ old('school_locality', $settings['school_locality'] ?? $siteSettings->get('school_locality')) }}"
+                                   placeholder="e.g. Municipality / VDC"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Region / District</label>
+                            <input type="text" name="school_region"
+                                   value="{{ old('school_region', $settings['school_region'] ?? $siteSettings->get('school_region')) }}"
+                                   placeholder="e.g. Doti"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Area Served</label>
+                            <input type="text" name="school_area_served"
+                                   value="{{ old('school_area_served', $settings['school_area_served'] ?? $siteSettings->get('school_area_served')) }}"
+                                   placeholder="e.g. Doti"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Founding Year (A.D.)</label>
+                            <input type="text" name="school_founding_date_ad"
+                                   value="{{ old('school_founding_date_ad', $settings['school_founding_date_ad'] ?? $siteSettings->get('school_founding_date_ad')) }}"
+                                   placeholder="e.g. 2005"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                            <p class="text-xs text-gray-400 mt-1">Google requires A.D. (Gregorian) year, not B.S.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Opening Hours (Schema format)</label>
+                            <input type="text" name="school_hours_schema"
+                                   value="{{ old('school_hours_schema', $settings['school_hours_schema'] ?? $siteSettings->get('school_hours_schema')) }}"
+                                   placeholder="e.g. Su-Fr 09:00-17:00"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all font-mono">
+                            <p class="text-xs text-gray-400 mt-1">Machine-readable format for JSON-LD. Days: Mo Tu We Th Fr Sa Su</p>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                {{-- Default SEO Text --}}
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-5">Default SEO Text (used on pages without per-page SEO set)</p>
+                    <div class="grid sm:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Default Title (English)</label>
+                            <input type="text" name="seo_default_title_en"
+                                   value="{{ old('seo_default_title_en', $settings['seo_default_title_en'] ?? $siteSettings->get('seo_default_title_en')) }}"
+                                   placeholder="School Name | Location tagline"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Default Title (Nepali)</label>
+                            <input type="text" name="seo_default_title_ne"
+                                   value="{{ old('seo_default_title_ne', $settings['seo_default_title_ne'] ?? $siteSettings->get('seo_default_title_ne')) }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Default Description (English)</label>
+                            <textarea name="seo_default_description_en" rows="2"
+                                      placeholder="Short school description for search engines (150-160 chars)"
+                                      class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all resize-none">{{ old('seo_default_description_en', $settings['seo_default_description_en'] ?? $siteSettings->get('seo_default_description_en')) }}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Default Description (Nepali)</label>
+                            <textarea name="seo_default_description_ne" rows="2"
+                                      class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all resize-none">{{ old('seo_default_description_ne', $settings['seo_default_description_ne'] ?? $siteSettings->get('seo_default_description_ne')) }}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Default Keywords (English)</label>
+                            <input type="text" name="seo_default_keywords_en"
+                                   value="{{ old('seo_default_keywords_en', $settings['seo_default_keywords_en'] ?? $siteSettings->get('seo_default_keywords_en')) }}"
+                                   placeholder="comma, separated, keywords"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Default Keywords (Nepali)</label>
+                            <input type="text" name="seo_default_keywords_ne"
+                                   value="{{ old('seo_default_keywords_ne', $settings['seo_default_keywords_ne'] ?? $siteSettings->get('seo_default_keywords_ne')) }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-[#1a5632] focus:border-[#1a5632] bg-gray-50 focus:bg-white transition-all">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Learning;
 
 use App\Http\Controllers\Controller;
+use App\Models\Learning\LearningProgress;
 use App\Models\Learning\LearningQuiz;
 use App\Models\Learning\LearningQuizAttempt;
 use App\Models\Learning\LearningQuizAnswer;
@@ -14,7 +15,8 @@ class QuizController extends Controller
     public function show(LearningQuiz $quiz)
     {
         abort_unless($quiz->is_published, 404);
-        $quiz->load(['questions.options']);
+        $quiz->load(['questions.options', 'lesson']);
+        $this->ensureAttachedLessonIsCompleted($quiz);
 
         $attemptsUsed = LearningQuizAttempt::where('user_id', Auth::id())
             ->where('learning_quiz_id', $quiz->id)
@@ -62,6 +64,8 @@ class QuizController extends Controller
     public function submit(Request $request, LearningQuiz $quiz)
     {
         abort_unless($quiz->is_published, 404);
+        $quiz->load('lesson');
+        $this->ensureAttachedLessonIsCompleted($quiz);
 
         $attemptsUsed = LearningQuizAttempt::where('user_id', Auth::id())
             ->where('learning_quiz_id', $quiz->id)
@@ -146,5 +150,20 @@ class QuizController extends Controller
         }
 
         return view('learning.quizzes.result', compact('quiz', 'attempt'));
+    }
+
+    private function ensureAttachedLessonIsCompleted(LearningQuiz $quiz): void
+    {
+        if (! $quiz->learning_lesson_id) {
+            return;
+        }
+
+        $completed = LearningProgress::where('user_id', Auth::id())
+            ->where('learning_course_id', $quiz->learning_course_id)
+            ->where('learning_lesson_id', $quiz->learning_lesson_id)
+            ->whereNotNull('completed_at')
+            ->exists();
+
+        abort_unless($completed, 403, 'Complete the lesson before taking this quiz.');
     }
 }

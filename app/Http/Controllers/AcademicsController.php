@@ -2,21 +2,32 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CmsPage;
+
 class AcademicsController extends Controller
 {
     public function elementary()
     {
-        $testimonials = \App\Models\Testimonial::where('is_active', true)->where('category', 'elementary')->latest()->get();
-        return view('pages.academics-elementary', compact('testimonials'));
+        return $this->showCmsPage('academics-elementary');
     }
+
     public function primary()
     {
-        $testimonials = \App\Models\Testimonial::where('is_active', true)->where('category', 'primary')->latest()->get();
-        return view('pages.academics-primary', compact('testimonials'));
+        return $this->showCmsPage('academics-primary');
     }
+
     public function secondary()
     {
-        $testimonials = \App\Models\Testimonial::where('is_active', true)->where('category', 'secondary')->latest()->get();
-        return view('pages.academics-secondary', compact('testimonials'));
+        return $this->showCmsPage('academics-secondary');
+    }
+
+    private function showCmsPage(string $slug)
+    {
+        $page = CmsPage::with('parent')
+            ->published()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        return view('pages.cms-show', compact('page'));
     }
 }

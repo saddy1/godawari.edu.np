@@ -13,6 +13,7 @@ use App\Models\Card\MemberType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
@@ -63,7 +64,8 @@ class SettingsController extends Controller
             'stamp_asset_id'     => 'nullable|exists:org_assets,id',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
-        Organization::create($data);
+        $organization = Organization::create($data);
+        Cache::forget("card_org_{$organization->slug}");
         return back()->with('success', "Organization '{$data['name']}' created.");
     }
 
@@ -79,12 +81,16 @@ class SettingsController extends Controller
             'stamp_asset_id'     => 'nullable|exists:org_assets,id',
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $oldSlug = $organization->slug;
         $organization->update($data);
+        Cache::forget("card_org_{$oldSlug}");
+        Cache::forget("card_org_{$organization->slug}");
         return back()->with('success', "Organization updated.");
     }
 
     public function destroyOrganization(Organization $organization)
     {
+        Cache::forget("card_org_{$organization->slug}");
         $organization->delete();
         return redirect()->route('settings.index')->with('success', "Organization deleted.");
     }
@@ -247,15 +253,21 @@ class SettingsController extends Controller
         $filename = \Str::slug($request->name) . '_' . time() . '.' . $file->getClientOriginalExtension();
         $file->move($dir, $filename);
 
+        CardBackground::where('org_type', $request->org_type)
+            ->where('member_type', $request->member_type)
+            ->update(['is_active' => false]);
+
         CardBackground::create([
             'name'        => $request->name,
             'org_type'    => $request->org_type,
             'member_type' => $request->member_type,
             'file_path'   => 'erp/card/img/bg/' . $filename,
-            'is_active'   => false,
+            'is_active'   => true,
         ]);
 
-        return back()->with('success', "Background '{$request->name}' uploaded.");
+        Cache::forget("card_bg_{$request->org_type}_{$request->member_type}");
+
+        return back()->with('success', "Background '{$request->name}' uploaded and activated.");
     }
 
     public function activateBackground(CardBackground $cardBackground)
@@ -266,11 +278,15 @@ class SettingsController extends Controller
 
         $cardBackground->update(['is_active' => true]);
 
+        Cache::forget("card_bg_{$cardBackground->org_type}_{$cardBackground->member_type}");
+
         return back()->with('success', "'{$cardBackground->name}' is now the active background for {$cardBackground->org_type} / {$cardBackground->member_type}.");
     }
 
     public function destroyBackground(CardBackground $cardBackground)
     {
+        Cache::forget("card_bg_{$cardBackground->org_type}_{$cardBackground->member_type}");
+
         if (File::exists(public_path($cardBackground->file_path))) {
             File::delete(public_path($cardBackground->file_path));
         }

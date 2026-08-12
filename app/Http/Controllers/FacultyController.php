@@ -3,19 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\Faculty;
-use Illuminate\Http\Request;
+use App\Models\FacultyGroup;
 
 class FacultyController extends Controller
 {
    public function index()
     {
-        // Fetch categories dynamically so your filter buttons always match your data
-        $faculties = Faculty::where('is_active', true)
-                            ->orderBy('order', 'asc')
-                            ->get();
+        $groups = FacultyGroup::where('is_active', true)
+            ->with(['activeMembers' => fn ($query) => $query->orderBy('order')->orderBy('name')])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn ($group) => $group->activeMembers->isNotEmpty())
+            ->values();
 
-        $categories = $faculties->pluck('category')->unique();
+        $faculties = $groups->flatMap->activeMembers;
+        $categories = $groups->pluck('name');
 
-        return view('pages.faculty', compact('faculties', 'categories'));
+        return view('pages.faculty', compact('faculties', 'categories', 'groups'));
     }
 }

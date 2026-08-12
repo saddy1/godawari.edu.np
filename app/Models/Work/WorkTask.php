@@ -13,6 +13,8 @@ class WorkTask extends Model
 
     protected $fillable = [
         'title',
+        'work_checklist_id',
+        'work_checklist_item_id',
         'description',
         'category',
         'due_date',
@@ -27,18 +29,25 @@ class WorkTask extends Model
         'created_by',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'due_date' => 'date',
-            'incentive_amount' => 'decimal:2',
-            'late_penalty_percent' => 'decimal:2',
-        ];
-    }
+    protected $casts = [
+        'due_date' => 'date',
+        'incentive_amount' => 'decimal:2',
+        'late_penalty_percent' => 'decimal:2',
+    ];
 
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function checklist()
+    {
+        return $this->belongsTo(WorkChecklist::class, 'work_checklist_id');
+    }
+
+    public function checklistItem()
+    {
+        return $this->belongsTo(WorkChecklistItem::class, 'work_checklist_item_id');
     }
 
     public function assignedUser()
@@ -65,6 +74,27 @@ class WorkTask extends Model
         return $query->where(function (Builder $visible) use ($user) {
             $visible->where('assigned_user_id', $user->id)
                 ->orWhereHas('group.members', fn (Builder $members) => $members->where('users.id', $user->id));
+        });
+    }
+
+    public function scopePendingForUser(Builder $query, User $user): Builder
+    {
+        return $query->where(function (Builder $pending) use ($user) {
+            $pending->where(function (Builder $individual) use ($user) {
+                $individual->where('assignment_type', 'individual')
+                    ->where('assigned_user_id', $user->id)
+                    ->whereDoesntHave('submissions', fn (Builder $submissions) => $submissions->where('user_id', $user->id));
+            })->orWhere(function (Builder $sharedGroup) use ($user) {
+                $sharedGroup->where('assignment_type', 'group')
+                    ->where('group_submission_mode', 'shared')
+                    ->whereHas('group.members', fn (Builder $members) => $members->where('users.id', $user->id))
+                    ->whereDoesntHave('submissions', fn (Builder $submissions) => $submissions->whereNull('user_id'));
+            })->orWhere(function (Builder $individualGroup) use ($user) {
+                $individualGroup->where('assignment_type', 'group')
+                    ->where('group_submission_mode', 'individual')
+                    ->whereHas('group.members', fn (Builder $members) => $members->where('users.id', $user->id))
+                    ->whereDoesntHave('submissions', fn (Builder $submissions) => $submissions->where('user_id', $user->id));
+            });
         });
     }
 

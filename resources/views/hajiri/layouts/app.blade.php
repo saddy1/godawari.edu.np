@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $siteSettings->get('app_name', config('app.name', 'Barchhain ERP')) }} - Hajiri</title>
+    <title>{{ $siteSettings->get('app_name', config('app.name', 'School ERP')) }} - Hajiri</title>
 
     {{-- Tailwind via Vite (same as all other modules) --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -79,7 +79,7 @@
         @include('hajiri.partials.sidebar')
 
         {{-- Main wrapper --}}
-        <div class="relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+        <div class="relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden" data-page-scroll-root>
 
             {{-- Shared ERP module-switcher header --}}
             @include('backend.partials.module-header')
@@ -112,7 +112,7 @@
 
             <footer class="shrink-0 px-6 py-3 border-t border-gray-100 bg-white">
                 <p class="text-xs text-gray-400 text-center">
-                    &copy; {{ date('Y') }} Barchhain Secondary School — Hajiri ERP
+                    &copy; {{ date('Y') }} {{ $siteSettings->localized('site_name', config('app.name')) }} — Hajiri ERP
                 </p>
             </footer>
         </div>
@@ -130,19 +130,12 @@
                 $('.date-picker').nepaliDatePicker();
             });
 
-            // Device sync (background, silent)
-            function runExe() {
-                $.ajax({
-                    url: "{{ route('hajiri.device.sync_online') }}",
-                    type: 'GET',
-                    dataType: 'json',
-                    success: function(res) { if (res !== '') runExe(); }
-                });
-            }
-            runExe();
+            // Device sync is intentionally not auto-started here.
+            // On shared hosting, recursive background sync can exhaust PHP/Apache workers.
         });
     </script>
 
+    @include('partials.page-wheel-scroll')
     @stack('scripts')
 </body>
 </html>

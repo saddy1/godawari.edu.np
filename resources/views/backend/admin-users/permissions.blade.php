@@ -7,6 +7,18 @@
         'create' => 'Create',
         'edit' => 'Edit',
         'delete' => 'Delete',
+        'general' => 'General',
+        'financial' => 'Financial',
+        'applications' => 'Applications',
+        'export' => 'Export',
+        'schedule' => 'Schedule',
+        'process' => 'Process',
+        'approve' => 'Approve',
+        'report' => 'Report',
+        'cancel' => 'Cancel',
+        'submit' => 'Submit',
+        'review' => 'Review',
+        'manage' => 'Manage',
     ];
 @endphp
 

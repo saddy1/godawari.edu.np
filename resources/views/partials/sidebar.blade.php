@@ -19,7 +19,7 @@
                 <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="w-full h-full object-contain">
             </div>
             <div>
-                <span class="block text-lg font-bold text-white leading-none">{{ $siteSettings->get('app_name', 'Barchhain ERP') }}</span>
+                <span class="block text-lg font-bold text-white leading-none">{{ $siteSettings->get('app_name', 'School ERP') }}</span>
                 <span class="block text-[10px] text-[#e2a024] uppercase tracking-widest mt-1">Control Panel</span>
             </div>
         </a>
@@ -85,7 +85,7 @@
             </div>
             <div>
                 <p class="text-sm font-bold text-white">{{ auth()->user()->name ?? 'Super Admin' }}</p>
-                <p class="text-[10px] text-gray-400">{{ auth()->user()->email ?? 'admin@barchhainsecondary.edu.np' }}</p>
+                <p class="text-[10px] text-gray-400">{{ auth()->user()->email ?? $siteSettings->get('school_email', 'admin@school.edu.np') }}</p>
             </div>
         </div>
     </div>

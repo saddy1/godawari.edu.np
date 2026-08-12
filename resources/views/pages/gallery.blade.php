@@ -9,7 +9,7 @@
 {{-- ============================================================ --}}
 {{-- HERO SECTION --}}
 {{-- ============================================================ --}}
-<section class="relative py-24 overflow-hidden bg-gradient-to-br from-[#0b2415] via-[#1a5632] to-[#0b2415]">
+<section class="relative py-12 sm:py-16 overflow-hidden bg-gradient-to-br from-[#0b2415] via-[#1a5632] to-[#0b2415]">
     <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 30px 30px;"></div>
     <div class="absolute -top-20 -right-20 w-96 h-96 bg-[#e2a024]/20 rounded-full blur-3xl"></div>
     <div class="absolute bottom-0 left-0 w-80 h-80 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>

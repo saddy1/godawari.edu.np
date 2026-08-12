@@ -13,6 +13,7 @@ use App\Http\Controllers\Learning\CourseController;
 use App\Http\Controllers\Learning\DashboardController;
 use App\Http\Controllers\Learning\LessonProgressController;
 use App\Http\Controllers\Learning\StudentAccountController;
+use App\Http\Middleware\EnsureLearningTeacherAssigned;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('learning')
@@ -32,7 +33,7 @@ Route::prefix('learning')
 
 Route::prefix('admin/learning')
     ->name('admin.learning.')
-    ->middleware(['auth', 'module.enabled:learning'])
+    ->middleware(['auth', 'module.enabled:learning', EnsureLearningTeacherAssigned::class])
     ->group(function () {
         Route::get('/', [DashboardController::class, 'admin'])->middleware('permission:learning.courses.view')->name('dashboard');
 
@@ -85,6 +86,7 @@ Route::prefix('admin/learning')
         Route::delete('/quizzes/{quiz}/questions/{question}/options/{option}', [AdminQuizController::class, 'destroyOption'])->middleware('permission:learning.lessons.edit')->name('quizzes.options.destroy');
 
         Route::get('/teacher-maps', [AdminTeacherMapController::class, 'index'])->middleware('permission:learning.teacher.assign')->name('teacher-maps.index');
+        Route::patch('/teacher-maps/{teacher}/allocation', [AdminTeacherMapController::class, 'updateAllocation'])->middleware('permission:learning.teacher.assign')->name('teacher-maps.allocation.update');
         Route::patch('/teacher-maps/{teacher}', [AdminTeacherMapController::class, 'update'])->middleware('permission:learning.teacher.assign')->name('teacher-maps.update');
         Route::patch('/teacher-maps/class/{class}', [AdminTeacherMapController::class, 'updateByClass'])->middleware('permission:learning.teacher.assign')->name('teacher-maps.updateByClass');
         Route::patch('/teacher-maps/subject/{subject}', [AdminTeacherMapController::class, 'updateBySubject'])->middleware('permission:learning.teacher.assign')->name('teacher-maps.updateBySubject');

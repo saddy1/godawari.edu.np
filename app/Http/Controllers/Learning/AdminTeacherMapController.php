@@ -9,6 +9,8 @@ use App\Models\Learning\LearningTeacherClassMap;
 use App\Models\User;
 use App\Services\LearningClassSyncService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AdminTeacherMapController extends Controller
 {
@@ -19,14 +21,13 @@ class AdminTeacherMapController extends Controller
         $classes = LearningClass::query()
             ->where('is_active', true)
             ->withCount('teacherMaps')
-            ->with(['teachers' => fn ($q) => $q->orderBy('name')])
+            ->with([
+                'teachers' => fn ($q) => $q->orderBy('name'),
+                'subjects' => fn ($q) => $q->where('is_active', true)->orderBy('name'),
+            ])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-
-        $selectedClass = ($request->filled('tab') && $request->tab !== 'all')
-            ? $classes->firstWhere('id', (int) $request->tab)
-            : null;
 
         $teachers = User::query()
             ->role('teacher')
@@ -37,16 +38,54 @@ class AdminTeacherMapController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Subjects for the selected class, with their assigned teachers pre-loaded
-        $classSubjects = $selectedClass
-            ? LearningSubject::where('learning_class_id', $selectedClass->id)
-                ->where('is_active', true)
-                ->with(['assignedTeachers' => fn ($q) => $q->orderBy('name')])
-                ->orderBy('name')
-                ->get()
-            : collect();
+        return view('learning.admin.teacher-maps.index', compact('classes', 'teachers'));
+    }
 
-        return view('learning.admin.teacher-maps.index', compact('classes', 'teachers', 'selectedClass', 'classSubjects'));
+    public function updateAllocation(Request $request, User $teacher)
+    {
+        abort_unless($teacher->isTeacher(), 404);
+
+        $data = $request->validate([
+            'learning_class_id' => ['required', 'integer', 'exists:learning_classes,id'],
+            'subject_ids' => ['required', 'array', 'min:1'],
+            'subject_ids.*' => ['integer', 'distinct', 'exists:learning_subjects,id'],
+        ]);
+
+        $class = LearningClass::query()->where('is_active', true)->findOrFail($data['learning_class_id']);
+        $subjectIds = collect($data['subject_ids'])->map(fn ($id) => (int) $id)->unique()->values();
+        $validSubjects = LearningSubject::query()
+            ->where('learning_class_id', $class->id)
+            ->where('is_active', true)
+            ->whereIn('id', $subjectIds)
+            ->get();
+
+        if ($validSubjects->count() !== $subjectIds->count()) {
+            throw ValidationException::withMessages([
+                'subject_ids' => 'Every selected subject must belong to the selected faculty/program.',
+            ]);
+        }
+
+        DB::transaction(function () use ($request, $teacher, $class, $subjectIds) {
+            $teacher->assignedLearningClasses()->syncWithoutDetaching([
+                $class->id => ['assigned_by' => $request->user()->id],
+            ]);
+
+            $classSubjectIds = LearningSubject::query()
+                ->where('learning_class_id', $class->id)
+                ->pluck('id');
+
+            $teacher->assignedLearningSubjects()->detach($classSubjectIds);
+            $teacher->assignedLearningSubjects()->attach(
+                $subjectIds->mapWithKeys(fn ($subjectId) => [
+                    $subjectId => ['assigned_by' => $request->user()->id],
+                ])->all()
+            );
+        });
+
+        return back()->with(
+            'success',
+            "{$teacher->name} allocated to {$class->name}: {$validSubjects->pluck('name')->implode(', ')}."
+        );
     }
 
     public function update(Request $request, User $teacher)
@@ -63,11 +102,21 @@ class AdminTeacherMapController extends Controller
             ->unique()
             ->values();
 
-        $teacher->assignedLearningClasses()->sync(
-            $classIds->mapWithKeys(fn ($classId) => [
-                $classId => ['assigned_by' => $request->user()->id],
-            ])->all()
-        );
+        DB::transaction(function () use ($request, $teacher, $classIds) {
+            $removedClassIds = $teacher->assignedLearningClasses()
+                ->pluck('learning_classes.id')
+                ->diff($classIds);
+            $removedSubjectIds = LearningSubject::query()
+                ->whereIn('learning_class_id', $removedClassIds)
+                ->pluck('id');
+
+            $teacher->assignedLearningSubjects()->detach($removedSubjectIds);
+            $teacher->assignedLearningClasses()->sync(
+                $classIds->mapWithKeys(fn ($classId) => [
+                    $classId => ['assigned_by' => $request->user()->id],
+                ])->all()
+            );
+        });
 
         return back()->with('success', "Class access updated for {$teacher->name}.");
     }
@@ -84,11 +133,23 @@ class AdminTeacherMapController extends Controller
             ->unique()
             ->values();
 
-        $class->teachers()->sync(
-            $userIds->mapWithKeys(fn ($userId) => [
-                $userId => ['assigned_by' => $request->user()->id],
-            ])->all()
-        );
+        DB::transaction(function () use ($request, $class, $userIds) {
+            $removedUserIds = $class->teachers()->pluck('users.id')->diff($userIds);
+            $classSubjectIds = $class->subjects()->pluck('id');
+
+            if ($removedUserIds->isNotEmpty() && $classSubjectIds->isNotEmpty()) {
+                DB::table('learning_teacher_subject_maps')
+                    ->whereIn('user_id', $removedUserIds)
+                    ->whereIn('learning_subject_id', $classSubjectIds)
+                    ->delete();
+            }
+
+            $class->teachers()->sync(
+                $userIds->mapWithKeys(fn ($userId) => [
+                    $userId => ['assigned_by' => $request->user()->id],
+                ])->all()
+            );
+        });
 
         return redirect()
             ->route('admin.learning.teacher-maps.index', ['tab' => $class->id])
@@ -107,11 +168,20 @@ class AdminTeacherMapController extends Controller
             ->unique()
             ->values();
 
-        $subject->assignedTeachers()->sync(
-            $userIds->mapWithKeys(fn ($userId) => [
-                $userId => ['assigned_by' => $request->user()->id],
-            ])->all()
-        );
+        DB::transaction(function () use ($request, $subject, $userIds) {
+            $subject->assignedTeachers()->sync(
+                $userIds->mapWithKeys(fn ($userId) => [
+                    $userId => ['assigned_by' => $request->user()->id],
+                ])->all()
+            );
+
+            foreach ($userIds as $userId) {
+                DB::table('learning_teacher_class_maps')->updateOrInsert(
+                    ['user_id' => $userId, 'learning_class_id' => $subject->learning_class_id],
+                    ['assigned_by' => $request->user()->id, 'created_at' => now(), 'updated_at' => now()]
+                );
+            }
+        });
 
         return redirect()
             ->route('admin.learning.teacher-maps.index', ['tab' => $subject->learning_class_id])
@@ -120,11 +190,20 @@ class AdminTeacherMapController extends Controller
 
     public function destroy(User $teacher, LearningClass $class)
     {
-        LearningTeacherClassMap::query()
-            ->where('user_id', $teacher->id)
-            ->where('learning_class_id', $class->id)
-            ->delete();
+        abort_unless($teacher->isTeacher(), 404);
 
-        return back()->with('success', 'Class access removed.');
+        DB::transaction(function () use ($teacher, $class) {
+            $subjectIds = LearningSubject::query()
+                ->where('learning_class_id', $class->id)
+                ->pluck('id');
+
+            $teacher->assignedLearningSubjects()->detach($subjectIds);
+            LearningTeacherClassMap::query()
+                ->where('user_id', $teacher->id)
+                ->where('learning_class_id', $class->id)
+                ->delete();
+        });
+
+        return back()->with('success', "{$class->name} allocation removed from {$teacher->name}.");
     }
 }

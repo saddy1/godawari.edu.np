@@ -15,11 +15,27 @@
     .lesson-body code{background:#f3f4f6;border-radius:.25rem;padding:.1rem .3rem;font-family:monospace;font-size:.85em}
     .lesson-body pre{background:#1f2937;color:#f9fafb;border-radius:.6rem;padding:.75rem;overflow-x:auto;margin-bottom:.6rem}
     .lesson-body pre code{background:none;color:inherit;padding:0}
+    .lesson-body{overflow-wrap:anywhere}
+    .course-manage-card{border-radius:1rem}
+    .course-editor-grid{display:grid;gap:.75rem;align-items:start}
+    .course-editor-pane{min-width:0;border:1px solid #e5e7eb;border-radius:.875rem;background:#fff;padding:.75rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+    .course-editor-label{margin-bottom:.5rem;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b7280}
+    .course-editor-help{border-radius:.75rem;border:1px solid #e5e7eb;background:#fff;padding:.65rem .8rem;color:#64748b;line-height:1.55}
+    .course-editor-source{height:14rem;max-height:26rem;resize:vertical}
+    .course-editor-preview{height:31.4rem;max-height:min(52vh,34rem);overflow:auto}
+    .course-form-actions{position:sticky;bottom:0;z-index:20;margin:1rem -1.25rem -1rem;padding:.8rem 1.25rem;background:rgba(255,255,255,.94);border-top:1px solid #e5e7eb;backdrop-filter:blur(10px)}
     /* Quill editor theming */
     .ql-toolbar.ql-snow { border-radius:.75rem .75rem 0 0; border-color:#e5e7eb; background:#f9fafb; }
     .ql-container.ql-snow { border-radius:0 0 .75rem .75rem; border-color:#e5e7eb; min-height:180px; font-size:.875rem; }
     .ql-editor { min-height:180px; }
     .ql-editor.ql-blank::before { color:#9ca3af; font-style:normal; }
+    .course-editor-pane .ql-container.ql-snow{height:13.65rem;min-height:13.65rem;overflow-y:auto}
+    .course-editor-pane .ql-editor{min-height:13.65rem}
+    @media (min-width:1280px){.course-editor-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+    @media (max-width:640px){
+        .course-editor-preview{height:22rem;max-height:22rem}
+        .course-form-actions{margin-left:-1rem;margin-right:-1rem;padding-left:1rem;padding-right:1rem}
+    }
 </style>
 @endpush
 
@@ -56,7 +72,7 @@
     {{-- Chapters list --}}
     <div class="space-y-3" id="chapters-list">
         @forelse($course->chapters as $chapterIndex => $chapter)
-        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+        <div class="course-manage-card border border-gray-200 bg-white shadow-sm overflow-hidden"
              x-data="{chOpen: true, addLesson: false, addLessonType: 'video', editChapter: false, newPublished: false, newFree: false, addQuiz: false, quizPublished: false}">
 
             {{-- Chapter header row --}}
@@ -373,21 +389,26 @@
                                 {{-- Rich text editor (Quill) for text lessons --}}
                                 <div x-show="lessonType === 'text'" class="mt-3 space-y-2">
                                     <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Lesson Content</p>
-                                    <div id="qe-edit-{{ $lesson->id }}" class="bg-white"></div>
-                                    <textarea name="content_body" id="qi-edit-{{ $lesson->id }}" class="hidden">{{ old('content_body', $lesson->content_body) }}</textarea>
-                                    <div class="flex items-center gap-3">
-                                        <button type="button"
-                                                onclick="toggleMathPreview('qi-edit-{{ $lesson->id }}','prev-edit-{{ $lesson->id }}')"
-                                                class="rounded-lg border border-gray-200 px-3 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50">
-                                            Preview Math (KaTeX)
-                                        </button>
-                                        <p class="text-xs text-gray-400">Inline: <code class="bg-gray-100 px-1 rounded">$x^2$</code> · Display: <code class="bg-gray-100 px-1 rounded">$$\frac{a}{b}$$</code></p>
+                                    <div class="course-editor-grid">
+                                        <div class="course-editor-pane">
+                                            <p class="course-editor-label">Editor</p>
+                                            <div id="qe-edit-{{ $lesson->id }}" class="bg-white"></div>
+                                            <p class="course-editor-label mt-3">Markdown / HTML Source</p>
+                                            <textarea id="qs-edit-{{ $lesson->id }}" rows="8"
+                                                      class="course-editor-source w-full rounded-xl border border-gray-200 bg-slate-950 px-3 py-2 font-mono text-xs leading-relaxed text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#1a5632]/30"
+                                                      spellcheck="false">{{ old('content_body', $lesson->content_body) }}</textarea>
+                                        </div>
+                                        <div class="course-editor-pane">
+                                            <p class="course-editor-label">Live Preview</p>
+                                            <div id="prev-edit-{{ $lesson->id }}"
+                                                 class="course-editor-preview rounded-xl border border-gray-200 bg-white p-4 lesson-body text-sm"></div>
+                                        </div>
                                     </div>
-                                    <div id="prev-edit-{{ $lesson->id }}"
-                                         class="hidden rounded-xl border border-gray-200 bg-white p-4 lesson-body text-sm"></div>
+                                    <textarea name="content_body" id="qi-edit-{{ $lesson->id }}" class="hidden">{{ old('content_body', $lesson->content_body) }}</textarea>
+                                    <p class="course-editor-help text-xs">Use the source box for Markdown, LaTeX, tables, SVG diagrams, and lesson HTML. Inline: <code class="bg-gray-100 px-1 rounded">$x^2$</code> · Display: <code class="bg-gray-100 px-1 rounded">$$\frac{a}{b}$$</code></p>
                                 </div>
 
-                                <div class="mt-4 flex gap-2 justify-end">
+                                <div class="course-form-actions flex flex-wrap gap-2 justify-end">
                                     <button type="button" @click="editLesson = false"
                                             class="rounded-xl border border-gray-200 px-4 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">
                                         Cancel
@@ -419,7 +440,7 @@
                                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
                             </svg>
-                            <span x-text="addLesson ? 'Cancel' : '+ Add Lesson'"></span>
+                            <span x-text="addLesson ? 'Cancel' : 'Add Lesson'"></span>
                         </button>
                         <button type="button" @click="addQuiz = !addQuiz; addLesson = false"
                                 class="flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold transition-colors"
@@ -428,7 +449,7 @@
                                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
                             </svg>
-                            <span x-text="addQuiz ? 'Cancel' : '+ Add Quiz'"></span>
+                            <span x-text="addQuiz ? 'Cancel' : 'Add Quiz'"></span>
                         </button>
                     </div>
 
@@ -498,20 +519,25 @@
                             </div>
                             <div x-show="addLessonType === 'text'" class="mt-3 space-y-2">
                                 <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Lesson Content</p>
-                                <div id="qe-new-{{ $chapter->id }}" class="bg-white"></div>
-                                <textarea name="content_body" id="qi-new-{{ $chapter->id }}" class="hidden"></textarea>
-                                <div class="flex items-center gap-3">
-                                    <button type="button"
-                                            onclick="toggleMathPreview('qi-new-{{ $chapter->id }}','prev-new-{{ $chapter->id }}')"
-                                            class="rounded-lg border border-gray-200 px-3 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50">
-                                        Preview Math (KaTeX)
-                                    </button>
-                                    <p class="text-xs text-gray-400">Inline: <code class="bg-gray-100 px-1 rounded">$x^2$</code> · Display: <code class="bg-gray-100 px-1 rounded">$$\frac{a}{b}$$</code></p>
+                                <div class="course-editor-grid">
+                                    <div class="course-editor-pane">
+                                        <p class="course-editor-label">Editor</p>
+                                        <div id="qe-new-{{ $chapter->id }}" class="bg-white"></div>
+                                        <p class="course-editor-label mt-3">Markdown / HTML Source</p>
+                                        <textarea id="qs-new-{{ $chapter->id }}" rows="8"
+                                                  class="course-editor-source w-full rounded-xl border border-gray-200 bg-slate-950 px-3 py-2 font-mono text-xs leading-relaxed text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#1a5632]/30"
+                                                  spellcheck="false"></textarea>
+                                    </div>
+                                    <div class="course-editor-pane">
+                                        <p class="course-editor-label">Live Preview</p>
+                                        <div id="prev-new-{{ $chapter->id }}"
+                                             class="course-editor-preview rounded-xl border border-gray-200 bg-white p-4 lesson-body text-sm"></div>
+                                    </div>
                                 </div>
-                                <div id="prev-new-{{ $chapter->id }}"
-                                     class="hidden rounded-xl border border-gray-200 bg-white p-4 lesson-body text-sm"></div>
+                                <textarea name="content_body" id="qi-new-{{ $chapter->id }}" class="hidden"></textarea>
+                                <p class="course-editor-help text-xs">Use the source box for Markdown, LaTeX, tables, SVG diagrams, and lesson HTML. Inline: <code class="bg-gray-100 px-1 rounded">$x^2$</code> · Display: <code class="bg-gray-100 px-1 rounded">$$\frac{a}{b}$$</code></p>
                             </div>
-                            <div class="mt-4 flex gap-2 justify-end">
+                            <div class="course-form-actions flex flex-wrap gap-2 justify-end">
                                 <button type="button" @click="addLesson = false"
                                         class="rounded-xl border border-gray-200 px-4 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Cancel</button>
                                 <button type="submit"
@@ -528,6 +554,24 @@
                             <input type="hidden" name="learning_course_id" value="{{ $course->id }}">
                             <input type="hidden" name="_redirect_manage" value="1">
                             <div class="grid gap-3 sm:grid-cols-2">
+                                @if($chapter->lessons->isNotEmpty())
+                                <div class="sm:col-span-2">
+                                    <label class="block text-[10px] font-extrabold uppercase tracking-widest text-amber-700 mb-1">Show quiz after lesson</label>
+                                    <select name="learning_lesson_id" required
+                                            class="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400/30">
+                                        @foreach($chapter->lessons as $quizLesson)
+                                            <option value="{{ $quizLesson->id }}" {{ $loop->last ? 'selected' : '' }}>
+                                                {{ $chapterIndex + 1 }}.{{ $loop->iteration }}. {{ $quizLesson->title }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <p class="mt-1 text-[11px] font-semibold text-amber-600">Students will see this quiz directly below the selected lesson after completing that lesson.</p>
+                                </div>
+                                @else
+                                <div class="sm:col-span-2 rounded-xl border border-amber-200 bg-white px-3 py-3 text-sm font-bold text-amber-700">
+                                    Add a lesson first, then create the quiz after that lesson.
+                                </div>
+                                @endif
                                 <input type="text" name="title" required
                                        class="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400/30 sm:col-span-2"
                                        placeholder="Quiz title (e.g. Chapter {{ $chapterIndex + 1 }} Mock Test)">
@@ -566,8 +610,8 @@
                             <div class="mt-3 flex gap-2 justify-end">
                                 <button type="button" @click="addQuiz = false"
                                         class="rounded-xl border border-gray-200 px-4 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Cancel</button>
-                                <button type="submit"
-                                        class="rounded-xl bg-amber-500 hover:bg-amber-600 px-5 py-2 text-xs font-extrabold text-white transition-colors">
+                                <button type="submit" @if($chapter->lessons->isEmpty()) disabled @endif
+                                        class="rounded-xl px-5 py-2 text-xs font-extrabold text-white transition-colors {{ $chapter->lessons->isEmpty() ? 'cursor-not-allowed bg-gray-300' : 'bg-amber-500 hover:bg-amber-600' }}">
                                     Create Quiz & Add Questions →
                                 </button>
                             </div>

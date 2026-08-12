@@ -18,7 +18,7 @@
                 <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="w-full h-full object-contain">
             </div>
             <div class="min-w-0">
-                <p class="text-sm font-bold text-white leading-none truncate">Barchhain ERP</p>
+                <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'School ERP') }}</p>
                 <p class="text-[9px] uppercase tracking-widest font-semibold mt-0.5" style="color: var(--theme-secondary, #e2a024);">Hajiri Module</p>
             </div>
         </a>
@@ -136,16 +136,7 @@
         </a>
         @endif
 
-        <a href="{{ route('hajiri.designation.index') }}"
-           class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
-                  {{ $active('admin/hajiri/designation*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
-            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-            </svg>
-            <span class="flex-1 truncate">Designations</span>
-        </a>
-
-        <a href="{{ route('hajiri.device.index') }}"
+<a href="{{ route('hajiri.device.index') }}"
            class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
                   {{ $active('admin/hajiri/devices*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -237,6 +228,10 @@
                 <p class="text-xs font-bold text-white truncate leading-tight">{{ auth()->user()->name ?? 'User' }}</p>
                 <p class="text-[10px] text-white/35 truncate leading-tight mt-0.5">{{ auth()->user()->role_label ?? 'Employee' }}</p>
             </div>
+            <a href="{{ route('account.password.edit') }}" title="Change Password"
+               class="shrink-0 rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </a>
             <form method="POST" action="{{ route('logout') }}" class="shrink-0">
                 @csrf
                 <button type="submit" class="p-1.5 text-white/30 hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Logout">

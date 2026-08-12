@@ -17,9 +17,20 @@
         </a>
     </div>
 
+    @if($errors->any())
+        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <p class="font-bold">The post could not be published. Please correct the following:</p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- Form wrapped in Alpine component to handle dynamic fields --}}
     <form action="{{ route('admin.announcements.store') }}" method="POST" enctype="multipart/form-data" 
-          x-data="{ postType: 'notice', imageType: 'upload' }" 
+          x-data="{ postType: @js(old('type', 'notice')), imageType: @js(old('image_type', 'upload')) }"
           class="space-y-6">
         @csrf
 
@@ -30,21 +41,21 @@
                 {{-- Title --}}
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <label class="block text-sm font-bold text-gray-700 mb-2">Post Title *</label>
-                    <input type="text" name="title" required placeholder="Enter compelling title here..."
+                    <input type="text" name="title" value="{{ old('title') }}" required placeholder="Enter compelling title here..."
                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20 focus:border-[#1a5632] transition-all">
                 </div>
 
                 {{-- Rich Text Editor --}}
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <label class="block text-sm font-bold text-gray-700 mb-2">Content Body *</label>
-                    <textarea name="content" id="editor" placeholder="Write your content here..."></textarea>
+                    <textarea name="content" id="editor" placeholder="Write your content here...">{{ old('content') }}</textarea>
                 </div>
 
                 {{-- Excerpt --}}
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <label class="block text-sm font-bold text-gray-700 mb-2">Short Excerpt</label>
                     <p class="text-xs text-gray-500 mb-2">A brief summary that appears on the frontend cards.</p>
-                    <textarea name="excerpt" rows="2" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20 focus:border-[#1a5632] resize-none"></textarea>
+                    <textarea name="excerpt" rows="2" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20 focus:border-[#1a5632] resize-none">{{ old('excerpt') }}</textarea>
                 </div>
             </div>
 
@@ -67,11 +78,9 @@
                     <div class="mb-6">
                         <label class="block text-sm font-bold text-gray-700 mb-2">Category *</label>
                         <select name="category" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1a5632]">
-                            <option value="Academic">Academic</option>
-                            <option value="Admission">Admission</option>
-                            <option value="Event">Event / Festival</option>
-                            <option value="Sports">Sports</option>
-                            <option value="General">General</option>
+                            @foreach(['Academic', 'Admission', 'Event', 'Sports', 'General', 'Result', 'Calendar', 'Download', 'Resource'] as $cat)
+                                <option value="{{ $cat }}" @selected(old('category') === $cat)>{{ $cat }}</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -95,15 +104,19 @@
 
                     {{-- Upload Field --}}
                     <div x-show="imageType === 'upload'">
-                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:bg-gray-50 transition-colors">
-                            <input type="file" name="image_file" accept=".jpg,.jpeg,.png,.webp,.pdf" class="text-xs w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-green-50 file:text-[#1a5632] hover:file:bg-green-100">
-                            <p class="text-[10px] text-gray-400 mt-2">Accepted: JPG, PNG, WEBP, or PDF (Max 5MB)</p>
-                        </div>
+                        <x-admin-image-picker
+                            name="featured_image_media_path"
+                            file-name="image_file"
+                            label="Featured Image / PDF"
+                            accept=".jpg,.jpeg,.png,.webp,.pdf"
+                            media-mode="document"
+                            help="Choose an image from Media, or upload JPG, PNG, WEBP, or PDF up to 5MB."
+                        />
                     </div>
 
                     {{-- Drive Link Field --}}
                     <div x-show="imageType === 'link'" style="display: none;">
-                        <input type="url" name="image_link" placeholder="Paste Google Drive link here..." class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1a5632]">
+                        <input type="url" name="image_link" value="{{ old('image_link') }}" :required="imageType === 'link'" placeholder="Paste Google Drive link here..." class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#1a5632]">
                         <p class="text-[10px] text-gray-400 mt-2">Ensure the Drive link is set to "Anyone with the link can view".</p>
                     </div>
                 </div>
@@ -115,15 +128,15 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-700 mb-1">Event Date</label>
-                            <input type="date" name="event_date" class="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1a5632]">
+                            <input type="date" name="event_date" value="{{ old('event_date') }}" class="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1a5632]">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-700 mb-1">Event Time (e.g. 10:00 AM)</label>
-                            <input type="text" name="event_time" class="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1a5632]">
+                            <input type="text" name="event_time" value="{{ old('event_time') }}" class="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1a5632]">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-700 mb-1">Location</label>
-                            <input type="text" name="event_location" placeholder="e.g. School Auditorium" class="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1a5632]">
+                            <input type="text" name="event_location" value="{{ old('event_location') }}" placeholder="e.g. School Auditorium" class="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1a5632]">
                         </div>
                     </div>
                 </div>
@@ -135,9 +148,16 @@
 
 {{-- Initialize CKEditor --}}
 <script>
+    let announcementEditor;
+
     ClassicEditor
         .create(document.querySelector('#editor'), {
             toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo' ]
+        })
+        .then(editor => {
+            announcementEditor = editor;
+            document.querySelector('form[action="{{ route('admin.announcements.store') }}"]')
+                .addEventListener('submit', () => editor.updateSourceElement());
         })
         .catch(error => {
             console.error(error);

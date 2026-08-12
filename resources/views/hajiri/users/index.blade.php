@@ -13,7 +13,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('admin.hr.members.create') }}"
-               class="inline-flex items-center gap-2 px-4 py-2 bg-[#e2a024] hover:bg-barchhain-gold-light text-white text-sm font-extrabold rounded-xl transition-colors">
+               class="inline-flex items-center gap-2 px-4 py-2 bg-[#e2a024] hover:bg-godawari-gold-light text-white text-sm font-extrabold rounded-xl transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -164,6 +164,7 @@
                             @endif
                         </td>
                         <td class="px-4 py-3 text-right">
+                            @if($allowEdit ?? true)
                             <a href="{{ route('hajiri.users.edit', $user) }}"
                                class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-bold rounded-lg hover:border-[#1a5632] hover:text-[#1a5632] hover:bg-green-50 transition-colors">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,6 +172,15 @@
                                 </svg>
                                 Edit
                             </a>
+                            @else
+                            <a href="{{ route('admin.hr.members.index') }}"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 text-xs font-bold rounded-lg hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
+                                </svg>
+                                Edit in HR
+                            </a>
+                            @endif
                         </td>
                     </tr>
                     @endforeach

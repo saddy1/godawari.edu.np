@@ -18,7 +18,7 @@
             <li>Each class group below shows the current stream and auto-suggested next class.</li>
             <li>You can edit the <strong>"Promote To"</strong> field if the suggestion is wrong.</li>
             <li>Students in Class {{ \App\Http\Controllers\Card\PromoteController::MAX_CLASS ?? 12 }} (the final year) default to <strong>Graduate</strong> action.</li>
-            <li>Graduated students can be <strong>kept</strong> (stream → "Graduated") or <strong>deleted</strong> from the system.</li>
+            <li>Graduated students are kept and marked as <strong>Graduated</strong>. Delete members only from the HR Members module.</li>
             <li>Uncheck groups you don't want to promote this cycle.</li>
         </ul>
     </div>
@@ -40,14 +40,7 @@
                 <input type="date" name="valid_till"
                        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
             </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Action for Graduates (final year students)</label>
-                <select name="grad_action"
-                        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
-                    <option value="mark">Keep &amp; mark as "Graduated"</option>
-                    <option value="delete">Delete from system</option>
-                </select>
-            </div>
+            <input type="hidden" name="grad_action" value="mark">
             <div class="flex gap-2">
                 <button type="button" onclick="selectAll(true)"
                         class="text-xs text-blue-600 hover:underline">Select All</button>

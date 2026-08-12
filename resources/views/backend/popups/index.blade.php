@@ -30,8 +30,13 @@
                         <input type="text" name="title" required placeholder="e.g., Admission Open 2082" class="w-full border p-3 border-gray-300 rounded-xl focus:ring-[#1a5632] focus:border-[#1a5632] text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Flyer Image <span class="text-red-500">*</span></label>
-                        <input type="file" name="image" required accept="image/*" class="w-full border border-gray-300 bg-gray-50 rounded-xl p-2.5 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#1a5632]/10 file:text-[#1a5632] hover:file:bg-[#1a5632]/20">
+                        <x-admin-image-picker
+                            name="image_media_path"
+                            file-name="image"
+                            label="Flyer Image"
+                            required
+                            help="Choose from Media or upload a popup flyer image."
+                        />
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Drive / PDF Link <span class="text-gray-400 font-normal">(Optional)</span></label>

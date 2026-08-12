@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>E-Library Software – Specification</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #e5e5e5;
+      color: #111;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      background: #fff;
+      margin: 24px auto;
+      padding: 28px 36px 24px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.12);
+      overflow: hidden;
+    }
+
+    /* Title */
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111;
+      border-bottom: 2px solid #111;
+      padding-bottom: 7px;
+      margin-bottom: 4px;
+    }
+    .doc-sub {
+      font-size: 9px;
+      color: #666;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    /* Overview */
+    .overview {
+      font-size: 10.5px;
+      color: #444;
+      line-height: 1.65;
+      margin-bottom: 14px;
+    }
+
+    /* Section heading */
+    h2 {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #111;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 4px;
+      margin-bottom: 9px;
+      margin-top: 14px;
+    }
+
+    /* Module grid — 2 columns */
+    .modules {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .module {
+      padding: 7px 10px 7px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .module:nth-child(odd)  { padding-right: 16px; border-right: 1px solid #eee; }
+    .module:nth-child(even) { padding-left: 16px; padding-right: 0; }
+    .module:nth-last-child(-n+2) { border-bottom: none; }
+
+    .module-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 2px;
+    }
+    .module p {
+      font-size: 9.5px;
+      color: #555;
+      line-height: 1.55;
+      margin-bottom: 3px;
+    }
+    .module ul {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 10px;
+    }
+    .module ul li {
+      font-size: 9px;
+      color: #666;
+    }
+    .module ul li::before {
+      content: '· ';
+      color: #bbb;
+    }
+
+    /* Two-col bottom */
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 2px;
+    }
+
+    .bottom h2 { margin-top: 0; }
+
+    .plain-list { list-style: none; }
+    .plain-list li {
+      font-size: 9.5px;
+      color: #444;
+      padding: 2px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .plain-list li:last-child { border-bottom: none; }
+    .plain-list li::before { content: '— '; color: #bbb; }
+
+    .role-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .role-row:last-child { border-bottom: none; }
+    .role-row .rn { font-size: 10px; font-weight: 600; color: #111; }
+    .role-row .rd { font-size: 9.5px; color: #777; }
+
+    @media print {
+      @page { size: A4 portrait; margin: 0; }
+      body { background: #fff !important; }
+      .page { margin: 0 !important; box-shadow: none !important; width: 210mm !important; height: 297mm !important; overflow: hidden !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>E-Library Software</h1>
+  <div class="doc-sub">Product Specification &nbsp;·&nbsp; Digital Learning &amp; Library Management System</div>
+
+  <p class="overview">
+    A web-based platform that brings the library, classroom resources and digital learning into one place.
+    Teachers can build and publish lesson plans, share notes and assign work — while students get a clean,
+    organised space to read, download and submit. Everything is structured by class and subject, with access
+    controlled by role.
+  </p>
+
+  <h2>Feature Modules</h2>
+
+  <div class="modules">
+  <div class="module">
+    <div class="module-title">Lesson Plan Studio</div>
+    <p>Teachers build structured lesson plans with objectives, activities and expected outcomes. Plans can be saved as drafts, published to specific classes, or reused from saved templates.</p>
+    <ul>
+      <li>Create &amp; publish by subject and grade</li>
+      <li>Reusable templates</li>
+      <li>Draft &amp; publish workflow</li>
+      <li>Version history</li>
+      <li>Attach resources to plans</li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Notes &amp; Study Materials</div>
+    <p>Teachers upload PDFs, slides, images and documents organised by subject, class and topic. Students can read materials in-browser, download files and bookmark items for later.</p>
+    <ul>
+      <li>PDF and file upload</li>
+      <li>In-browser reader</li>
+      <li>Organised by class and subject</li>
+      <li>Student bookmarks</li>
+      <li>Visibility control per class</li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Digital Book Library</div>
+    <p>A searchable catalog of e-books and reference materials categorised by subject and grade, with access controls ensuring students only see what is relevant to them.</p>
+    <ul>
+      <li>Full-text search and filter</li>
+      <li>Category and grade filter</li>
+      <li>Access control by class</li>
+      <li>Student ratings and reviews</li>
+      <li>Trending and recently added</li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Assignments &amp; Submissions</div>
+    <p>Teachers create and assign tasks with due dates and point values. Students submit work through the portal, and teachers review, grade and leave written feedback — all within the platform.</p>
+    <ul>
+      <li>File-based submissions</li>
+      <li>Due date and alert system</li>
+      <li>Teacher grading interface</li>
+      <li>Written feedback and comments</li>
+      <li>Submission history per student</li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Announcements &amp; Notices</div>
+    <p>Publish library and class-level notices targeted by role or class. Supports file attachments, scheduled publishing and read-receipt tracking so you always know who has seen what.</p>
+    <ul>
+      <li>Target by role or class</li>
+      <li>File attachments</li>
+      <li>Scheduled publishing</li>
+      <li>Read-receipt tracking</li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Reports &amp; Usage Analytics</div>
+    <p>Track which resources students access most, review teacher contributions, monitor submission rates and generate monthly or yearly reports exportable to PDF or CSV.</p>
+    <ul>
+      <li>Student activity logs</li>
+      <li>Teacher contribution summary</li>
+      <li>Monthly and yearly trends</li>
+      <li>CSV and PDF export</li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Smart Search &amp; Discovery</div>
+    <p>A global search across all content — books, notes, lesson plans and assignments. Students can filter by type, subject, grade or tag and bookmark anything for quick access later.</p>
+    <ul>
+      <li>Global search across all content</li>
+      <li>Filter by type, subject and grade</li>
+      <li>Tag-based organisation</li>
+      <li>Personal bookmarks per user</li>
+    </ul>
+  </div>
+  </div>
+
+  <div class="bottom">
+    <div>
+      <h2>Platform</h2>
+      <ul class="plain-list">
+        <li>Fully web-based, no installation needed</li>
+        <li>Works on desktop, tablet and mobile</li>
+        <li>Nepali calendar and EN / NE bilingual support</li>
+        <li>Role-based access — each user sees their content</li>
+        <li>Bulk upload for books and resources</li>
+        <li>Email notifications for tasks and notices</li>
+        <li>Integrates with existing School ERP</li>
+        <li>Cloud-ready with secure file storage</li>
+      </ul>
+    </div>
+
+    <div>
+      <h2>User Roles</h2>
+      <div class="role-row"><span class="rn">Super Admin</span><span class="rd">Full system access</span></div>
+      <div class="role-row"><span class="rn">Librarian</span><span class="rd">Catalog and notices</span></div>
+      <div class="role-row"><span class="rn">Teacher</span><span class="rd">Plans, notes, assignments</span></div>
+      <div class="role-row"><span class="rn">Student</span><span class="rd">Read, download, submit</span></div>
+      <div class="role-row"><span class="rn">Principal</span><span class="rd">Reports and oversight</span></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

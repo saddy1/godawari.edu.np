@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Work;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Work\WorkChecklist;
+use App\Models\Work\WorkChecklistItem;
 use App\Models\Work\WorkGroup;
 use App\Models\Work\WorkTask;
 use App\Models\Work\WorkTaskSubmission;
@@ -17,7 +19,7 @@ class WorkTaskController extends Controller
     {
         $user = $request->user();
 
-        $tasks = WorkTask::with(['assignedUser', 'group.members', 'creator', 'submissions.user', 'submissions.group'])
+        $tasks = WorkTask::with(['assignedUser', 'group.members', 'creator', 'checklist', 'submissions.user', 'submissions.group'])
             ->visibleTo($user)
             ->when($request->filled('status'), function ($query) use ($request) {
                 if ($request->status === 'pending') {
@@ -34,32 +36,45 @@ class WorkTaskController extends Controller
             ->withQueryString();
 
         $groups = WorkGroup::with('members')->orderBy('name')->get();
+        $checklists = WorkChecklist::with('items')->orderBy('name')->get();
         $teachers = User::role('teacher')->where('is_active', true)->orderBy('name')->get();
-        $reviewQueue = WorkTaskSubmission::with(['task', 'user', 'group', 'submittedBy'])
-            ->where('status', 'submitted')
-            ->latest('submitted_at')
-            ->take(8)
-            ->get();
-
         $stats = [
             'total' => WorkTask::visibleTo($user)->count(),
+            'pending_assigned' => WorkTask::pendingForUser($user)->count(),
             'pending_review' => WorkTaskSubmission::whereHas('task', fn ($query) => $query->visibleTo($user))->where('status', 'submitted')->count(),
             'approved' => WorkTaskSubmission::whereHas('task', fn ($query) => $query->visibleTo($user))->where('status', 'approved')->count(),
             'payout' => WorkTaskSubmission::whereHas('task', fn ($query) => $query->visibleTo($user))->where('status', 'approved')->sum('payout_amount'),
         ];
 
-        return view('work-tasks.index', compact('tasks', 'groups', 'teachers', 'reviewQueue', 'stats'));
+        return view('work-tasks.index', compact('tasks', 'groups', 'checklists', 'teachers', 'stats'));
+    }
+
+    public function reviewQueue(Request $request)
+    {
+        $user = $request->user();
+
+        $submissions = WorkTaskSubmission::with(['task.assignedUser', 'task.group', 'user', 'group', 'submittedBy'])
+            ->whereHas('task', fn ($query) => $query->visibleTo($user))
+            ->where('status', 'submitted')
+            ->latest('submitted_at')
+            ->paginate(20);
+
+        return view('work-tasks.review-queue.index', compact('submissions'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
+            'title' => ['nullable', 'required_without_all:checklist_ids,checklist_item_ids', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category' => ['nullable', 'string', 'max:120'],
             'due_date' => ['required', 'date'],
             'max_score' => ['required', 'integer', 'min:1', 'max:1000'],
             'incentive_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'checklist_ids' => ['nullable', 'array'],
+            'checklist_ids.*' => ['integer', 'exists:work_checklists,id'],
+            'checklist_item_ids' => ['nullable', 'array'],
+            'checklist_item_ids.*' => ['integer', 'exists:work_checklist_items,id'],
             'assignment_type' => ['required', Rule::in(['individual', 'group'])],
             'assigned_user_id' => ['nullable', 'required_if:assignment_type,individual', 'exists:users,id'],
             'work_group_id' => ['nullable', 'required_if:assignment_type,group', 'exists:work_groups,id'],
@@ -79,9 +94,56 @@ class WorkTaskController extends Controller
         $data['created_by'] = $request->user()->id;
         $data['late_penalty_percent'] = $data['late_penalty_percent'] ?? 0;
 
-        WorkTask::create($data);
+        $created = 0;
+        $baseAssignment = collect($data)->except(['title', 'description', 'category', 'max_score', 'incentive_amount', 'checklist_ids', 'checklist_item_ids'])->all();
+        $selectedItemIds = collect($data['checklist_item_ids'] ?? [])->map(fn ($id) => (int) $id);
 
-        return back()->with('success', 'Work task assigned.');
+        if (! empty($data['title'])) {
+            WorkTask::create([
+                ...$baseAssignment,
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'category' => $data['category'] ?? null,
+                'max_score' => $data['max_score'],
+                'incentive_amount' => $data['incentive_amount'] ?? null,
+            ]);
+            $created++;
+        }
+
+        if (! empty($data['checklist_ids'])) {
+            $selectedItemIds = $selectedItemIds->merge(
+                WorkChecklistItem::whereIn('work_checklist_id', $data['checklist_ids'])->pluck('id')
+            );
+        }
+
+        $selectedItemIds = $selectedItemIds->unique()->values();
+
+        if ($selectedItemIds->isNotEmpty()) {
+            $items = WorkChecklistItem::with('checklist')
+                ->whereIn('id', $selectedItemIds)
+                ->orderBy('work_checklist_id')
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+
+            foreach ($items as $item) {
+                $checklist = $item->checklist;
+
+                WorkTask::create([
+                    ...$baseAssignment,
+                    'work_checklist_id' => $checklist?->id,
+                    'work_checklist_item_id' => $item->id,
+                    'title' => $item->title,
+                    'description' => $item->description ?: $checklist?->description,
+                    'category' => $item->category ?: $checklist?->category,
+                    'max_score' => $item->max_score,
+                    'incentive_amount' => $item->incentive_amount,
+                ]);
+                $created++;
+            }
+        }
+
+        return back()->with('success', $created === 1 ? 'Work task assigned.' : "{$created} work tasks assigned.");
     }
 
     public function show(Request $request, WorkTask $task)
@@ -90,6 +152,19 @@ class WorkTaskController extends Controller
         $this->authorizeView($request->user(), $task);
 
         return view('work-tasks.show', compact('task'));
+    }
+
+    public function destroy(WorkTask $task)
+    {
+        $task->load('submissions');
+
+        foreach ($task->submissions as $submission) {
+            $this->deleteEvidence($submission->evidence_file);
+        }
+
+        $task->delete();
+
+        return back()->with('success', 'Assigned task deleted.');
     }
 
     public function submit(Request $request, WorkTask $task)

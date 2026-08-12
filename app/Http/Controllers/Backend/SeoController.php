@@ -9,6 +9,7 @@ use App\Models\Faculty;
 use App\Models\Media;
 use App\Models\Announcement;
 use App\Services\SchoolSeoService;
+use App\Support\SiteSettings;
 
 class SeoController extends Controller
 {
@@ -18,21 +19,42 @@ class SeoController extends Controller
         return view('backend.seo.index', compact('seoSettings'));
     }
 
-    public function generate(Request $request, SchoolSeoService $seoService)
+    public function generate(Request $request, SchoolSeoService $seoService, SiteSettings $siteSettings)
     {
-        $page = $request->page_name;
-        $context = '';
+        $validated = $request->validate([
+            'page_name' => 'required|string|max:80',
+        ]);
 
-        // Feed hyper-specific data to the AI based on the page
+        $page = $validated['page_name'];
+        $schoolName = $siteSettings->localized('site_name', config('app.name'));
+        $schoolAddress = $siteSettings->localized('site_address', __('site.location'));
+        $schoolTagline = $siteSettings->localized('site_tagline', __('site.tagline'));
+        $websiteUrl = $siteSettings->get('website_url', config('app.url'));
+        $schoolEmail = $siteSettings->get('school_email');
+        $schoolPhone = $siteSettings->get('school_phone');
+
+        $baseContext = trim(implode("\n", array_filter([
+            "School name: {$schoolName}",
+            "School address/location: {$schoolAddress}",
+            "School tagline: {$schoolTagline}",
+            "Website: {$websiteUrl}",
+            "Email: {$schoolEmail}",
+            "Phone: {$schoolPhone}",
+            "Default SEO title: ".$siteSettings->localized('seo_default_title', ''),
+            "Default SEO description: ".$siteSettings->localized('seo_default_description', ''),
+            "Default SEO keywords: ".$siteSettings->localized('seo_default_keywords', ''),
+        ])));
+
+        // Feed page-specific data to the AI based on the current installation.
         switch ($page) {
             case 'home':
-                $context = "This is the main landing page for Barchhain Secondary School, a government school in Barchhain, Doti, Sudurpashchim Province. Emphasize quality school education, discipline, values, and community service.";
+                $context = "This is the main landing page. Emphasize the school's identity, education quality, discipline, values, community trust, and local relevance.";
                 break;
             case 'about':
-                $context = "This is the About Us page. Focus on the school's history, mission, vision, and reputation as a trusted government educational institution in Sudurpashchim Province.";
+                $context = "This is the About Us page. Focus on the school's history, mission, vision, leadership, values, and reputation as a trusted educational institution.";
                 break;
             case 'admissions':
-                $context = "This is the Admissions page. Keywords should target parents looking for admission open, school enrollment, and how to apply in Barchhain, Doti.";
+                $context = "This is the Admissions page. Keywords should target parents looking for admission open, school enrollment, admission inquiry, class availability, and how to apply.";
                 break;
             case 'elementary':
                 $context = "This is the Kids School (Nursery to Grade 3) page. Focus on child care, Montessori methods, early childhood development, and safe learning environment.";
@@ -41,7 +63,7 @@ class SeoController extends Controller
                 $context = "This is the Middle School (Grade 4 to 8) page. Focus on foundational learning, interactive classrooms, and student growth.";
                 break;
             case 'secondary':
-                $context = "This is the High School page. Focus on secondary education, SEE preparation, NEB-aligned learning, practical skills, and student guidance in Barchhain, Doti.";
+                $context = "This is the High School page. Focus on secondary education, SEE preparation, NEB-aligned learning, practical skills, and student guidance.";
                 break;
             case 'faculty':
                 $count = Faculty::where('is_active', true)->count();
@@ -57,12 +79,12 @@ class SeoController extends Controller
                 $context = "This is the Notice Board. Latest updates include: {$latest}. Focus on exam routines, school events, and official updates.";
                 break;
             default:
-                $context = "General school information page for Barchhain Secondary School.";
+                $context = "General school information page for {$schoolName}.";
                 break;
         }
 
         try {
-            $seoData = $seoService->generateSeoData($page, $context);
+            $seoData = $seoService->generateSeoData($page, trim($baseContext."\n\nPage context: ".$context));
             return response()->json($seoData);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);

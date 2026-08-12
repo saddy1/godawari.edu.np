@@ -47,7 +47,7 @@
         </div>
         <div class="footer text-center">
         <div  class="p-0 m-0 text-center copyright">
-            <p>Copyright &copy; Barchhain Secondary School</p>
+            <p>Copyright &copy; {{ $siteSettings->localized('site_name', config('app.name')) }}</p>
             </div>
         </div>
     </div>

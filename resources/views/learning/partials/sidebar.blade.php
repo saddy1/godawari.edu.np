@@ -18,7 +18,7 @@
                 <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="w-full h-full object-contain">
             </div>
             <div class="min-w-0">
-                <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'Barchhain ERP') }}</p>
+                <p class="text-sm font-bold text-white leading-none truncate">{{ $siteSettings->get('app_name', 'School ERP') }}</p>
                 <p class="text-[9px] uppercase tracking-widest font-semibold mt-0.5" style="color: var(--theme-secondary, #e2a024);">E-Learning</p>
             </div>
         </a>
@@ -35,6 +35,7 @@
         $navActive = fn(string ...$patterns) => collect($patterns)->contains(
             fn ($p) => request()->routeIs($p) || request()->is($p)
         );
+        $isScopedTeacher = $u?->isTeacher() && ! $u?->isSuperAdmin() && ! $u?->isPrincipal() && ! $u?->hasRole('administrator');
     @endphp
 
     <nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 custom-scrollbar">
@@ -54,7 +55,7 @@
         @endif
 
         {{-- Structure --}}
-        @if($u?->canAccess('learning.courses.view'))
+        @if($u?->canAccess('learning.courses.view') && ! $isScopedTeacher)
             <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Structure</p>
 
             <a href="{{ route('admin.learning.classes.index') }}"
@@ -86,8 +87,22 @@
         @endif
 
         {{-- Content --}}
+        @if($isScopedTeacher && $u?->canAccess('learning.courses.view'))
+            <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Assigned Content</p>
+            <a href="{{ route('admin.learning.courses.index') }}"
+               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
+                      {{ $navActive('admin.learning.courses.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 12h6m-6 4h6"/>
+                </svg>
+                <span class="flex-1 truncate">My Courses</span>
+            </a>
+        @endif
+
         @if($u?->canAccess('learning.resources.view'))
-            <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Content</p>
+            @unless($isScopedTeacher)
+                <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Content</p>
+            @endunless
 
             <a href="{{ route('admin.learning.resources.index') }}"
                class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
@@ -152,6 +167,16 @@
                 <p class="text-xs font-bold text-white truncate leading-tight">{{ auth()->user()->name ?? 'Admin' }}</p>
                 <p class="text-[10px] text-white/35 truncate leading-tight mt-0.5">{{ auth()->user()->role_label ?? 'Admin' }}</p>
             </div>
+            <a href="{{ route('account.password.edit') }}" title="Change Password"
+               class="shrink-0 rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </a>
+            <form method="POST" action="{{ route('logout') }}" class="shrink-0">
+                @csrf
+                <button type="submit" class="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Logout">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                </button>
+            </form>
         </div>
     </div>
 </aside>

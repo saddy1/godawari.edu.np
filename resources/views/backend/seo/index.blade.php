@@ -12,7 +12,7 @@
         <div class="absolute top-0 right-0 w-64 h-64 bg-[#e2a024] rounded-full blur-3xl opacity-20 -translate-y-1/2 translate-x-1/4"></div>
         <div class="relative z-10">
             <h2 class="text-3xl font-bold mb-2">AI-Powered SEO Optimizer</h2>
-            <p class="text-green-100">Select a page and let AI generate high-converting keywords targeting parents and students in Badikedar, Barchhain and Doti.</p>
+            <p class="text-green-100">Select a page and let AI generate SEO from the current school settings, page content, notices, faculty, and gallery data.</p>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
                 {{-- AI Generate Button --}}
                 <button type="button" @click="generateAI()" :disabled="isGenerating"
                         class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-xl hover:shadow-lg hover:opacity-90 transition-all disabled:opacity-50 text-sm">
-                    <span x-show="!isGenerating">✨ Generate with AI</span>
+                    <span x-show="!isGenerating">Generate with AI</span>
                     <span x-show="isGenerating" class="flex items-center gap-2" style="display: none;">
                         <svg class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                         Reading Data...

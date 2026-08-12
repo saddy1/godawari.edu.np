@@ -13,7 +13,7 @@
             </div>
         </div>
         <div class="flex gap-2">
-            <a href="{{ route('students.edit', $student) }}" class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-light transition">Edit</a>
+            <a href="{{ route('admin.hr.members.edit', $student) }}" class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-light transition">Edit</a>
             <a href="{{ route('students.index') }}" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm hover:bg-gray-200 transition">Back</a>
         </div>
     </div>

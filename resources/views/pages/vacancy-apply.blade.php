@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Apply for ' . $vacancy->title . ' | Barchhain Secondary School')
+@section('title', 'Apply for ' . $vacancy->title)
 
 @section('content')
 <section class="pt-32 pb-16 bg-[#fdfbf7] min-h-screen">

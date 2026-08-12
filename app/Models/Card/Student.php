@@ -13,7 +13,8 @@ protected $fillable = [
         'first_name', 'middle_name', 'last_name', 'guardian_name',
         'father_name', 'mother_name', 'grandfather_name',
         'guardian_relation', 'guardian_contact',
-        'dob', 'gender', 'blood_group', 'citizenship_no',
+        'dob', 'dob_bs', 'gender', 'blood_group', 'citizenship_no',
+        'joining_date_bs', 'permanent_date_bs', 'valid_till_bs',
         'mobile', 'parent_contact', 'emergency_contact_name', 'emergency_contact_phone',
         'email', 'photo',
         'designation', 'employment_type', 'valid_till',
@@ -23,9 +24,10 @@ protected $fillable = [
         'program', 'stream', 'section', 'batch',
         'zone', 'district', 'municipality', 'country',
         'permanent_province', 'permanent_district', 'permanent_municipality', 'permanent_ward', 'permanent_tole',
+        'address_en',
         'temporary_province', 'temporary_district', 'temporary_municipality', 'temporary_ward', 'temporary_tole',
         'bus_route', 'bus_stop', 'has_bus_pass',
-        'library_id', 'has_library_card', 'profile_completed_at',
+        'library_id', 'has_library_card', 'profile_completed_at', 'card_printed_at',
     ];
     protected $casts = [
         'dob'          => 'date',
@@ -35,11 +37,15 @@ protected $fillable = [
         'has_bus_pass' => 'boolean',
         'has_library_card' => 'boolean',
         'profile_completed_at' => 'datetime',
+        'card_printed_at'      => 'datetime',
     ];
 
     public function getFullNameAttribute(): string
     {
-        return trim("{$this->first_name} {$this->middle_name} {$this->last_name}");
+        return collect([$this->first_name, $this->middle_name, $this->last_name])
+            ->map(fn ($part) => trim((string) $part))
+            ->filter()
+            ->implode(' ');
     }
 
     public function cardRequests()
@@ -57,11 +63,33 @@ protected $fillable = [
         return $this->hasMany(UpdateRequest::class);
     }
 
+    public function libraryLoans()
+    {
+        return $this->hasMany(\App\Models\LibraryLoan::class, 'student_id');
+    }
+
     public function getPhotoUrlAttribute(): string
     {
+        $version = $this->updated_at?->timestamp ?? 0;
+
         return $this->photo
-            ? asset($this->photo)
-            : asset('images/default-avatar.png');
+            ? asset($this->photo) . '?v=' . $version
+            : asset('images/default-avatar.svg');
+    }
+
+    public function getSectionLabelAttribute(): ?string
+    {
+        return $this->section;
+    }
+
+    public function getDesignationAttribute($value): ?string
+    {
+        return $value ?: ($this->user?->designation?->label ?? null);
+    }
+
+    public function getEmploymentTypeAttribute($value): ?string
+    {
+        return $value ?: ($this->user?->employment?->label ?? null);
     }
 
     public function getDepartmentLabelAttribute(): ?string

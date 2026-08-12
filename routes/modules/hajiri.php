@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Hajiri\CalendarSettingController;
 use App\Http\Controllers\Hajiri\DepartmentController;
-use App\Http\Controllers\Hajiri\DesignationController;
 use App\Http\Controllers\Hajiri\DeviceController;
 use App\Http\Controllers\Hajiri\HolidayController;
 use App\Http\Controllers\Hajiri\HomeController as HajiriHomeController;
@@ -139,12 +138,6 @@ Route::prefix('admin/hajiri')->name('hajiri.')->middleware(['auth', 'admin', 'mo
         ->only(['index', 'show'])
         ->middleware('permission:settings.view');
     Route::resource('department', DepartmentController::class)
-        ->only(['create', 'store', 'edit', 'update', 'destroy'])
-        ->middleware('permission:settings.edit');
-    Route::resource('designation', DesignationController::class)
-        ->only(['index', 'show'])
-        ->middleware('permission:settings.view');
-    Route::resource('designation', DesignationController::class)
         ->only(['create', 'store', 'edit', 'update', 'destroy'])
         ->middleware('permission:settings.edit');
     Route::get('devices/index', [DeviceController::class, 'index'])->middleware('permission:settings.view')->name('device.index');

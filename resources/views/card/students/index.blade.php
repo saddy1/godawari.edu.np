@@ -4,16 +4,25 @@
 
 @section('content')
 @php
-    $selectedOrganization = request('organization', array_key_first($filterOptions ?? []) ?: auth()->user()->organizationSlug());
     $selectedStream = request('stream', '');
     $selectedSection = request('section', '');
+    $allStreams = collect($filterOptions ?? [])
+        ->flatMap(fn($organization) => array_keys($organization['streams'] ?? []))
+        ->unique()
+        ->sort()
+        ->values();
+    $allSections = collect($filterOptions ?? [])
+        ->flatMap(fn($organization) => collect($organization['streams'] ?? [])->flatten())
+        ->unique()
+        ->sort()
+        ->values();
 @endphp
 <div class="space-y-5">
 
     {{-- ── Toolbar ──────────────────────────────────────────────────── --}}
     <div class="flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between">
 
-        <form method="GET" class="flex gap-2 flex-wrap items-end w-full xl:w-auto">
+        <form method="GET" id="student-filter-form" class="flex gap-2 flex-wrap items-end w-full xl:w-auto">
             <div class="relative w-full sm:w-64">
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,6 +31,7 @@
                 </svg>
                 <input type="text" name="search" value="{{ request('search') }}"
                        placeholder="Search name, roll number…"
+                       data-ajax-search autocomplete="off"
                        class="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full
                               focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent">
             </div>
@@ -35,25 +45,34 @@
                 <option value="staff"   @selected(request('type') == 'staff')>Staff</option>
             </select>
 
-            @if(auth()->user()->isSuperAdmin())
-                <select name="organization" id="filterOrganization"
-                        class="w-full sm:w-auto border border-gray-200 rounded-lg px-3 py-2 text-sm
-                               focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent">
-                    @foreach($filterOptions as $slug => $organization)
-                        <option value="{{ $slug }}" @selected($selectedOrganization === $slug)>{{ $organization['label'] }}</option>
-                    @endforeach
-                </select>
-            @else
-                <input type="hidden" name="organization" value="{{ $selectedOrganization }}">
-            @endif
-
             <select name="stream" id="filterStream"
                     class="w-full sm:w-auto border border-gray-200 rounded-lg px-3 py-2 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"></select>
+                           focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent">
+                <option value="">All Departments / Classes</option>
+                @foreach($allStreams as $stream)
+                    <option value="{{ $stream }}" @selected($selectedStream === $stream)>{{ $stream }}</option>
+                @endforeach
+            </select>
 
             <select name="section" id="filterSection"
                     class="w-full sm:w-auto border border-gray-200 rounded-lg px-3 py-2 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"></select>
+                           focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent">
+                <option value="">All Sections</option>
+                @foreach($allSections as $section)
+                    <option value="{{ $section }}" @selected($selectedSection === $section)>{{ $section }}</option>
+                @endforeach
+            </select>
+
+            {{-- Per-page selector: auto-submits so page resets to 1 --}}
+            <select name="per_page"
+                    class="w-full sm:w-auto border border-gray-200 rounded-lg px-3 py-2 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent">
+                <option value="10"  @selected(request('per_page') === '10')>10 / page</option>
+                <option value="20"  @selected(request('per_page', '20') === '20')>20 / page</option>
+                <option value="40"  @selected(request('per_page') === '40')>40 / page</option>
+                <option value="100" @selected(request('per_page') === '100')>100 / page</option>
+                <option value="all" @selected(request('per_page') === 'all')>All</option>
+            </select>
 
             <button type="submit"
                     class="w-full sm:w-auto bg-primary text-white px-4 py-2 rounded-lg text-sm
@@ -61,7 +80,7 @@
                 Search
             </button>
 
-            @if(request('search') || request('type') || request('stream') || request('section'))
+            @if(request('search') || request('type') || request('stream') || request('section') || request('per_page'))
             <a href="{{ route('students.index') }}"
                class="w-full sm:w-auto text-center px-4 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition">
                 Clear
@@ -70,18 +89,7 @@
         </form>
 
         <div class="flex gap-2 flex-shrink-0 flex-wrap w-full xl:w-auto">
-            @if(auth()->user()->isSuperAdmin() || auth()->user()->organizationSlug() === 'school')
-                <a href="{{ route('promote.index') }}"
-                   class="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-orange-500 text-white font-semibold
-                          px-4 py-2 rounded-lg text-sm hover:bg-orange-600 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-                    </svg>
-                    Promote
-                </a>
-            @endif
-            <a href="{{ route('import.index') }}"
+            <a href="{{ route('admin.hr.members.import') }}"
                class="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-emerald-600 text-white font-semibold
                       px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,6 +119,7 @@
         </div>
     </div>
 
+    <div id="student-summary" class="space-y-5">
     {{-- ── Stats strip ────────────────────────────────────────────── --}}
     @php
         $total    = $students->total();
@@ -139,6 +148,7 @@
         Expired members were found in the current list. Renew their `Valid Till` date before printing or issuing updated cards.
     </div>
     @endif
+    </div>
 
     @if(session('success'))
     <div class="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 text-sm text-emerald-700">
@@ -175,12 +185,6 @@
                 class="bg-primary text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-primary-light transition">
             Enable Learning Login
         </button>
-        @if(auth()->user()->isSuperAdmin())
-        <button type="button" onclick="submitBulkDelete()"
-                class="bg-red-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-red-700 transition">
-            Delete Selected
-        </button>
-        @endif
         <button type="button" onclick="clearSelection()"
                 class="text-blue-500 text-sm hover:underline">Clear</button>
     </div>
@@ -191,12 +195,7 @@
     <form method="POST" action="{{ route('students.bulk-learning-accounts') }}" id="bulkLearningForm" class="hidden">
         @csrf
     </form>
-    @if(auth()->user()->isSuperAdmin())
-    <form method="POST" action="{{ route('students.bulk-destroy') }}" id="bulkDeleteForm" class="hidden">
-        @csrf
-    </form>
-    @endif
-
+    <div id="student-results" class="space-y-5">
     {{-- ── Table ──────────────────────────────────────────────────── --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="border-b border-gray-100 bg-gray-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 sm:hidden">
@@ -231,6 +230,7 @@
                 @endphp
                 @php
                     $isExpired = $student->valid_till && $student->valid_till->isPast();
+                    $pendingUpdate = $student->updateRequests->first();
                 @endphp
                 <tr class="transition group {{ $isExpired ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-gray-50/70' }}">
                     <td class="px-3 py-3.5">
@@ -252,6 +252,11 @@
                                     @if($isExpired)
                                     <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
                                         Expired
+                                    </span>
+                                    @endif
+                                    @if($pendingUpdate)
+                                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-extrabold text-amber-800">
+                                        Update requested
                                     </span>
                                     @endif
                                 </div>
@@ -290,16 +295,6 @@
                             <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 font-medium">
                                 ID
                             </span>
-                            @if($student->has_library_card)
-                            <span class="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100 font-medium">
-                                Library
-                            </span>
-                            @endif
-                            @if($student->has_bus_pass)
-                            <span class="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full border border-orange-100 font-medium">
-                                Bus
-                            </span>
-                            @endif
                             @if($student->user_id)
                             <span class="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full border border-green-100 font-medium">
                                 Learning
@@ -310,77 +305,20 @@
 
                     {{-- ── Print Preview column ────────────────────── --}}
                     <td class="px-4 py-3.5">
-                        <div class="flex flex-wrap items-center gap-1.5">
-
-                            {{-- Print ID card --}}
-                            <a href="{{ route('cards.print', [$student, 'id']) }}"
-                               target="_blank"
-                               title="Print Preview — ID Card"
-                               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium
-                                      bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100
-                                      transition whitespace-nowrap">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                          d="M17 17h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4
-                                             a2 2 0 0 0 2 2h2m2 4h6a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H9
-                                             a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2z"/>
-                                </svg>
-                                ID
-                            </a>
-
-                            {{-- Print Library card --}}
-                            @if($student->has_library_card)
-                            <a href="{{ route('cards.print', [$student, 'library']) }}"
-                               target="_blank"
-                               title="Print Preview — Library Card"
-                               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium
-                                      bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100
-                                      transition whitespace-nowrap">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                          d="M17 17h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4
-                                             a2 2 0 0 0 2 2h2m2 4h6a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H9
-                                             a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2z"/>
-                                </svg>
-                                Lib
-                            </a>
-                            @endif
-
-                            {{-- Print Bus pass --}}
-                            @if($student->has_bus_pass)
-                            <a href="{{ route('cards.print', [$student, 'bus']) }}"
-                               target="_blank"
-                               title="Print Preview — Bus Pass"
-                               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium
-                                      bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100
-                                      transition whitespace-nowrap">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                          d="M17 17h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4
-                                             a2 2 0 0 0 2 2h2m2 4h6a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H9
-                                             a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2z"/>
-                                </svg>
-                                Bus
-                            </a>
-                            @endif
-
-                            {{-- Print ALL cards --}}
-                            <a href="{{ route('cards.print-all', $student) }}"
-                               target="_blank"
-                               title="Print Preview — All Cards"
-                               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold
-                                      bg-primary text-white hover:bg-primary-light border border-primary
-                                      transition whitespace-nowrap">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                          d="M17 17h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4
-                                             a2 2 0 0 0 2 2h2m2 4h6a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H9
-                                             a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2z"/>
-                                </svg>
-                                All
-                            </a>
-
-                        </div>
+                        <a href="{{ route('cards.print', [$student, 'id']) }}"
+                           target="_blank"
+                           title="Print Preview — ID Card"
+                           class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium
+                                  bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100
+                                  transition whitespace-nowrap">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M17 17h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4
+                                         a2 2 0 0 0 2 2h2m2 4h6a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H9
+                                         a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2z"/>
+                            </svg>
+                            Print ID Card
+                        </a>
                     </td>
 
                     {{-- ── Actions column ──────────────────────────── --}}
@@ -398,30 +336,16 @@
                                 </svg>
                             </a>
 
-                            {{-- Edit --}}
-                            <a href="{{ route('students.edit', $student) }}"
-                               title="Edit Member"
-                               class="p-1.5 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                            {{-- Edit — managed in HR --}}
+                            <a href="{{ route('admin.hr.members.edit', $student) }}"
+                               title="{{ $pendingUpdate ? 'Review update request and edit permitted details' : 'Edit permitted member details' }}"
+                               class="p-1.5 rounded-md {{ $pendingUpdate ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }} transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                           d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5
                                              m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                 </svg>
                             </a>
-
-                            {{-- Delete --}}
-                            <form method="POST" action="{{ route('students.destroy', $student) }}"
-                                  onsubmit="return confirm('Delete {{ addslashes($student->full_name) }}? This cannot be undone.')">
-                                @csrf @method('DELETE')
-                                <button type="submit" title="Delete Member"
-                                        class="p-1.5 rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7
-                                                 m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
-                                    </svg>
-                                </button>
-                            </form>
 
                         </div>
                     </td>
@@ -456,12 +380,19 @@
     </div>
 
     {{-- ── Pagination ──────────────────────────────────────────────── --}}
-    @if($students->hasPages())
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-500">
-        <p>Showing {{ $students->firstItem() }}–{{ $students->lastItem() }} of {{ $students->total() }} members</p>
+        <p>
+            @if($students->total() > 0)
+                Showing {{ $students->firstItem() }}–{{ $students->lastItem() }} of {{ $students->total() }} members
+            @else
+                No members found
+            @endif
+        </p>
+        @if($students->hasPages())
         <div>{{ $students->links() }}</div>
+        @endif
     </div>
-    @endif
+    </div>
 
 </div>
 @endsection
@@ -481,7 +412,6 @@
     const filterOptions = @json($filterOptions ?? []);
     const selectedStream = @json($selectedStream);
     const selectedSection = @json($selectedSection);
-    const filterOrganization = document.getElementById('filterOrganization');
     const filterStream = document.getElementById('filterStream');
     const filterSection = document.getElementById('filterSection');
 
@@ -504,29 +434,28 @@
         });
     }
 
-    function currentOrganizationKey() {
-        if (filterOrganization) return filterOrganization.value;
-        return @json($selectedOrganization);
+    function availableStreams() {
+        return Object.values(filterOptions).reduce(function(allStreams, organization) {
+            Object.entries(organization.streams || {}).forEach(function([stream, sections]) {
+                allStreams[stream] = [...new Set([...(allStreams[stream] || []), ...sections])].sort();
+            });
+
+            return allStreams;
+        }, {});
     }
 
     function refreshFilterSections(selected = '') {
-        const organization = filterOptions[currentOrganizationKey()] || { streams: {} };
-        const sections = organization.streams[filterStream?.value] || [];
+        const sections = availableStreams()[filterStream?.value] || [];
         setFilterOptions(filterSection, sections, selected, 'All Sections');
         if (filterSection) filterSection.disabled = sections.length === 0;
     }
 
     function refreshFilterStreams(selected = '', section = '') {
-        const organization = filterOptions[currentOrganizationKey()] || { streams: {} };
-        const streams = Object.keys(organization.streams || {}).sort();
+        const streams = Object.keys(availableStreams()).sort();
         setFilterOptions(filterStream, streams, selected, 'All Departments / Classes');
         if (filterStream) filterStream.disabled = streams.length === 0;
         refreshFilterSections(section);
     }
-
-    filterOrganization?.addEventListener('change', function() {
-        refreshFilterStreams('', '');
-    });
 
     filterStream?.addEventListener('change', function() {
         refreshFilterSections('');
@@ -536,7 +465,7 @@
 
     const bulkBar      = document.getElementById('bulkBar');
     const selectedCount = document.getElementById('selectedCount');
-    const selectAll    = document.getElementById('selectAll');
+    const selectAll    = () => document.getElementById('selectAll');
     const rowChecks    = () => document.querySelectorAll('.row-check');
 
     function updateBulkBar() {
@@ -547,38 +476,18 @@
         } else {
             bulkBar.classList.add('hidden');
         }
-        selectAll.indeterminate = checked.length > 0 && checked.length < rowChecks().length;
-        selectAll.checked = checked.length === rowChecks().length && rowChecks().length > 0;
+        const master = selectAll();
+        if (master) {
+            master.indeterminate = checked.length > 0 && checked.length < rowChecks().length;
+            master.checked = checked.length === rowChecks().length && rowChecks().length > 0;
+        }
     }
 
     function clearSelection() {
         rowChecks().forEach(c => c.checked = false);
-        selectAll.checked = false;
+        const master = selectAll();
+        if (master) master.checked = false;
         updateBulkBar();
-    }
-
-    function submitBulkDelete() {
-        const bulkDeleteForm = document.getElementById('bulkDeleteForm');
-        if (!bulkDeleteForm) return;
-
-        const checked = [...rowChecks()].filter(c => c.checked);
-        if (checked.length === 0) return;
-
-        if (!confirm('Delete ' + checked.length + ' selected member(s)? Their associated photos will also be deleted. This cannot be undone.')) {
-            return;
-        }
-
-        bulkDeleteForm.querySelectorAll('input[name="ids[]"]').forEach(input => input.remove());
-
-        checked.forEach(function (checkbox) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'ids[]';
-            input.value = checkbox.value;
-            bulkDeleteForm.appendChild(input);
-        });
-
-        bulkDeleteForm.submit();
     }
 
     function submitBulkLearningAccounts() {
@@ -608,13 +517,97 @@
         bulkLearningForm.submit();
     }
 
-    selectAll.addEventListener('change', function () {
-        rowChecks().forEach(c => c.checked = this.checked);
-        updateBulkBar();
-    });
+    function wireSelectAll() {
+        const master = selectAll();
+        if (!master || master.dataset.wired === '1') return;
+        master.dataset.wired = '1';
+        master.addEventListener('change', function () {
+            rowChecks().forEach(c => c.checked = this.checked);
+            updateBulkBar();
+        });
+    }
 
     document.addEventListener('change', function (e) {
         if (e.target.classList.contains('row-check')) updateBulkBar();
+    });
+
+    wireSelectAll();
+
+    // AJAX filters and pagination — query the complete database, then replace
+    // only the summary and table so the page does not jump or reload.
+    const filterForm = document.getElementById('student-filter-form');
+    const searchInput = filterForm?.querySelector('[data-ajax-search]');
+    const studentSummary = document.getElementById('student-summary');
+    const studentResults = document.getElementById('student-results');
+    let searchTimer = null;
+    let searchController = null;
+
+    function filteredUrl(pageUrl = null) {
+        const params = new URLSearchParams(new FormData(filterForm));
+        [...params.entries()].forEach(([key, value]) => {
+            if (value === '') params.delete(key);
+        });
+        if (pageUrl) {
+            const page = new URL(pageUrl, window.location.origin).searchParams.get('page');
+            if (page) params.set('page', page);
+        } else {
+            params.delete('page');
+        }
+
+        const url = new URL(filterForm.action || window.location.pathname, window.location.origin);
+        url.search = params.toString();
+        return url;
+    }
+
+    async function loadStudents(pageUrl = null) {
+        if (!filterForm || !studentSummary || !studentResults) return;
+        searchController?.abort();
+        searchController = new AbortController();
+        const url = filteredUrl(pageUrl);
+
+        studentSummary.classList.add('opacity-50');
+        studentResults.classList.add('opacity-50');
+        try {
+            const response = await fetch(url, {
+                headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
+                signal: searchController.signal,
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const nextSummary = page.getElementById('student-summary');
+            const nextResults = page.getElementById('student-results');
+            if (!nextSummary || !nextResults) throw new Error('Student results were missing from the response.');
+
+            studentSummary.innerHTML = nextSummary.innerHTML;
+            studentResults.innerHTML = nextResults.innerHTML;
+            window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+            clearSelection();
+            wireSelectAll();
+        } catch (error) {
+            if (error.name !== 'AbortError') console.error('Unable to load members:', error);
+        } finally {
+            studentSummary.classList.remove('opacity-50');
+            studentResults.classList.remove('opacity-50');
+        }
+    }
+
+    filterForm?.addEventListener('submit', event => {
+        event.preventDefault();
+        loadStudents();
+    });
+    searchInput?.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadStudents(), 250);
+    });
+    filterForm?.querySelectorAll('select').forEach(select => {
+        select.addEventListener('change', () => loadStudents());
+    });
+    studentResults?.addEventListener('click', event => {
+        const link = event.target.closest('nav a[href]');
+        if (!link) return;
+        event.preventDefault();
+        loadStudents(link.href);
     });
 </script>
 @endpush

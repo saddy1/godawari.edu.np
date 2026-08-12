@@ -1,7 +1,7 @@
 {{-- resources/views/pages/news-detail.blade.php --}}
 @extends('layouts.app')
 
-@section('title', $announcement->title . ' — Barchhain Secondary School')
+@section('title', $announcement->title)
 @section('meta_description', $announcement->excerpt ?? Str::limit(strip_tags($announcement->content), 150))
 
 @section('content')
@@ -47,7 +47,9 @@
                             
                             // Convert Drive link to Preview Mode for Iframe
                             $previewUrl = $announcement->image_url;
-                            if($isDriveLink && preg_match('/id=([^&]+)/', $announcement->featured_image, $reg)) {
+                            if($isDriveLink && preg_match('~/file/d/([^/]+)~', $announcement->featured_image, $reg)) {
+                                $previewUrl = "https://drive.google.com/file/d/" . $reg[1] . "/preview";
+                            } elseif($isDriveLink && preg_match('/[?&]id=([^&]+)/', $announcement->featured_image, $reg)) {
                                 $previewUrl = "https://drive.google.com/file/d/" . $reg[1] . "/preview";
                             }
                         @endphp
@@ -71,7 +73,7 @@
                             
                             {{-- The Preview Iframe --}}
                             <div class="relative w-full h-[600px] bg-white">
-                                <iframe src="{{ $isLocalPdf ? route('admin.announcements.view_file', $announcement->id) : $previewUrl }}" 
+                                <iframe src="{{ $isLocalPdf ? $announcement->image_url : $previewUrl }}"
                                         class="w-full h-full border-none" 
                                         allow="autoplay">
                                 </iframe>

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Hajiri;
 use App\Http\Controllers\Controller;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 
 
@@ -48,8 +50,9 @@ class UserController extends Controller
         $work_assigned = $this->work_assigned->get();
 
         $sort = false;
+        $allowEdit = true;
 
-        return view('hajiri.users.index',compact('type','users','desig','work_assigned','sort'));
+        return view('hajiri.users.index',compact('type','users','desig','work_assigned','sort','allowEdit'));
     }
 
     public function index_custom($typeid,$sort = null)
@@ -77,7 +80,8 @@ class UserController extends Controller
         $work_assigned = $this->work_assigned->get();
 
         $sort = false;
-        return view('hajiri.users.index',compact('type','users','desig','work_assigned','sort','type_id'));
+        $allowEdit = false;
+        return view('hajiri.users.index',compact('type','users','desig','work_assigned','sort','type_id','allowEdit'));
     }
 
     public function index_inactive()
@@ -252,8 +256,8 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|max:150',
-            'device_id' => 'required|max:150',
-            'email' => 'required|max:150',
+            'device_id' => ['required', 'max:150', Rule::unique('users', 'device_id')->ignore($id)],
+            'email' => ['required', 'max:150', Rule::unique('users', 'email')->ignore($id)],
             'phone'=>'required|min:10',
             'province'=>'required|max:150',
             'district'=>'required|max:150',
@@ -267,13 +271,16 @@ class UserController extends Controller
             'status'=>'required|integer|between:0,1',
         ]);
 
-        $reqD = $request->all();
-        $dataUpdate = array();
+        $user = $this->user->find($id);
+        $oldDeviceId = $user ? $user->device_id : null;
+        $newDeviceId = $request['device_id'];
+
+        $dataUpdate = [];
         $dataUpdate['name'] = $request['name'];
         $dataUpdate['email'] = $request['email'];
         $dataUpdate['phone'] = $request['phone'];
         $dataUpdate['province'] = $request['province'];
-        $dataUpdate['device_id'] = $request['device_id'];
+        $dataUpdate['device_id'] = $newDeviceId;
         $dataUpdate['district'] = $request['district'];
         $dataUpdate['municipal'] = $request['municipal'];
 
@@ -284,12 +291,21 @@ class UserController extends Controller
 
         $dataUpdate['status'] = (int)$request['status'];
 
-        if($this->user->where('id',$id)->update($dataUpdate))
-        {
+        $updated = DB::transaction(function () use ($id, $dataUpdate, $oldDeviceId, $newDeviceId) {
+            $result = $this->user->where('id', $id)->update($dataUpdate);
+
+            if ($result && $oldDeviceId && $newDeviceId && (string) $oldDeviceId !== (string) $newDeviceId) {
+                DB::table('attendacelogs')
+                    ->where('user_id', (int) $oldDeviceId)
+                    ->update(['user_id' => (int) $newDeviceId]);
+            }
+
+            return $result;
+        });
+
+        if ($updated) {
             return redirect()->back()->with('message', "Update to {$dataUpdate['name']} was successful!!");
-        }
-        else
-        {
+        } else {
             return redirect()->back()->withError('message', 'Sorry!! Update Failed!');
         }
     }

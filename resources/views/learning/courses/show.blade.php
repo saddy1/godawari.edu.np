@@ -136,6 +136,71 @@
                     @else
                         </div>
                     @endif
+
+                    @if($lesson->quiz)
+                        @php
+                            $quiz = $lesson->quiz;
+                            $attempt = $quiz->attempts->sortByDesc('created_at')->first();
+                            $attemptsUsed = $quiz->attempts->whereNotNull('completed_at')->count();
+                            $canAttempt = $isCompleted && $attemptsUsed < $quiz->max_attempts;
+                        @endphp
+                        <div class="bg-amber-50/35 px-5 py-3">
+                            <div class="ml-12 flex flex-wrap items-center gap-3 rounded-xl border border-amber-100 bg-white px-4 py-3 shadow-sm">
+                                <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full
+                                    {{ $attempt?->passed ? 'bg-emerald-500 text-white' : ($isCompleted ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400') }}">
+                                    @if($attempt?->passed)
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                    @else
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                                        </svg>
+                                    @endif
+                                </span>
+
+                                <div class="flex-1 min-w-0" style="min-width:140px">
+                                    <p class="text-sm font-extrabold text-gray-900 leading-tight">
+                                        Quiz after {{ $chapterNumber }}.{{ $lessonIndex + 1 }}: {{ $quiz->title }}
+                                    </p>
+                                    <p class="mt-0.5 text-xs font-semibold text-gray-400">
+                                        {{ $quiz->questions_count }} Q · Pass {{ $quiz->pass_percentage }}%
+                                        @if($quiz->time_limit_minutes) · {{ $quiz->time_limit_minutes }}min @endif
+                                        @if($attempt)
+                                            · <span class="{{ $attempt->passed ? 'text-emerald-600' : 'text-amber-600' }}">{{ $attempt->percentage() }}% ({{ $attemptsUsed }}/{{ $quiz->max_attempts }})</span>
+                                        @elseif(!$isCompleted)
+                                            · Complete the lesson first
+                                        @else
+                                            · {{ $quiz->max_attempts }} attempts
+                                        @endif
+                                    </p>
+                                </div>
+
+                                <div class="flex items-center gap-2 ml-auto shrink-0">
+                                    @if($attempt)
+                                        <a href="{{ route('learning.quizzes.result', [$quiz, $attempt]) }}"
+                                           class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
+                                            Results
+                                        </a>
+                                    @endif
+                                    @if($canAttempt)
+                                        <a href="{{ route('learning.quizzes.show', $quiz) }}"
+                                           class="rounded-lg bg-amber-500 hover:bg-amber-600 px-4 py-1.5 text-xs font-extrabold text-white transition-colors">
+                                            {{ $attempt ? 'Retake' : 'Take Quiz' }}
+                                        </a>
+                                    @elseif(!$isCompleted)
+                                        <span class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-extrabold text-gray-400">
+                                            Locked
+                                        </span>
+                                    @else
+                                        <span class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-extrabold text-gray-400">
+                                            No attempts left
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                 @empty
                     <div class="px-5 py-6 text-sm text-gray-400 italic">No lessons in this chapter yet.</div>
                 @endforelse

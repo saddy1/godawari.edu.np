@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Media;
 use App\Models\Vacancy;
 use App\Models\VacancyApplication;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class VacancyController extends Controller
 {
@@ -30,6 +32,7 @@ class VacancyController extends Controller
             'type'           => 'required|string|in:Full Time,Part Time,Contract',
             'deadline'       => 'nullable|date',
             'document'       => 'nullable|file|mimes:pdf,doc,docx|max:10240',
+            'featured_image_media_path' => 'nullable|string|max:500',
             'featured_image' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'is_active'      => 'nullable|boolean',
         ]);
@@ -44,9 +47,10 @@ class VacancyController extends Controller
             'document_path'  => $request->hasFile('document')
                                     ? $this->saveFile($request->file('document'), 'vacancy-documents')
                                     : null,
-            'featured_image' => $request->hasFile('featured_image')
+            'featured_image' => $this->selectedMediaPath($request)
+                                    ?: ($request->hasFile('featured_image')
                                     ? $this->saveFile($request->file('featured_image'), 'vacancy-images')
-                                    : null,
+                                    : null),
             'is_active'      => $request->boolean('is_active', true),
         ]);
 
@@ -68,6 +72,7 @@ class VacancyController extends Controller
             'type'           => 'required|string|in:Full Time,Part Time,Contract',
             'deadline'       => 'nullable|date',
             'document'       => 'nullable|file|mimes:pdf,doc,docx|max:10240',
+            'featured_image_media_path' => 'nullable|string|max:500',
             'featured_image' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'is_active'      => 'nullable|boolean',
         ]);
@@ -87,7 +92,10 @@ class VacancyController extends Controller
             $data['document_path'] = $this->saveFile($request->file('document'), 'vacancy-documents');
         }
 
-        if ($request->hasFile('featured_image')) {
+        if ($mediaPath = $this->selectedMediaPath($request)) {
+            $this->deleteFile($vacancy->featured_image);
+            $data['featured_image'] = $mediaPath;
+        } elseif ($request->hasFile('featured_image')) {
             $this->deleteFile($vacancy->featured_image);
             $data['featured_image'] = $this->saveFile($request->file('featured_image'), 'vacancy-images');
         }
@@ -104,9 +112,19 @@ class VacancyController extends Controller
 
     public function destroy(Vacancy $vacancy)
     {
-        $this->deleteFile($vacancy->document_path);
-        $this->deleteFile($vacancy->featured_image);
-        $vacancy->delete();
+        DB::transaction(function () use ($vacancy) {
+            $vacancy->load('applications');
+
+            foreach ($vacancy->applications as $application) {
+                $this->deleteApplicationFiles($application);
+                $application->delete();
+            }
+
+            $this->deleteFile($vacancy->document_path);
+            $this->deleteFile($vacancy->featured_image);
+            $vacancy->delete();
+        });
+
         return redirect()->route('admin.vacancies.index')->with('success', 'Vacancy deleted successfully.');
     }
 
@@ -145,11 +163,7 @@ class VacancyController extends Controller
 
     public function destroyApplication(VacancyApplication $application)
     {
-        $this->deleteFile($application->cv_path);
-        $this->deleteFile($application->profile_photo);
-        $this->deleteFile($application->citizen_front_path);
-        $this->deleteFile($application->citizen_back_path);
-        $this->deleteFile($application->signature_path);
+        $this->deleteApplicationFiles($application);
         $application->delete();
         return redirect()->route('admin.vacancies.index')->with('success', 'Application deleted.');
     }
@@ -169,11 +183,33 @@ class VacancyController extends Controller
 
     private function deleteFile(?string $path): void
     {
-        if ($path) {
+        if ($path && ! str_starts_with($path, 'media/')) {
             $full = public_path($path);
             if (file_exists($full)) {
                 @unlink($full);
             }
         }
+    }
+
+    private function selectedMediaPath(Request $request): ?string
+    {
+        $path = $request->input('featured_image_media_path');
+
+        if (! $path) {
+            return null;
+        }
+
+        return Media::where('file_path', $path)
+            ->where('mime_type', 'like', 'image/%')
+            ->value('file_path');
+    }
+
+    private function deleteApplicationFiles(VacancyApplication $application): void
+    {
+        $this->deleteFile($application->cv_path);
+        $this->deleteFile($application->profile_photo);
+        $this->deleteFile($application->citizen_front_path);
+        $this->deleteFile($application->citizen_back_path);
+        $this->deleteFile($application->signature_path);
     }
 }

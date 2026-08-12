@@ -75,8 +75,14 @@ class AuthController extends Controller
             return redirect()->intended(route('learning.dashboard'));
         }
 
-        if ($user->isTeacher() && \App\Services\ModuleService::enabled('learning')) {
-            return redirect()->intended(route('admin.learning.dashboard'));
+        if ($user->isTeacher()) {
+            if (\App\Services\ModuleService::enabled('learning') && $user->assignedLearningClasses()->exists()) {
+                return redirect()->intended(route('admin.learning.dashboard'));
+            }
+
+            if (\App\Services\ModuleService::enabled('hajiri')) {
+                return redirect()->intended(route('hajiri.home'));
+            }
         }
 
         if ($user->canAccess([

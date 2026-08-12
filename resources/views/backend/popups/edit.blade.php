@@ -38,17 +38,14 @@
             </div>
 
             <div class="border-t border-gray-100 pt-6">
-                <label class="block text-sm font-bold text-gray-700 mb-4">Current Image / Update Image</label>
-                <div class="flex flex-col sm:flex-row gap-6 items-start">
-                    <div class="shrink-0 relative">
-                        <img src="{{ asset($popup->image_path) }}" class="w-48 h-48 object-cover rounded-xl border border-gray-200 shadow-sm">
-                        <span class="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-md">CURRENT</span>
-                    </div>
-                    <div class="flex-1 w-full">
-                        <p class="text-xs text-gray-500 mb-2 font-medium">Upload a new image only if you want to replace the current one.</p>
-                        <input type="file" name="image" accept="image/*" class="w-full border border-gray-300 bg-gray-50 rounded-xl p-3 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#1a5632]/10 file:text-[#1a5632] hover:file:bg-[#1a5632]/20">
-                    </div>
-                </div>
+                <x-admin-image-picker
+                    name="image_media_path"
+                    file-name="image"
+                    label="Current Image / Update Image"
+                    :current-url="asset($popup->image_path)"
+                    :current-path="$popup->image_path"
+                    help="Choose from Media or upload a new popup image only if you want to replace the current one."
+                />
             </div>
 
             <div class="pt-4">

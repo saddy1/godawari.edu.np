@@ -18,6 +18,7 @@ use App\Models\Hajiri\StaffCardRequest;
 use App\Models\User;
 use App\Http\Controllers\Hajiri\NepaliCalendarController;
 use App\Services\Hajiri\AttendanceWindow;
+use Illuminate\Support\Facades\Schema;
 
 class HomeController extends Controller
 {
@@ -43,41 +44,29 @@ class HomeController extends Controller
      */
     public function index($year = '',$month = '')
     {
+        $authUser = auth()->user();
+
+        if (! $authUser) {
+            return redirect()->route('login');
+        }
+
         $dateRef = Carbon::now();
         $dateToday = $dateRef->toDateString();
         // return $dateToday;
         $start = $dateToday.' 00:00:00';
         $end = $dateToday.' 23:59:59';
         $checkIN =  $checkOUT = null;
-        $currentDeviceId = Auth()->user()->device_id;
+        $currentDeviceId = $authUser->device_id;
         // return $start;
         $attendanceLogs = $currentDeviceId
             ? $this->attnLogs->where('user_id', $currentDeviceId)->whereBetween('at', [$start, $end])->orderBy('at')->get()
             : collect();
         // return $attendanceLogs;
-        $attendanceLogsTotal = $this->attnLogs->where('at','>=',$start)->where('at','<=',$end)->orderBy('at')->get();
-        // return $attendanceLogsTotal;
-//  function ($query) use($start,$end) {
-//             return $query->where('at','>=',$start)->where('at','<=',$end);
-//         }
-        $attendanceLogsTotal = $this->user
-            ->whereNotNull('device_id')
-            ->with(['logs'=>function($query) use($start,$end){
-                return $query->whereBetween('at', [$start, $end]);
-            }])
-            ->get();
-        
-        $countLogs=0;
-        foreach ($attendanceLogsTotal->toArray() as $attlogsTotal){
-            if(count($attlogsTotal['logs']) >= 1){
-                $countLogs++;
-            }
-        }
-        
-        // return $attendanceLogsTotal;
-        
         $totalEmployee =  $this->user->where('status',1)->whereNotNull('device_id')->count();
-        $totalPresentEmployee = $countLogs;
+        $totalPresentEmployee = DB::table('attendacelogs')
+            ->whereBetween('at', [$start, $end])
+            ->distinct('user_id')
+            ->count('user_id');
 
 
         $setting = HajiriSetting::current();
@@ -90,30 +79,45 @@ class HomeController extends Controller
             'in_rule' => $attendanceSummary['in']['rule'],
             'out_rule' => $attendanceSummary['out']['rule'],
         ];
+        $showPersonalAttendance = filled($currentDeviceId)
+            && ($attendanceLogs['in'] || $attendanceLogs['out']);
 
         $nowData = $this->getDateCalendar($year, $month);
 
-        $attendancePerDay = [];
-        foreach ($nowData['periodAD'] as $periodData) {
-            $present = $currentDeviceId
-                ? $this->attnLogs->where('user_id', $currentDeviceId)->whereDate('at', $periodData->format('Y-m-d'))->exists()
-                : false;
-            $attendancePerDay[] = $present;
-        }
-
-        // Load holidays for the calendar month
         $startAD = $nowData['periodAD'][0]->toDateString();
         $endAD   = end($nowData['periodAD'])->toDateString();
-        $holidayRows = Holiday::whereDate('date', '>=', $startAD)
-            ->whereDate('date', '<=', $endAD)
-            ->where('status', true)
-            ->get()
-            ->keyBy(fn ($h) => $h->date->format('Y-m-d'));
+        $presentDates = $currentDeviceId
+            ? DB::table('attendacelogs')
+                ->where('user_id', $currentDeviceId)
+                ->whereBetween('at', [$startAD . ' 00:00:00', $endAD . ' 23:59:59'])
+                ->selectRaw('DATE(at) as log_date')
+                ->distinct()
+                ->pluck('log_date')
+                ->flip()
+            : collect();
+
+        $attendancePerDay = [];
+        foreach ($nowData['periodAD'] as $periodData) {
+            $attendancePerDay[] = $presentDates->has($periodData->format('Y-m-d'));
+        }
+
+        $holidayRows = collect();
+        if (Schema::hasTable('holiday')) {
+            $holidayQuery = Holiday::whereDate('date', '>=', $startAD)
+                ->whereDate('date', '<=', $endAD);
+
+            if (Schema::hasColumn('holiday', 'status')) {
+                $holidayQuery->where('status', true);
+            }
+
+            $holidayRows = $holidayQuery->get()
+                ->keyBy(fn ($h) => $h->date->format('Y-m-d'));
+        }
 
         // Approved leave days for the current user within this calendar month
         $leaveRowsByDate = [];
         $userId = auth()->id();
-        if ($userId) {
+        if ($userId && Schema::hasTable('leave_requests') && Schema::hasTable('leave_policies')) {
             LeaveRequest::with('policy')
                 ->where('user_id', $userId)
                 ->where('status', 'approved')
@@ -140,13 +144,13 @@ class HomeController extends Controller
         $leaveBalances  = [];
         $pendingCardReq = false;
 
-        if ($userId && !auth()->user()?->isAdmin()) {
+        if ($userId && ! $authUser->isAdmin()) {
             $latestNotices = Announcement::where('is_published', true)
                 ->latest()
                 ->limit(5)
                 ->get();
 
-            $user = auth()->user();
+            $user = $authUser;
             $userCategory = null;
             if ($user->working_at) {
                 $label = strtolower($user->working_at->label ?? '');
@@ -155,39 +159,43 @@ class HomeController extends Controller
             }
             [$fyStart, $fyEnd] = $this->currentFiscalYear();
 
-            $leaveBalances = LeavePolicy::where('is_active', true)
-                ->where(function ($q) use ($userCategory) {
-                    $q->where('applicable_to', 'all')
-                      ->orWhere('applicable_to', $userCategory);
-                })
-                ->get()
-                ->map(function ($policy) use ($userId, $fyStart, $fyEnd) {
-                    $query = LeaveRequest::where('user_id', $userId)
-                        ->where('leave_policy_id', $policy->id)
-                        ->where('status', 'approved');
-                    if ($policy->period_type === 'annual') {
-                        $query->whereBetween('start_date', [$fyStart, $fyEnd]);
-                    }
-                    $used = $query->sum('days_count');
-                    return [
-                        'policy'    => $policy,
-                        'used'      => $used,
-                        'remaining' => max(0, $policy->days_allowed - $used),
-                        'pct'       => $policy->days_allowed > 0
-                            ? min(100, round($used / $policy->days_allowed * 100))
-                            : 0,
-                    ];
-                });
+            if (Schema::hasTable('leave_policies') && Schema::hasTable('leave_requests')) {
+                $leaveBalances = LeavePolicy::where('is_active', true)
+                    ->where(function ($q) use ($userCategory) {
+                        $q->where('applicable_to', 'all')
+                          ->orWhere('applicable_to', $userCategory);
+                    })
+                    ->get()
+                    ->map(function ($policy) use ($userId, $fyStart, $fyEnd) {
+                        $query = LeaveRequest::where('user_id', $userId)
+                            ->where('leave_policy_id', $policy->id)
+                            ->where('status', 'approved');
+                        if ($policy->period_type === 'annual') {
+                            $query->whereBetween('start_date', [$fyStart, $fyEnd]);
+                        }
+                        $used = $query->sum('days_count');
+                        return [
+                            'policy'    => $policy,
+                            'used'      => $used,
+                            'remaining' => max(0, $policy->days_allowed - $used),
+                            'pct'       => $policy->days_allowed > 0
+                                ? min(100, round($used / $policy->days_allowed * 100))
+                                : 0,
+                        ];
+                    });
+            }
 
-            $pendingCardReq = StaffCardRequest::where('user_id', $userId)
-                ->whereIn('status', ['pending', 'approved', 'printed'])
-                ->exists();
+            if (Schema::hasTable('staff_card_requests')) {
+                $pendingCardReq = StaffCardRequest::where('user_id', $userId)
+                    ->whereIn('status', ['pending', 'approved', 'printed'])
+                    ->exists();
+            }
         }
 
         return view('hajiri.logs.index', compact(
             'attendanceLogs', 'nowData', 'attendancePerDay', 'npCal',
             'empolyeeData', 'holidayRows', 'leaveRowsByDate', 'setting',
-            'latestNotices', 'leaveBalances', 'pendingCardReq'
+            'latestNotices', 'leaveBalances', 'pendingCardReq', 'showPersonalAttendance'
         ));
     }
 

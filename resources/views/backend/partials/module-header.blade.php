@@ -1,8 +1,13 @@
 @php
-    $isStaffEmployee = auth()->check() && !auth()->user()->isAdmin() && auth()->user()->device_id;
+    $isStaffEmployee = auth()->check() && !auth()->user()->isAdmin()
+        && (auth()->user()->isTeacher() || auth()->user()->hasRole('staff') || auth()->user()->device_id);
     $isAdmin         = auth()->check() && auth()->user()->isAdmin();
-    $currentModule   = request()->is('admin/hr*') ? 'hr' : (request()->is('admin/id-card*') ? 'id-card' : (request()->is('admin/hajiri*') ? 'hajiri' : (request()->is('admin/learning*') ? 'learning' : 'website')));
+    $currentModule   = request()->is('admin/hr*') ? 'hr' : (request()->is('admin/students*', 'admin/id-card*') ? 'id-card' : (request()->is('admin/hajiri*') ? 'hajiri' : (request()->is('admin/learning*') ? 'learning' : (request()->is('admin/library*') ? 'library' : (request()->is('admin/work-tasks*') ? 'work-tasks' : (request()->is('admin/store*') ? 'store' : (request()->is('admin/billing*') ? 'billing' : 'website')))))));
     $user = auth()->user();
+    $hasCustomPermissions = $user?->permissions()->exists() ?? false;
+    $isNormalTeacher = $user?->isTeacher() && ! $user?->isAdmin() && ! $hasCustomPermissions;
+    $isScopedTeacher = $user?->isTeacher() && ! $user?->isSuperAdmin() && ! $user?->isPrincipal() && ! $user?->hasRole('administrator');
+    $hasLearningAssignment = ! $isScopedTeacher || ($user?->assignedLearningClasses()->exists() ?? false);
     $idCardUrl = route('card.dashboard');
     if ($user?->canAccess('students.view')) {
         $idCardUrl = route('students.index');
@@ -15,14 +20,19 @@
     }
 
     $moduleLinks = [
-        ['key' => 'website',  'label' => 'Website',  'sub' => 'Public site',       'url' => route('admin.dashboard'), 'show' => $user?->canAccess(['dashboard.admin', 'dashboard.view', 'dashboard.financial'])],
-        ['key' => 'hr',       'label' => 'HR',       'sub' => 'People master',     'url' => route('admin.hr.members.index'), 'show' => $user?->canAccess(['hr.members.view', 'hr.members.create', 'hr.members.edit', 'hr.members.delete']) && \App\Services\ModuleService::enabled('hr')],
-        ['key' => 'id-card',  'label' => 'ID Card',  'sub' => 'Cards & students',  'url' => $idCardUrl, 'show' => $user?->canAccess(['students.view', 'students.create', 'students.edit', 'students.delete', 'users.bulk-import', 'cards.view', 'cards.print', 'students.card-request', 'card-settings.view'])],
-        ['key' => 'hajiri',   'label' => 'Hajiri',   'sub' => 'Attendance',        'url' => route('hajiri.home'), 'show' => $user?->device_id || $user?->canAccess(['attendance.view', 'attendance.report', 'users.view', 'leaves.view', 'settings.view'])],
-        ['key' => 'learning', 'label' => 'Learning', 'sub' => 'Courses & tests',   'url' => route('admin.learning.dashboard'), 'show' => $user?->canAccess(['learning.courses.view', 'learning.students.view', 'learning.lessons.view', 'learning.resources.view', 'learning.quizzes.view', 'learning.reports.view'])],
+        ['key' => 'website',    'label' => 'Website',    'sub' => 'Public site',      'url' => route('admin.dashboard'),            'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['dashboard.admin', 'dashboard.view', 'dashboard.financial'])],
+        ['key' => 'hr',         'label' => 'HR',         'sub' => 'People master',    'url' => route('admin.hr.members.index'),      'show' => $isAdmin && $user?->canAccess(['hr.members.view', 'hr.members.create', 'hr.members.edit', 'hr.members.delete']) && \App\Services\ModuleService::enabled('hr')],
+        ['key' => 'id-card',    'label' => 'Students',   'sub' => 'Records & cards',  'url' => $idCardUrl,                          'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['students.view', 'students.create', 'students.edit', 'students.delete', 'users.bulk-import', 'cards.view', 'cards.print', 'students.card-request', 'card-settings.view']) && \App\Services\ModuleService::enabled('card')],
+        ['key' => 'hajiri',     'label' => 'Hajiri',     'sub' => 'Attendance',       'url' => route('hajiri.home'),                'show' => ($isAdmin || $isStaffEmployee) && ($isStaffEmployee || $user?->device_id || $user?->canAccess(['attendance.view', 'attendance.report', 'users.view', 'leaves.view', 'settings.view'])) && \App\Services\ModuleService::enabled('hajiri')],
+        ['key' => 'learning',   'label' => 'Learning',   'sub' => 'Courses & tests',  'url' => route('admin.learning.dashboard'),   'show' => ($isAdmin || $isScopedTeacher) && $hasLearningAssignment && $user?->canAccess(['learning.courses.view', 'learning.students.view', 'learning.lessons.view', 'learning.resources.view', 'learning.quizzes.view', 'learning.reports.view']) && \App\Services\ModuleService::enabled('learning')],
+        ['key' => 'store',      'label' => 'Store',      'sub' => 'Inventory',        'url' => route('admin.store.dashboard'),      'show' => $isAdmin && $user?->canAccess(['store.view', 'store.create', 'store.edit', 'store.delete', 'store.approve', 'store.reports']) && \App\Services\ModuleService::enabled('store')],
+        ['key' => 'library',    'label' => 'Library',    'sub' => 'Books & issue',    'url' => route('admin.library.dashboard'),    'show' => $isAdmin && $user?->canAccess(['library.view', 'library.create', 'library.edit', 'library.issue', 'library.reports']) && \App\Services\ModuleService::enabled('library')],
+        ['key' => 'billing',    'label' => 'Billing',    'sub' => 'Receipts & bills', 'url' => route('admin.billing.index'),        'show' => $isAdmin && $user?->canAccess(['billing.view', 'billing.create', 'billing.delete']) && \App\Services\ModuleService::enabled('billing')],
+        ['key' => 'work-tasks', 'label' => 'Work Tasks', 'sub' => 'Performance',      'url' => route('admin.work-tasks.index'),     'show' => $isAdmin && $user?->canAccess(['work-tasks.view', 'work-tasks.create', 'work-tasks.submit', 'work-tasks.review']) && \App\Services\ModuleService::enabled('work_tasks')],
     ];
     $visibleModuleLinks = collect($moduleLinks)->filter(fn($module) => $module['show'])->values();
     $showModuleSwitcher = $visibleModuleLinks->isNotEmpty();
+    $showSystemSettings = $user?->isSuperAdmin();
 
     // Notification counts — only computed for admins
     $notifLeaveReqs  = 0;
@@ -39,6 +49,17 @@
         $notifTotal      = $notifLeaveReqs + $notifStaffCards + $notifStudCards + $notifContacts;
     }
 
+    $workTaskBadge = 0;
+    if (\App\Services\ModuleService::enabled('work_tasks') && $user?->canAccess(['work-tasks.view', 'work-tasks.create', 'work-tasks.submit', 'work-tasks.review'])) {
+        try {
+            $workTaskBadge = $user?->canAccess(['work-tasks.review', 'work-tasks.create'])
+                ? \App\Models\Work\WorkTaskSubmission::where('status', 'submitted')->count()
+                : \App\Models\Work\WorkTask::pendingForUser($user)->count();
+        } catch (\Throwable) {
+            $workTaskBadge = 0;
+        }
+    }
+
     // Per-module badge counts for the switcher tabs
     $moduleBadges = [
         'hajiri'  => $notifLeaveReqs + $notifStaffCards,
@@ -46,6 +67,10 @@
         'website' => $notifContacts,
         'hr' => 0,
         'learning' => 0,
+        'store' => 0,
+        'library' => 0,
+        'billing' => 0,
+        'work-tasks' => $workTaskBadge,
     ];
 @endphp
 
@@ -60,19 +85,9 @@
             </svg>
         </button>
 
-            {{-- Brand + module switcher --}}
-            <a href="{{ $isAdmin ? route('admin.dashboard') : ($visibleModuleLinks->first()['url'] ?? route('hajiri.home')) }}" class="hidden sm:flex items-center gap-2.5 shrink-0">
-                <div class="w-8 h-8 bg-gray-50 border border-gray-200 rounded-lg p-1 flex items-center justify-center">
-                    <img src="{{ $siteSettings->logoUrl() }}" alt="{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}" class="w-full h-full object-contain">
-                </div>
-                <div class="hidden md:block">
-                    <p class="text-sm font-bold text-gray-900 leading-none">{{ $siteSettings->localized('site_name', 'Barchhain Secondary School') }}</p>
-                    <p class="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">{{ $isAdmin ? 'Unified ERP Platform' : 'Staff Portal' }}</p>
-                </div>
-            </a>
-
+            {{-- Module switcher --}}
             @if($showModuleSwitcher)
-            <nav class="flex flex-1 sm:flex-none min-w-0 items-center gap-1 p-1 bg-gray-100 rounded-xl border border-gray-200 overflow-x-auto">
+            <nav class="flex flex-1 min-w-0 items-center gap-1 p-1 bg-gray-100 rounded-xl border border-gray-200 overflow-x-auto">
                 @foreach($visibleModuleLinks as $m)
                 @php $badge = $moduleBadges[$m['key']] ?? 0; @endphp
                 <a href="{{ $m['url'] }}"
@@ -94,6 +109,68 @@
 
         {{-- Right side: notification bell + user chip --}}
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+
+            {{-- System Settings (super-admin only) --}}
+            @if($showSystemSettings)
+            <div class="relative" x-data="{ settingsOpen: false }" @click.outside="settingsOpen = false">
+                <button type="button"
+                        @click="settingsOpen = !settingsOpen"
+                        class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                        title="System settings">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <span class="hidden sm:inline text-xs font-extrabold">Settings</span>
+                    <svg class="hidden sm:block w-3.5 h-3.5 text-gray-400 transition-transform" :class="settingsOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+
+                <div x-show="settingsOpen"
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 translate-y-1"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-100"
+                     x-transition:leave-start="opacity-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 translate-y-1"
+                     class="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50"
+                     style="display:none;">
+                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                        <p class="text-sm font-extrabold text-gray-900">System Settings</p>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Super admin controls</p>
+                    </div>
+
+                    <div class="p-2">
+                        <a href="{{ route('admin.users.index') }}" @click="settingsOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors {{ request()->routeIs('admin.users.*') ? 'bg-green-50 text-[#1a5632]' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <span>Staff Roles</span>
+                        </a>
+                        <a href="{{ route('admin.modules.index') }}" @click="settingsOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors {{ request()->routeIs('admin.modules.*') ? 'bg-green-50 text-[#1a5632]' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                            <span>Module Access</span>
+                        </a>
+                        <a href="{{ route('admin.seo.index') }}" @click="settingsOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors {{ request()->routeIs('admin.seo.*') ? 'bg-green-50 text-[#1a5632]' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg>
+                            <span>SEO Optimizer</span>
+                        </a>
+                        <a href="{{ route('admin.principal.index') }}" @click="settingsOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors {{ request()->routeIs('admin.principal.*') ? 'bg-green-50 text-[#1a5632]' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>Principal Info</span>
+                        </a>
+                        <a href="{{ route('admin.settings.index') }}" @click="settingsOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors {{ request()->routeIs('admin.settings.*') ? 'bg-green-50 text-[#1a5632]' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h10M4 17h16"/></svg>
+                            <span>Site Configuration</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             {{-- Notification Bell (admin only) --}}
             @if($isAdmin)
@@ -185,10 +262,10 @@
                         </a>
                         @endif
 
-                        {{-- ── ID Card Module ── --}}
+                        {{-- ── Student Module ── --}}
                         @if($notifStudCards > 0)
                         <div class="px-4 pt-3 pb-1">
-                            <p class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">ID Card Module</p>
+                            <p class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Student Module</p>
                         </div>
                         <a href="{{ route('admin.card-requests') }}" @click="notifOpen = false"
                            class="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors group">
@@ -210,7 +287,7 @@
                         <div class="px-4 pt-3 pb-1">
                             <p class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Website</p>
                         </div>
-                        <a href="{{ route('contacts.index') }}" @click="notifOpen = false"
+                        <a href="{{ route('admin.contacts.index') }}" @click="notifOpen = false"
                            class="flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition-colors group">
                             <div class="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
                                 <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,6 +326,14 @@
                 <div class="w-8 h-8 rounded-full bg-[#1a5632] text-white flex items-center justify-center text-sm font-bold shrink-0">
                     {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
                 </div>
+                <a href="{{ route('account.password.edit') }}"
+                   class="flex items-center gap-1.5 rounded-lg border border-gray-200 p-2 text-xs font-bold text-gray-600 transition-colors hover:border-[#1a5632]/30 hover:bg-green-50 hover:text-[#1a5632] sm:px-3 sm:py-1.5"
+                   title="Change Password">
+                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                    <span class="hidden xl:inline">Password</span>
+                </a>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit"

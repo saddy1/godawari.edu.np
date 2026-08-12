@@ -1,6 +1,5 @@
 /.phpunit.cache
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /storage/*.key
@@ -17,3 +16,12 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Local biometric device credentials
+/hajiri sync/config.yaml
+/hajiri sync/.venv/
+/hajiri sync/build/
+/hajiri sync/dist/
+/hajiri sync/*.log
+/hajiri sync/data.json
+/hajiri sync/__pycache__/

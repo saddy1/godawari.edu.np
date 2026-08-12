@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 
 use App\Models\Card\Organization;
 use App\Models\Card\Student;
+use App\Models\LibraryLoan;
 use App\Services\MemberAccountService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -20,13 +21,13 @@ class StudentController extends Controller
 {
     protected function scopedStudentsQuery(array $ids = [])
     {
-        $query = Student::query();
+        $query = Student::query()->with(['updateRequests' => fn ($query) => $query
+            ->where('status', 'pending')
+            ->latest()]);
 
         if (!empty($ids)) {
             $query->whereIn('id', $ids);
         }
-
-        auth()->user()->applyStudentScope($query);
 
         return $query;
     }
@@ -48,16 +49,36 @@ class StudentController extends Controller
         }
     }
 
-    protected function ensureStudentAccess(Student $student): void
+    protected function hasActiveLibraryLoans(Student $student): bool
     {
-        if (auth()->user()->isSuperAdmin()) {
-            return;
-        }
+        return LibraryLoan::where('status', 'issued')
+            ->where(function ($query) use ($student) {
+                $query->where('student_id', $student->id);
+                if ($student->user_id) {
+                    $query->orWhere('user_id', $student->user_id);
+                }
+            })
+            ->exists();
+    }
 
-        $query = Student::query()->whereKey($student->id);
-        auth()->user()->applyStudentScope($query);
+    protected function deleteStudentRecord(Student $student): void
+    {
+        DB::transaction(function () use ($student) {
+            $student->loadMissing('user.roles');
+            $linkedUser = $student->user;
+            $shouldDeleteLinkedStudentLogin = $student->member_type === 'student'
+                && $linkedUser
+                && $linkedUser->hasRole('student')
+                && ! $linkedUser->isSuperAdmin();
 
-        abort_unless($query->exists(), 403);
+            $photoPath = $student->photo;
+            $student->delete();
+            $this->deleteStudentPhoto($photoPath);
+
+            if ($shouldDeleteLinkedStudentLogin) {
+                $linkedUser->delete();
+            }
+        });
     }
 
     public function index(Request $request)
@@ -65,16 +86,28 @@ class StudentController extends Controller
         $query = Student::query();
         $filterOptions = $this->buildFormOptions();
 
-        // Scope to admin's organization + optional department
-        auth()->user()->applyStudentScope($query);
-
         if ($request->filled('search')) {
-            $s = $request->search;
-            $query->where(function ($q) use ($s) {
-                $q->where('first_name', 'like', "%$s%")
-                  ->orWhere('last_name', 'like', "%$s%")
-                  ->orWhere('roll_number', 'like', "%$s%")
-                  ->orWhere('email', 'like', "%$s%");
+            $search = preg_replace('/\s+/', ' ', trim((string) $request->input('search')));
+            $nameTerms = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+
+            $query->where(function ($q) use ($search, $nameTerms) {
+                $q->whereRaw(
+                    "CONCAT_WS(' ', NULLIF(TRIM(first_name), ''), NULLIF(TRIM(middle_name), ''), NULLIF(TRIM(last_name), '')) LIKE ?",
+                    ["%{$search}%"]
+                )
+                    ->orWhere(function ($nameQuery) use ($nameTerms) {
+                        foreach ($nameTerms as $term) {
+                            $nameQuery->where(function ($partQuery) use ($term) {
+                                $partQuery->where('first_name', 'like', "%{$term}%")
+                                    ->orWhere('middle_name', 'like', "%{$term}%")
+                                    ->orWhere('last_name', 'like', "%{$term}%");
+                            });
+                        }
+                    })
+                    ->orWhere('roll_number', 'like', "%{$search}%")
+                    ->orWhere('registration_no', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('mobile', 'like', "%{$search}%");
             });
         }
 
@@ -95,7 +128,22 @@ class StudentController extends Controller
             ->whereDate('valid_till', '<', now()->toDateString())
             ->count();
 
-        $students = $query->latest()->paginate(15)->withQueryString();
+        $allowedPerPage = [10, 20, 40, 100];
+        $perPageParam = $request->per_page ?? '';
+
+        if ($perPageParam === 'all') {
+            $perPage = max(1, (clone $query)->count());
+        } elseif (in_array((int) $perPageParam, $allowedPerPage, true)) {
+            $perPage = (int) $perPageParam;
+        } else {
+            $perPage = 20;
+        }
+
+        $students = $query
+            ->orderByRaw('CASE WHEN member_type = ? THEN 0 WHEN member_type = ? THEN 1 ELSE 2 END', ['student', 'teacher'])
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString();
 
         return view('card.students.index', compact('students', 'filterOptions', 'expiredCount'));
     }
@@ -189,15 +237,11 @@ class StudentController extends Controller
 
     public function show(Student $student)
     {
-        $this->ensureStudentAccess($student);
-
         return view('card.students.show', compact('student'));
     }
 
     public function edit(Student $student)
     {
-        $this->ensureStudentAccess($student);
-
         return view('card.students.create', [
             'student' => $student,
             'formOptions' => $this->buildFormOptions(),
@@ -206,7 +250,15 @@ class StudentController extends Controller
 
     public function update(Request $request, Student $student)
     {
-        $this->ensureStudentAccess($student);
+        if ($student->member_type === 'student') {
+            $request->merge([
+                'organization' => $student->organization,
+                'member_type' => $student->member_type,
+                'stream' => $student->stream,
+                'section' => $student->section,
+                'roll_number' => $student->roll_number,
+            ]);
+        }
 
         $data = $request->validate([
             'organization'    => 'required|string|max:100',
@@ -303,12 +355,11 @@ class StudentController extends Controller
 
     public function destroy(Student $student)
     {
-        $this->ensureStudentAccess($student);
+        if ($this->hasActiveLibraryLoans($student)) {
+            return back()->with('error', "\"{$student->full_name}\" has active library loans. Return all borrowed books before deleting.");
+        }
 
-        $photoPath = $student->photo;
-        $student->delete();
-
-        $this->deleteStudentPhoto($photoPath);
+        $this->deleteStudentRecord($student);
 
         return redirect()->route('students.index')
                          ->with('success', 'Member deleted.');
@@ -362,17 +413,20 @@ class StudentController extends Controller
             'ids.*' => 'integer|exists:students,id',
         ]);
 
-        $students = Student::whereIn('id', $request->ids)->get(['id', 'photo']);
+        $students = Student::with('user.roles')->whereIn('id', $request->ids)->get();
         $count = $students->count();
 
         if ($count === 0) {
             return back()->with('error', 'No members selected for deletion.');
         }
 
-        Student::whereIn('id', $students->pluck('id'))->delete();
+        $blocked = $students->filter(fn ($student) => $this->hasActiveLibraryLoans($student));
+        if ($blocked->isNotEmpty()) {
+            return back()->with('error', 'Cannot delete the following members because they have active library loans: '.$blocked->pluck('full_name')->implode(', ').'. Return all borrowed books first.');
+        }
 
-        foreach ($students->pluck('photo')->filter()->unique() as $photoPath) {
-            $this->deleteStudentPhoto($photoPath);
+        foreach ($students as $student) {
+            $this->deleteStudentRecord($student);
         }
 
         return back()->with('success', "{$count} member(s) deleted successfully.");
@@ -380,11 +434,8 @@ class StudentController extends Controller
 
     protected function buildFormOptions(): array
     {
-        $user = auth()->user();
-
         if (Schema::hasTable('organizations') && Schema::hasTable('departments') && Schema::hasTable('sections')) {
             $organizations = Organization::where('is_active', true)
-                ->when(!$user->isSuperAdmin(), fn($query) => $query->where('slug', $user->organizationSlug()))
                 ->with(['activeDepartments.activeSections'])
                 ->orderBy('name')
                 ->get();
@@ -393,7 +444,6 @@ class StudentController extends Controller
                 $organization->slug => [
                     'label' => $organization->name,
                     'streams' => $organization->activeDepartments
-                        ->when(!$user->isSuperAdmin() && $user->departmentName(), fn($departments) => $departments->where('name', $user->departmentName()))
                         ->mapWithKeys(fn($department) => [
                             $department->name => $department->activeSections->pluck('name')->values()->all(),
                         ])
@@ -412,7 +462,6 @@ class StudentController extends Controller
             ->orderBy('organization')
             ->orderBy('stream')
             ->orderBy('section')
-            ->tap(fn($query) => $user->applyStudentScope($query))
             ->get();
 
         return $students

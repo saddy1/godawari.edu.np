@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'My Applications | ' . $siteSettings->localized('site_name', 'Barchhain Secondary School'))
+@section('title', 'My Applications | ' . $siteSettings->localized('site_name', 'School'))
 
 @section('content')
 <section class="pt-36 pb-16 bg-[#fdfbf7] min-h-screen">

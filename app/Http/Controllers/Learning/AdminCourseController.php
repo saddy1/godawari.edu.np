@@ -7,9 +7,11 @@ use App\Models\Learning\LearningClass;
 use App\Models\Learning\LearningCourse;
 use App\Models\Learning\LearningQuiz;
 use App\Models\Learning\LearningSubject;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
 
 class AdminCourseController extends Controller
@@ -17,15 +19,24 @@ class AdminCourseController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $classes = LearningClass::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        $subjects = LearningSubject::with('learningClass')->where('is_active', true)->orderBy('name')->get();
+        $isTeacherScoped = $this->isTeacherScoped($user);
+        $classIds = $isTeacherScoped
+            ? $user->assignedLearningClasses()->pluck('learning_classes.id')
+            : collect();
+        $subjectIds = $isTeacherScoped
+            ? $user->assignedLearningSubjects()->pluck('learning_subjects.id')
+            : collect();
+
+        $classes = LearningClass::where('is_active', true)
+            ->when($isTeacherScoped, fn ($query) => $query->whereIn('id', $classIds))
+            ->orderBy('sort_order')->orderBy('name')->get();
+        $subjects = LearningSubject::with('learningClass')->where('is_active', true)
+            ->when($isTeacherScoped, fn ($query) => $query->whereIn('id', $subjectIds)->whereIn('learning_class_id', $classIds))
+            ->orderBy('name')->get();
 
         $query = LearningCourse::with(['learningClass', 'subject', 'creator'])->orderByDesc('created_at');
 
-        if ($user->isTeacher()) {
-            $classIds   = $user->assignedLearningClasses()->pluck('learning_classes.id');
-            $subjectIds = $user->assignedLearningSubjects()->pluck('learning_subjects.id');
-
+        if ($isTeacherScoped) {
             $query->whereIn('learning_class_id', $classIds)
                 ->where(fn ($q) => $q->whereNull('learning_subject_id')
                     ->orWhereIn('learning_subject_id', $subjectIds));
@@ -58,6 +69,7 @@ class AdminCourseController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        $this->authorizeTarget($request->user(), $data);
         $data['created_by'] = $request->user()->id;
         $data['slug'] = $this->uniqueSlug($data['title']);
 
@@ -68,7 +80,9 @@ class AdminCourseController extends Controller
 
     public function update(Request $request, LearningCourse $course)
     {
+        abort_unless($request->user()->canManageLearningCourse($course), 403);
         $data = $this->validated($request);
+        $this->authorizeTarget($request->user(), $data);
         $data['slug'] = $course->title === $data['title'] ? $course->slug : $this->uniqueSlug($data['title'], $course->id);
 
         $course->update($data);
@@ -76,8 +90,9 @@ class AdminCourseController extends Controller
         return back()->with('success', 'Course updated.');
     }
 
-    public function destroy(LearningCourse $course)
+    public function destroy(Request $request, LearningCourse $course)
     {
+        abort_unless($request->user()->canManageLearningCourse($course), 403);
         $course->delete();
 
         return back()->with('success', 'Course deleted.');
@@ -85,7 +100,7 @@ class AdminCourseController extends Controller
 
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'learning_class_id' => ['required', 'exists:learning_classes,id'],
             'learning_subject_id' => ['nullable', 'exists:learning_subjects,id'],
             'title' => ['required', 'string', 'max:255'],
@@ -93,6 +108,45 @@ class AdminCourseController extends Controller
             'status' => ['required', Rule::in(['draft', 'published'])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
+
+        if (! empty($data['learning_subject_id']) && ! LearningSubject::query()
+            ->whereKey($data['learning_subject_id'])
+            ->where('learning_class_id', $data['learning_class_id'])
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'learning_subject_id' => 'The selected subject does not belong to the selected class.',
+            ]);
+        }
+
+        return $data;
+    }
+
+    private function isTeacherScoped(User $user): bool
+    {
+        return $user->isTeacher()
+            && ! $user->isSuperAdmin()
+            && ! $user->isPrincipal()
+            && ! $user->hasRole('administrator');
+    }
+
+    private function authorizeTarget(User $user, array $data): void
+    {
+        if (! $this->isTeacherScoped($user)) {
+            return;
+        }
+
+        $classAllowed = $user->assignedLearningClasses()
+            ->where('learning_classes.id', (int) $data['learning_class_id'])
+            ->exists();
+        $subjectAllowed = empty($data['learning_subject_id']) || $user->assignedLearningSubjects()
+            ->where('learning_subjects.id', (int) $data['learning_subject_id'])
+            ->exists();
+
+        if (! $classAllowed || ! $subjectAllowed) {
+            throw ValidationException::withMessages([
+                'learning_class_id' => 'You can manage courses only for your assigned class and subject.',
+            ]);
+        }
     }
 
     private function uniqueSlug(string $title, ?int $ignoreId = null): string

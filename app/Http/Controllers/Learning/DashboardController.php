@@ -10,6 +10,7 @@ use App\Models\Learning\LearningProgress;
 use App\Models\User;
 use App\Services\LearningClassSyncService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class DashboardController extends Controller
 {
@@ -66,6 +67,7 @@ class DashboardController extends Controller
         $classNames = $courses->pluck('learningClass.name')->filter()->unique()->values();
 
         $students = User::role('student')
+            ->whereHas('student', fn ($query) => $query->where('member_type', 'student'))
             ->when($isTeacherScoped, fn ($query) => $query->whereIn('class_grade', $classNames))
             ->orderBy('class_grade')
             ->orderBy('section')
@@ -123,6 +125,56 @@ class DashboardController extends Controller
             ];
         })->sortByDesc('avg_progress')->values();
 
+        $classOptions = $students->pluck('class_grade')->filter()->unique()->sort()->values();
+        $sectionOptions = $students->pluck('section')->filter()->unique()->sort()->values();
+
+        $progressSearch = trim((string) $request->input('progress_q', ''));
+        $progressClass = trim((string) $request->input('class', ''));
+        $progressSection = trim((string) $request->input('section', ''));
+        $perPageInput = (string) $request->input('per_page', '10');
+        $allowedPerPage = ['10', '39', '100', 'all'];
+        $perPageInput = in_array($perPageInput, $allowedPerPage, true) ? $perPageInput : '10';
+
+        $filteredStudentRows = $studentRows
+            ->when($progressSearch !== '', function ($rows) use ($progressSearch) {
+                $needle = mb_strtolower($progressSearch);
+
+                return $rows->filter(function ($row) use ($needle) {
+                    $student = $row['student'];
+                    $haystack = mb_strtolower(implode(' ', array_filter([
+                        $student->name,
+                        $student->student_code,
+                        $student->email,
+                        $student->class_grade,
+                        $student->section,
+                    ])));
+
+                    return str_contains($haystack, $needle);
+                });
+            })
+            ->when($progressClass !== '', fn ($rows) => $rows->filter(fn ($row) => ($row['student']->class_grade ?? '') === $progressClass))
+            ->when($progressSection !== '', fn ($rows) => $rows->filter(fn ($row) => ($row['student']->section ?? '') === $progressSection))
+            ->values();
+
+        $progressTotal = $filteredStudentRows->count();
+        $perPage = $perPageInput === 'all' ? max($progressTotal, 1) : (int) $perPageInput;
+        $currentPage = $perPageInput === 'all' ? 1 : LengthAwarePaginator::resolveCurrentPage();
+
+        $studentRows = new LengthAwarePaginator(
+            $filteredStudentRows->forPage($currentPage, $perPage)->values(),
+            $progressTotal,
+            $perPage,
+            $currentPage,
+            [
+                'path' => route('admin.learning.dashboard'),
+                'query' => $request->query(),
+            ]
+        );
+
+        if ($request->ajax()) {
+            return view('learning.admin.partials.student-progress-table', compact('studentRows'))->render();
+        }
+
         $recentActivity = LearningProgress::query()
             ->with(['user', 'course.learningClass', 'course.subject', 'lesson'])
             ->whereNotNull('learning_lesson_id')
@@ -152,6 +204,12 @@ class DashboardController extends Controller
             'completedLessonCount',
             'courseRows',
             'studentRows',
+            'classOptions',
+            'sectionOptions',
+            'progressSearch',
+            'progressClass',
+            'progressSection',
+            'perPageInput',
             'recentActivity',
             'isTeacherScoped'
         ));

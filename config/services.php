@@ -41,4 +41,8 @@ return [
         'redirect'      => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
     ],
 
+    'hajiri_sync' => [
+        'token' => env('HAJIRI_SYNC_TOKEN'),
+    ],
+
 ];

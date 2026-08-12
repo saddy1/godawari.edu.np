@@ -52,7 +52,7 @@ body { font-family: 'DejaVu Sans', sans-serif; background: white; }
 
 /* ── Inline card styles ───────────────────────────────────────
    Because dompdf renders in a single HTML context, we can't use
-   <iframe> — instead we @include each card partial directly.
+   <iframe> — instead we @@include each card partial directly.
    Each partial wraps itself in .card which already has
    width/height set to 85.6mm/54mm, so it fits the slot exactly.
 ──────────────────────────────────────────────────────────────── */
@@ -73,9 +73,9 @@ body { font-family: 'DejaVu Sans', sans-serif; background: white; }
 
     // Build a flat list of [student, type, view]
     $viewMap = [
-        'id'      => 'cards.id-card',
-        'library' => 'cards.library-card',
-        'bus'     => 'cards.bus-pass',
+        'id'      => 'card.cards.id-card',
+        'library' => 'card.cards.library-card',
+        'bus'     => 'card.cards.bus-pass',
     ];
 
     $allCards = [];

@@ -14,6 +14,8 @@ class AdminPermissionMatrix
                         'label' => 'Dashboard',
                         'permissions' => [
                             'view' => 'dashboard.admin',
+                            'general' => 'dashboard.view',
+                            'financial' => 'dashboard.financial',
                         ],
                     ],
                     'staff' => [
@@ -85,6 +87,33 @@ class AdminPermissionMatrix
                             'create' => 'vacancies.create',
                             'edit' => 'vacancies.edit',
                             'delete' => 'vacancies.delete',
+                            'applications' => 'vacancies.applications',
+                        ],
+                    ],
+                    'academics' => [
+                        'label' => 'Academics',
+                        'permissions' => [
+                            'view' => 'academics.view',
+                            'create' => 'academics.create',
+                            'edit' => 'academics.edit',
+                        ],
+                    ],
+                    'reports' => [
+                        'label' => 'Reports',
+                        'permissions' => [
+                            'view' => 'reports.view',
+                            'export' => 'reports.export',
+                            'schedule' => 'reports.schedule',
+                        ],
+                    ],
+                    'payroll' => [
+                        'label' => 'Payroll',
+                        'permissions' => [
+                            'view' => 'payroll.view',
+                            'create' => 'payroll.create',
+                            'process' => 'payroll.process',
+                            'approve' => 'payroll.approve',
+                            'report' => 'payroll.report',
                         ],
                     ],
                     'contacts' => [
@@ -104,6 +133,68 @@ class AdminPermissionMatrix
                     ],
                 ],
             ],
+            'billing' => [
+                'label' => 'Billing',
+                'components' => [
+                    'bills' => [
+                        'label' => 'Receipts & Bills',
+                        'permissions' => [
+                            'view' => 'billing.view',
+                            'create' => 'billing.create',
+                            'delete' => 'billing.delete',
+                        ],
+                    ],
+                ],
+            ],
+            'store' => [
+                'label' => 'Store Management',
+                'components' => [
+                    'inventory' => [
+                        'label' => 'Inventory Master',
+                        'permissions' => [
+                            'view' => 'store.view',
+                            'create' => 'store.create',
+                            'edit' => 'store.edit',
+                            'delete' => 'store.delete',
+                        ],
+                    ],
+                    'transactions' => [
+                        'label' => 'Demand, Purchase & Issue',
+                        'permissions' => [
+                            'view' => 'store.view',
+                            'create' => 'store.create',
+                            'approve' => 'store.approve',
+                        ],
+                    ],
+                    'reports' => [
+                        'label' => 'Government Forms & Ledgers',
+                        'permissions' => [
+                            'view' => 'store.reports',
+                        ],
+                    ],
+                ],
+            ],
+            'library' => [
+                'label' => 'Library',
+                'components' => [
+                    'catalog' => [
+                        'label' => 'Catalog & Copies',
+                        'permissions' => [
+                            'view' => 'library.view',
+                            'create' => 'library.create',
+                            'edit' => 'library.edit',
+                        ],
+                    ],
+                    'circulation' => [
+                        'label' => 'Issue, Return & Fines',
+                        'permissions' => [
+                            'view' => 'library.view',
+                            'issue' => 'library.issue',
+                            'reports' => 'library.reports',
+                        ],
+                    ],
+                ],
+            ],
             'hr' => [
                 'label' => 'HR',
                 'components' => [
@@ -116,10 +207,17 @@ class AdminPermissionMatrix
                             'delete' => 'hr.members.delete',
                         ],
                     ],
+                    'designations' => [
+                        'label' => 'Designations',
+                        'permissions' => [
+                            'view' => 'settings.view',
+                            'edit' => 'settings.edit',
+                        ],
+                    ],
                 ],
             ],
             'id-card' => [
-                'label' => 'ID Card',
+                'label' => 'Student Management',
                 'components' => [
                     'members' => [
                         'label' => 'Members',
@@ -150,6 +248,14 @@ class AdminPermissionMatrix
                         'permissions' => [
                             'view' => 'students.card-request',
                             'edit' => 'students.card-request',
+                        ],
+                    ],
+                    'certificates' => [
+                        'label' => 'Certificates',
+                        'permissions' => [
+                            'view' => 'hr.certificates.view',
+                            'create' => 'hr.certificates.create',
+                            'delete' => 'hr.certificates.delete',
                         ],
                     ],
                     'card-settings' => [
@@ -197,6 +303,7 @@ class AdminPermissionMatrix
                             'create' => 'leaves.create',
                             'edit' => 'leaves.approve',
                             'delete' => 'leaves.reject',
+                            'cancel' => 'leaves.cancel',
                         ],
                     ],
                     'hajiri-settings' => [
@@ -269,6 +376,32 @@ class AdminPermissionMatrix
                         'label' => 'Reports',
                         'permissions' => [
                             'view' => 'learning.reports.view',
+                        ],
+                    ],
+                ],
+            ],
+            'work-tasks' => [
+                'label' => 'Work Tasks',
+                'components' => [
+                    'tasks' => [
+                        'label' => 'Task Assignment',
+                        'permissions' => [
+                            'view' => 'work-tasks.view',
+                            'create' => 'work-tasks.create',
+                            'submit' => 'work-tasks.submit',
+                            'review' => 'work-tasks.review',
+                        ],
+                    ],
+                    'groups' => [
+                        'label' => 'Groups & Committees',
+                        'permissions' => [
+                            'manage' => 'work-groups.manage',
+                        ],
+                    ],
+                    'checklists' => [
+                        'label' => 'Task Checklists',
+                        'permissions' => [
+                            'manage' => 'work-checklists.manage',
                         ],
                     ],
                 ],

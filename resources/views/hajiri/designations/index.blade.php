@@ -142,7 +142,7 @@
         @csrf
         <input class="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/10"
                type="text" name="name" placeholder="Enter new designation name" required/>
-        <button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#e2a024] hover:bg-barchhain-gold-light text-white text-sm font-extrabold rounded-xl transition-colors shrink-0" type="submit">
+        <button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#e2a024] hover:bg-godawari-gold-light text-white text-sm font-extrabold rounded-xl transition-colors shrink-0" type="submit">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
             Add Designation
         </button>

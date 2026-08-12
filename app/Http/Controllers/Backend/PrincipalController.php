@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Media;
 use App\Models\Setting;
 use App\Support\SiteSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 
 class PrincipalController extends Controller
 {
@@ -33,6 +33,7 @@ class PrincipalController extends Controller
             'principal_message_ne' => 'nullable|string|max:255',
             'principal_quote_en'   => 'required|string|max:2000',
             'principal_quote_ne'   => 'nullable|string|max:2000',
+            'home_principal_image_media_path' => 'nullable|string|max:500',
             'home_principal_image' => 'nullable|file|mimes:png,jpg,jpeg,webp|max:4096',
         ]);
 
@@ -51,16 +52,57 @@ class PrincipalController extends Controller
             Setting::updateOrCreate(['key' => $key], ['value' => $value]);
         }
 
-        if ($request->hasFile('home_principal_image')) {
-            $img      = $request->file('home_principal_image');
-            $filename = 'principal-'.time().'.'.$img->getClientOriginalExtension();
-            File::ensureDirectoryExists(public_path('uploads/site'));
-            $img->move(public_path('uploads/site'), $filename);
-            Setting::updateOrCreate(['key' => 'home_principal_image'], ['value' => 'uploads/site/'.$filename]);
+        if ($mediaPath = $this->selectedMediaPath($request, 'home_principal_image_media_path')) {
+            $this->setPrincipalImagePath($mediaPath);
+        } elseif ($request->hasFile('home_principal_image')) {
+            $this->replacePrincipalImage($request);
         }
 
         app(SiteSettings::class)->clearCache();
 
         return back()->with('success', 'Principal settings saved successfully.');
+    }
+
+    private function replacePrincipalImage(Request $request): void
+    {
+        $file = $request->file('home_principal_image');
+        $filename = 'home-principal-image.' . strtolower($file->getClientOriginalExtension());
+        $relativePath = 'uploads/site/' . $filename;
+        $targetPath = public_path($relativePath);
+
+        File::ensureDirectoryExists(public_path('uploads/site'));
+
+        $oldPath = Setting::where('key', 'home_principal_image')->value('value');
+        if ($oldPath && str_starts_with($oldPath, 'uploads/site/')) {
+            $oldFullPath = public_path($oldPath);
+            if (File::exists($oldFullPath)) {
+                File::delete($oldFullPath);
+            }
+        }
+
+        if (File::exists($targetPath)) {
+            File::delete($targetPath);
+        }
+
+        $file->move(public_path('uploads/site'), $filename);
+        Setting::updateOrCreate(['key' => 'home_principal_image'], ['value' => $relativePath]);
+    }
+
+    private function selectedMediaPath(Request $request, string $field): ?string
+    {
+        $path = $request->input($field);
+
+        if (! $path) {
+            return null;
+        }
+
+        return Media::where('file_path', $path)
+            ->where('mime_type', 'like', 'image/%')
+            ->value('file_path');
+    }
+
+    private function setPrincipalImagePath(string $relativePath): void
+    {
+        Setting::updateOrCreate(['key' => 'home_principal_image'], ['value' => $relativePath]);
     }
 }

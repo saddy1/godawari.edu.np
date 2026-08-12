@@ -18,6 +18,9 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // The single account that may grant/revoke the super-admin role
+    'owner_email' => env('APP_OWNER_EMAIL', ''),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

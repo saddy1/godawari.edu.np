@@ -20,10 +20,19 @@ class NoticesController extends Controller
         $query->where('category', $category);
     }
 
-    // Get notices with pagination (10 per page)
-    $notices = $query->latest()->paginate(10)->withQueryString();
+    $noticeCategories = Announcement::where('type', 'notice')
+        ->where('is_published', true)
+        ->whereNotNull('category')
+        ->distinct()
+        ->orderBy('category')
+        ->pluck('category')
+        ->filter()
+        ->values();
 
-    return view('pages.notices', compact('notices', 'category'));
+    // Get notices with pagination (10 per page)
+    $notices = $query->latest()->paginate(12)->withQueryString();
+
+    return view('pages.notices', compact('notices', 'category', 'noticeCategories'));
     }
     /**
      * Display the specified notice/event to the public.

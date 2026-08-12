@@ -29,7 +29,12 @@
                 @php
                     $colors = ['pending'=>'yellow','approved'=>'green','rejected'=>'red'];
                     $c = $colors[$req->status] ?? 'gray';
-                    $fieldLabels = ['mobile'=>'Mobile','email'=>'Email','zone'=>'Province','district'=>'District','municipality'=>'Municipality'];
+                    $fieldLabels = [
+                        'dob_bs'=>'Date of Birth (BS)', 'father_name'=>'Father Name', 'mother_name'=>'Mother Name',
+                        'grandfather_name'=>'Grandfather Name', 'parent_contact'=>'Parent Contact',
+                        'mobile'=>'Mobile','email'=>'Email','zone'=>'Province','district'=>'District',
+                        'municipality'=>'Municipality','photo'=>'Profile Photo'
+                    ];
                 @endphp
                 <tr class="hover:bg-gray-50" x-data="{ open: false }">
                     <td class="px-6 py-4">
@@ -41,12 +46,20 @@
                             @foreach($req->requested_changes as $field => $value)
                                 <div class="text-xs">
                                     <span class="font-medium text-gray-600">{{ $fieldLabels[$field] ?? $field }}:</span>
-                                    @php $current = $req->student->$field; @endphp
-                                    @if($current)
-                                        <span class="text-red-500 line-through">{{ $current }}</span>
-                                        <span class="text-gray-400 mx-1">→</span>
+                                    @if($field === 'photo')
+                                        <div class="mt-2 flex items-center gap-2">
+                                            <img src="{{ $req->student->photo_url }}" alt="Current" class="h-20 w-16 rounded-lg border object-cover">
+                                            <span class="text-gray-400">→</span>
+                                            <img src="{{ asset($value) }}" alt="Requested" class="h-20 w-16 rounded-lg border border-green-300 object-cover">
+                                        </div>
+                                    @else
+                                        @php $current = $req->student->$field; @endphp
+                                        @if($current)
+                                            <span class="text-red-500 line-through">{{ $current }}</span>
+                                            <span class="text-gray-400 mx-1">→</span>
+                                        @endif
+                                        <span class="text-green-600 font-medium">{{ $value }}</span>
                                     @endif
-                                    <span class="text-green-600 font-medium">{{ $value }}</span>
                                 </div>
                             @endforeach
                         </div>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login — Barchhain Secondary School</title>
+    <title>Admin Login — Card Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -26,7 +26,7 @@
             <span class="font-bold text-primary text-xl">GC</span>
         </div>
         <h1 class="text-2xl font-bold text-white">Admin Portal</h1>
-        <p class="text-blue-200 text-sm mt-1">Barchhain Secondary School &mdash; Card Management</p>
+        <p class="text-blue-200 text-sm mt-1">Card Management System</p>
     </div>
 
     {{-- Card --}}

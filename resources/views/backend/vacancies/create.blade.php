@@ -77,10 +77,13 @@
             </div>
 
             <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">Featured Image (optional)</label>
-                <input type="file" name="featured_image" accept=".jpg,.jpeg,.png,.webp"
-                    class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20 focus:border-[#1a5632] transition-all file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#1a5632] file:text-white">
-                <p class="text-xs text-gray-400 mt-1">JPG/PNG/WebP. Max 4MB. Shown on the vacancies page.</p>
+                <x-admin-image-picker
+                    name="featured_image_media_path"
+                    file-name="featured_image"
+                    label="Featured Image"
+                    accept="image/jpeg,image/png,image/webp"
+                    help="Choose from Media or upload JPG, PNG, WEBP. Max 4MB. Shown on the vacancies page."
+                />
             </div>
 
             <div class="flex items-center gap-3 pt-2">
