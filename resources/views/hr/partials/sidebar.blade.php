@@ -77,16 +77,5 @@
         @endif
     </nav>
 
-    <div class="px-3 py-3 border-t shrink-0" style="border-color: rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);">
-        <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white text-xs font-bold border-2"
-                 style="background-color: var(--theme-primary, #1a5632); border-color: var(--theme-secondary, #e2a024);">
-                {{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="text-xs font-bold text-white truncate leading-tight">{{ auth()->user()->name ?? 'Admin' }}</p>
-                <p class="text-[10px] text-white/35 truncate leading-tight mt-0.5">{{ auth()->user()->role_label ?? 'Admin' }}</p>
-            </div>
-        </div>
-    </div>
+    @include('backend.partials.sidebar-user-footer')
 </aside>

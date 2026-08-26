@@ -97,7 +97,6 @@
                 $canPromote = auth()->user()->canAccess('students.edit');
                 $canCards = auth()->user()->canAccess(['cards.view', 'cards.print']);
                 $canRequests = auth()->user()->canAccess('students.card-request');
-                $canCardSettings = auth()->user()->canAccess('card-settings.view');
                 $canCertView = auth()->user()->canAccess('hr.certificates.view');
                 $canCertCreate = auth()->user()->canAccess('hr.certificates.create');
             @endphp
@@ -206,17 +205,6 @@
             </a>
             @endif
 
-            {{-- Super Admin only --}}
-            @if($canCardSettings)
-                <p class="erp-card-section px-2 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest">Administration</p>
-                <a href="{{ route('settings.index') }}"
-                   @click="sidebarOpen = false"
-                   class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('settings.*') ? 'active' : 'erp-card-muted' }}">
-                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    <span class="flex-1 truncate">Settings</span>
-                </a>
-            @endif
-
             {{-- Student Portal --}}
             <p class="erp-card-section px-2 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest">Portal</p>
             <a href="{{ route('student.login') }}" target="_blank"
@@ -227,25 +215,7 @@
             </a>
         </nav>
 
-        {{-- User Footer --}}
-        <div class="px-3 py-3 border-t shrink-0 sidebar-footer" style="border-color: rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);">
-            <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white text-xs font-bold border-2"
-                     style="background-color: var(--theme-primary, #1a5632); border-color: var(--theme-secondary, #e2a024);">
-                    {{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}
-                </div>
-                <div class="min-w-0 flex-1">
-                    <p class="text-xs font-bold text-white truncate leading-tight">{{ auth()->user()->name ?? 'Admin' }}</p>
-                    <p class="text-[10px] text-white/35 truncate leading-tight mt-0.5">{{ auth()->user()->role_label ?? 'Admin' }}</p>
-                </div>
-                <form method="POST" action="{{ route('logout') }}" class="shrink-0">
-                    @csrf
-                    <button type="submit" class="p-1.5 text-white/30 hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Logout">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                    </button>
-                </form>
-            </div>
-        </div>
+        @include('backend.partials.sidebar-user-footer', ['showSidebarSystemSettings' => false])
     </aside>
 
     {{-- Main Content --}}

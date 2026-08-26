@@ -134,6 +134,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(\App\Models\Hajiri\AttendanceLogs::class, 'user_id', 'device_id');
     }
 
+    public function payslips()
+    {
+        return $this->hasMany(PayrollPayslip::class);
+    }
+
     public function organization()
     {
         return $this->belongsTo(\App\Models\Card\Organization::class);

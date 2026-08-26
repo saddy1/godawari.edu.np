@@ -32,7 +32,10 @@ class LogSlowRequests
         }
 
         // Add performance header for debugging
-        $response->header('X-Response-Time', round($duration, 2) . 'ms');
+        // Symfony's StreamedResponse/BinaryFileResponse do not expose
+        // Laravel's header() convenience method. The header bag is shared by
+        // every Symfony response type, including spreadsheet downloads.
+        $response->headers->set('X-Response-Time', round($duration, 2).'ms');
 
         return $response;
     }

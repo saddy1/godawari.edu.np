@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('billing.layouts.app')
 
 @section('title', 'Create Bill')
 
@@ -11,7 +11,7 @@
      })">
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <p class="text-xs font-bold uppercase tracking-widest text-gray-400">Billing</p>
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400">Salary / Pay Slip</p>
             <h1 class="mt-1 text-2xl font-extrabold text-gray-950">Create Bill</h1>
             <p class="mt-1 text-sm text-gray-500">Select an HR person when available, or type a custom name.</p>
         </div>

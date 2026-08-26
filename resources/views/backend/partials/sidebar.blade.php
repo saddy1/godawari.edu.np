@@ -70,6 +70,15 @@
         </a>
         @endif
 
+        @if(auth()->user()?->device_id && \App\Services\ModuleService::enabled('billing'))
+        <a href="{{ route('payroll.mine') }}"
+           class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
+                  {{ $active('my-payslips*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m4-5V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V7z"/></svg>
+            <span class="flex-1 truncate">My Payslips</span>
+        </a>
+        @endif
+
         {{-- ── Content ── --}}
         <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Content</p>
 
@@ -212,29 +221,5 @@
 
     </nav>
 
-    {{-- User Footer --}}
-    <div class="px-3 py-3 border-t shrink-0 sidebar-footer" style="border-color: rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);">
-        <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white text-xs font-bold border-2"
-                 style="background-color: var(--theme-primary, #1a5632); border-color: var(--theme-secondary, #e2a024);">
-                {{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="text-xs font-bold text-white truncate leading-tight">{{ auth()->user()->name ?? 'Admin' }}</p>
-                <p class="text-[10px] text-white/35 truncate leading-tight mt-0.5">{{ auth()->user()->role_label ?? 'Admin' }}</p>
-            </div>
-            <div class="flex items-center gap-1 shrink-0">
-                <a href="{{ route('account.password.edit') }}" title="Change Password"
-                   class="p-1.5 text-white/30 hover:text-white hover:bg-white/10 rounded-md transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-                </a>
-                <form method="POST" action="{{ route('logout') }}" class="shrink-0">
-                    @csrf
-                    <button type="submit" class="p-1.5 text-white/30 hover:text-white hover:bg-white/10 rounded-md transition-colors" title="Logout">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
+    @include('backend.partials.sidebar-user-footer')
 </aside>

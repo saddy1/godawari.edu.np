@@ -186,6 +186,7 @@
                                 @elseif($headerUser?->device_id)
                                     <a href="{{ route('hajiri.home') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-green-50 hover:text-[#1a5632]">{{ __('site.nav.my_dashboard') }}</a>
                                     <a href="{{ route('hajiri.my-leaves') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-green-50 hover:text-[#1a5632]">{{ __('site.nav.my_leaves') }}</a>
+                                    @if(\App\Services\ModuleService::enabled('billing'))<a href="{{ route('payroll.mine') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-green-50 hover:text-[#1a5632]">My Payslips</a>@endif
                                 @else
                                     @if($vacancyModuleEnabled)
                                         <a href="{{ route('account.applications.index') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-green-50 hover:text-[#1a5632]">{{ __('site.nav.my_applications') }}</a>
@@ -433,6 +434,7 @@
                         <a href="{{ route('student.dashboard') }}" class="rounded-xl bg-[#1a5632] py-2 text-center text-xs font-bold text-white hover:bg-[#0b2415] transition-colors">{{ __('site.nav.student_portal') }}</a>
                     @elseif($headerUser?->device_id)
                         <a href="{{ route('hajiri.home') }}" class="rounded-xl bg-[#1a5632] py-2 text-center text-xs font-bold text-white hover:bg-[#0b2415] transition-colors">{{ __('site.nav.my_dashboard') }}</a>
+                        @if(\App\Services\ModuleService::enabled('billing'))<a href="{{ route('payroll.mine') }}" class="rounded-xl bg-green-50 py-2 text-center text-xs font-bold text-[#1a5632]">My Payslips</a>@endif
                     @elseif($vacancyModuleEnabled)
                         <a href="{{ route('account.applications.index') }}" class="rounded-xl bg-gray-100 py-2 text-center text-xs font-bold text-gray-700 hover:bg-gray-200 transition-colors">{{ __('site.nav.applications') }}</a>
                     @endif

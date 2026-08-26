@@ -134,7 +134,7 @@ class AdminPermissionMatrix
                 ],
             ],
             'billing' => [
-                'label' => 'Billing',
+                'label' => 'Salary / Pay Slip',
                 'components' => [
                     'bills' => [
                         'label' => 'Receipts & Bills',
@@ -142,6 +142,14 @@ class AdminPermissionMatrix
                             'view' => 'billing.view',
                             'create' => 'billing.create',
                             'delete' => 'billing.delete',
+                        ],
+                    ],
+                    'payroll' => [
+                        'label' => 'Payroll & Payslips',
+                        'permissions' => [
+                            'view' => 'billing.view',
+                            'upload / re-upload' => 'billing.create',
+                            'print' => 'billing.view',
                         ],
                     ],
                 ],

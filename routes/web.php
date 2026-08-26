@@ -24,6 +24,7 @@ use App\Http\Controllers\Backend\HomeContentController;
 use App\Http\Controllers\Backend\CmsMenuController;
 use App\Http\Controllers\Backend\CmsPageController as BackendCmsPageController;
 use App\Http\Controllers\Backend\BillingController;
+use App\Http\Controllers\Backend\PayrollController;
 use App\Http\Controllers\Backend\StoreController;
 use App\Http\Controllers\CmsPageController;
 use App\Http\Controllers\Backend\AdminUserController;
@@ -201,6 +202,10 @@ Route::get('/auth/google/callback', [SocialiteController::class, 'handleGoogleCa
 Route::get('/my-store-items', [StoreController::class, 'myIssuedItems'])
     ->middleware(['auth', 'verified'])
     ->name('store.my-items');
+Route::middleware(['auth', 'module.enabled:billing'])->group(function () {
+    Route::get('/my-payslips', [PayrollController::class, 'myIndex'])->name('payroll.mine');
+    Route::get('/my-payslips/{payslip}', [PayrollController::class, 'myShow'])->name('payroll.mine.show');
+});
 // backend dashboard route
 Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
 
@@ -215,6 +220,16 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
         Route::post('/', [BillingController::class, 'store'])->middleware('permission:billing.create')->name('store');
         Route::get('/people/search', [BillingController::class, 'searchPeople'])->middleware('permission:billing.create')->name('people.search');
         Route::get('/items/search', [BillingController::class, 'searchItems'])->middleware('permission:billing.create')->name('items.search');
+        Route::prefix('payroll')->name('payroll.')->group(function () {
+            Route::get('/', [PayrollController::class, 'index'])->middleware('permission:billing.view')->name('index');
+            Route::get('/template', [PayrollController::class, 'downloadTemplate'])->middleware('permission:billing.create')->name('template');
+            Route::get('/upload', [PayrollController::class, 'upload'])->middleware('permission:billing.create')->name('upload');
+            Route::post('/preview', [PayrollController::class, 'preview'])->middleware('permission:billing.create')->name('preview');
+            Route::post('/commit', [PayrollController::class, 'commit'])->middleware('permission:billing.create')->name('commit');
+            Route::get('/batch/{batch}', [PayrollController::class, 'batch'])->middleware('permission:billing.view')->name('batch');
+            Route::get('/batch/{batch}/print', [PayrollController::class, 'printBatch'])->middleware('permission:billing.view')->name('batch.print');
+            Route::get('/payslip/{payslip}', [PayrollController::class, 'show'])->middleware('permission:billing.view')->name('show');
+        });
         Route::get('/{bill}', [BillingController::class, 'show'])->middleware('permission:billing.view')->name('show');
         Route::delete('/{bill}', [BillingController::class, 'destroy'])->middleware('permission:billing.delete')->name('destroy');
     });

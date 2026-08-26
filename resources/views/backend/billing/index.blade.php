@@ -1,20 +1,23 @@
-@extends('layouts.admin')
+@extends('billing.layouts.app')
 
-@section('title', 'Billing')
+@section('title', 'Salary / Pay Slip')
 
 @section('content')
 <div class="max-w-7xl mx-auto space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <p class="text-xs font-bold uppercase tracking-widest text-gray-400">Accounts</p>
-            <h1 class="mt-1 text-2xl font-extrabold text-gray-950">Billing</h1>
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400">Salary / Pay Slip</p>
+            <h1 class="mt-1 text-2xl font-extrabold text-gray-950">Bills & Receipts</h1>
             <p class="mt-1 text-sm text-gray-500">Create cash receipts and payment vouchers with printable school bills.</p>
         </div>
-        @can('billing.create')
-        <a href="{{ route('admin.billing.create') }}" class="inline-flex items-center justify-center rounded-xl bg-[#1a5632] px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-[#0b2415]">
-            + New Bill
-        </a>
-        @endcan
+        <div class="flex flex-wrap gap-2">
+            @can('billing.view')
+            <a href="{{ route('admin.billing.payroll.index') }}" class="inline-flex items-center justify-center rounded-xl border border-[#1a5632] px-5 py-3 text-sm font-extrabold text-[#1a5632] hover:bg-green-50">Payroll & Payslips</a>
+            @endcan
+            @can('billing.create')
+            <a href="{{ route('admin.billing.create') }}" class="inline-flex items-center justify-center rounded-xl bg-[#1a5632] px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-[#0b2415]">+ New Bill</a>
+            @endcan
+        </div>
     </div>
 
     @if(session('success'))

@@ -80,4 +80,5 @@
         </a>
         @endif
     </nav>
+    @include('backend.partials.sidebar-user-footer')
 </aside>

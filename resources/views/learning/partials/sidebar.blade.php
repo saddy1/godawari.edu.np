@@ -155,28 +155,5 @@
 
     </nav>
 
-    {{-- User footer --}}
-    <div class="px-3 py-3 border-t shrink-0"
-         style="border-color: rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);">
-        <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white text-xs font-bold border-2"
-                 style="background-color: var(--theme-primary, #1a5632); border-color: var(--theme-secondary, #e2a024);">
-                {{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="text-xs font-bold text-white truncate leading-tight">{{ auth()->user()->name ?? 'Admin' }}</p>
-                <p class="text-[10px] text-white/35 truncate leading-tight mt-0.5">{{ auth()->user()->role_label ?? 'Admin' }}</p>
-            </div>
-            <a href="{{ route('account.password.edit') }}" title="Change Password"
-               class="shrink-0 rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-            </a>
-            <form method="POST" action="{{ route('logout') }}" class="shrink-0">
-                @csrf
-                <button type="submit" class="rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/10 hover:text-white" title="Logout">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                </button>
-            </form>
-        </div>
-    </div>
+    @include('backend.partials.sidebar-user-footer')
 </aside>

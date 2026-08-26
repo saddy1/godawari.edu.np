@@ -1,0 +1,8 @@
+@extends('billing.layouts.app')
+@section('title', $payslip->batch->period_label.' Payslip')
+@push('styles')<style>
+    .payslip-sheet{max-width:900px;margin:auto;background:#fff;border:1px solid #111;padding:20px;color:#111}.slip-heading{text-align:center}.slip-heading h1{font-size:26px;font-weight:900}.slip-heading h2{font-size:20px;font-weight:800;margin-bottom:12px}.slip-table{width:100%;border-collapse:collapse}.slip-table th,.slip-table td{border:1px solid #111;padding:8px}.identity th{width:18%;text-align:left}.salary{margin-top:12px}.salary th{text-align:center;font-weight:900}.salary td:nth-child(2),.salary td:nth-child(4){text-align:right}.totals{background:#f3f4f6}.words{border:1px solid #111;border-top:0;padding:10px}.bank{margin-top:12px}.signatures{display:flex;justify-content:space-between;padding:65px 35px 10px}.signatures div{display:flex;flex-direction:column;gap:7px;text-align:center}.print-only{display:none}@media print{body{background:#fff}.no-print,aside,body>div>div>header,body>div>div>div:first-of-type{display:none!important}body>div,.payslip-wrap{display:block!important;height:auto!important;overflow:visible!important}.payslip-sheet{border:0;max-width:none;padding:0}.print-only{display:block}@page{size:A4 portrait;margin:10mm}}
+</style>@endpush
+@section('content')
+<div class="payslip-wrap space-y-4"><div class="no-print mx-auto flex max-w-[900px] justify-between"><a href="{{ $backUrl }}" class="rounded-xl border px-4 py-2.5 text-sm font-extrabold text-gray-700">Back</a><button onclick="window.print()" class="rounded-xl bg-[#1a5632] px-5 py-2.5 text-sm font-extrabold text-white">Print Payslip</button></div>@include('backend.payroll._slip')</div>
+@endsection

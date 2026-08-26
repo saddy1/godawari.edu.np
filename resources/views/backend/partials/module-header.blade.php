@@ -3,12 +3,14 @@
         && (auth()->user()->isTeacher() || auth()->user()->hasRole('staff') || auth()->user()->device_id);
     $isAdmin         = auth()->check() && auth()->user()->isAdmin();
     $currentModule   = request()->is('admin/hr*') ? 'hr' : (request()->is('admin/students*', 'admin/id-card*') ? 'id-card' : (request()->is('admin/hajiri*') ? 'hajiri' : (request()->is('admin/learning*') ? 'learning' : (request()->is('admin/library*') ? 'library' : (request()->is('admin/work-tasks*') ? 'work-tasks' : (request()->is('admin/store*') ? 'store' : (request()->is('admin/billing*') ? 'billing' : 'website')))))));
+    if (request()->is('my-payslips*')) $currentModule = 'billing';
     $user = auth()->user();
     $hasCustomPermissions = $user?->permissions()->exists() ?? false;
     $isNormalTeacher = $user?->isTeacher() && ! $user?->isAdmin() && ! $hasCustomPermissions;
     $isScopedTeacher = $user?->isTeacher() && ! $user?->isSuperAdmin() && ! $user?->isPrincipal() && ! $user?->hasRole('administrator');
     $hasLearningAssignment = ! $isScopedTeacher || ($user?->assignedLearningClasses()->exists() ?? false);
     $idCardUrl = route('card.dashboard');
+    $salaryUrl = $isAdmin ? route('admin.billing.payroll.index') : route('payroll.mine');
     if ($user?->canAccess('students.view')) {
         $idCardUrl = route('students.index');
     } elseif ($user?->canAccess(['cards.view', 'cards.print'])) {
@@ -27,12 +29,14 @@
         ['key' => 'learning',   'label' => 'Learning',   'sub' => 'Courses & tests',  'url' => route('admin.learning.dashboard'),   'show' => ($isAdmin || $isScopedTeacher) && $hasLearningAssignment && $user?->canAccess(['learning.courses.view', 'learning.students.view', 'learning.lessons.view', 'learning.resources.view', 'learning.quizzes.view', 'learning.reports.view']) && \App\Services\ModuleService::enabled('learning')],
         ['key' => 'store',      'label' => 'Store',      'sub' => 'Inventory',        'url' => route('admin.store.dashboard'),      'show' => $isAdmin && $user?->canAccess(['store.view', 'store.create', 'store.edit', 'store.delete', 'store.approve', 'store.reports']) && \App\Services\ModuleService::enabled('store')],
         ['key' => 'library',    'label' => 'Library',    'sub' => 'Books & issue',    'url' => route('admin.library.dashboard'),    'show' => $isAdmin && $user?->canAccess(['library.view', 'library.create', 'library.edit', 'library.issue', 'library.reports']) && \App\Services\ModuleService::enabled('library')],
-        ['key' => 'billing',    'label' => 'Billing',    'sub' => 'Receipts & bills', 'url' => route('admin.billing.index'),        'show' => $isAdmin && $user?->canAccess(['billing.view', 'billing.create', 'billing.delete']) && \App\Services\ModuleService::enabled('billing')],
+        ['key' => 'billing',    'label' => 'Salary / Pay Slip', 'sub' => 'Payroll & salary slips', 'url' => $salaryUrl, 'show' => (($isAdmin && $user?->canAccess(['billing.view', 'billing.create', 'billing.delete'])) || ($isStaffEmployee && $user?->device_id)) && \App\Services\ModuleService::enabled('billing')],
         ['key' => 'work-tasks', 'label' => 'Work Tasks', 'sub' => 'Performance',      'url' => route('admin.work-tasks.index'),     'show' => $isAdmin && $user?->canAccess(['work-tasks.view', 'work-tasks.create', 'work-tasks.submit', 'work-tasks.review']) && \App\Services\ModuleService::enabled('work_tasks')],
     ];
     $visibleModuleLinks = collect($moduleLinks)->filter(fn($module) => $module['show'])->values();
+    $desktopModuleColumns = max(1, min(6, (int) ceil($visibleModuleLinks->count() / 2)));
+    $primaryModuleLinks = $visibleModuleLinks;
     $showModuleSwitcher = $visibleModuleLinks->isNotEmpty();
-    $showSystemSettings = $user?->isSuperAdmin();
+    $showSystemSettings = false;
 
     // Notification counts — only computed for admins
     $notifLeaveReqs  = 0;
@@ -74,8 +78,14 @@
     ];
 @endphp
 
-<header class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm shrink-0">
-    <div class="flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-6 h-16 min-w-0">
+<style>
+    .erp-module-switcher { scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent; scroll-behavior:smooth; overscroll-behavior-inline:contain; }
+    .erp-module-switcher::-webkit-scrollbar { height:4px; }
+    .erp-module-switcher::-webkit-scrollbar-track { background:transparent; }
+    .erp-module-switcher::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+</style>
+<header class="sticky top-0 z-30 shrink-0 border-b border-gray-200 bg-slate-50 shadow-sm" style="background:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary,#1a5632) 8%,white),color-mix(in srgb,var(--theme-secondary,#e2a024) 7%,white));">
+    <div class="flex min-h-14 min-w-0 items-center justify-between gap-2 px-2.5 py-2 sm:px-4">
 
         {{-- Mobile hamburger --}}
         <button @click="sidebarOpen = true"
@@ -87,27 +97,53 @@
 
             {{-- Module switcher --}}
             @if($showModuleSwitcher)
-            <nav class="flex flex-1 min-w-0 items-center gap-1 p-1 bg-gray-100 rounded-xl border border-gray-200 overflow-x-auto">
-                @foreach($visibleModuleLinks as $m)
+            <nav x-data="{ moreOpen: false }" @click.outside="moreOpen = false" aria-label="ERP modules"
+                 class="erp-module-switcher relative flex min-w-0 flex-1 items-center gap-1.5 overflow-visible rounded-2xl border border-white/90 bg-white/60 p-1.5 shadow-sm lg:grid lg:items-stretch"
+                 style="grid-template-columns:repeat({{ $desktopModuleColumns }},minmax(0,1fr));">
+                @foreach($primaryModuleLinks as $m)
                 @php $badge = $moduleBadges[$m['key']] ?? 0; @endphp
                 <a href="{{ $m['url'] }}"
-                   class="relative flex flex-col items-start px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all
+                   @if($currentModule === $m['key']) aria-current="page" @endif
+                   class="relative hidden min-h-14 min-w-0 flex-col items-start justify-center whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-bold transition-all duration-200 lg:flex
                           {{ $currentModule === $m['key']
-                              ? 'bg-[#1a5632] text-white shadow-sm'
-                              : 'text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm' }}">
-                    <span class="text-[13px] font-extrabold leading-tight">{{ $m['label'] }}</span>
-                    <span class="hidden sm:block text-[10px] font-semibold opacity-70 leading-none mt-0.5">{{ $m['sub'] }}</span>
+                              ? 'border-transparent bg-[#1a5632] text-white shadow-md ring-1 ring-black/5'
+                              : 'border-slate-200 bg-white/95 text-slate-700 shadow-sm hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:text-slate-950 hover:shadow-md' }}">
+                    <span class="block w-full truncate text-sm font-extrabold leading-tight {{ $badge > 0 ? 'pr-8' : '' }}" title="{{ $m['label'] }}">{{ $m['label'] }}</span>
+                    <span class="mt-1 block w-full truncate text-[10px] font-semibold leading-none opacity-70" title="{{ $m['sub'] }}">{{ $m['sub'] }}</span>
                     @if($badge > 0)
-                    <span class="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center leading-none">
+                    <span class="absolute right-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black leading-none text-white shadow-sm ring-2 ring-white">
                         {{ $badge > 99 ? '99+' : $badge }}
                     </span>
                     @endif
                 </a>
                 @endforeach
+
+                @php $activeModule = $visibleModuleLinks->firstWhere('key', $currentModule) ?? $visibleModuleLinks->first(); @endphp
+                @if($activeModule)
+                <a href="{{ $activeModule['url'] }}" class="relative flex flex-col items-start rounded-lg bg-[#1a5632] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-sm lg:hidden">
+                    <span class="text-[13px] font-extrabold leading-tight">{{ $activeModule['label'] }}</span>
+                </a>
+                @endif
+
+                @if($visibleModuleLinks->count() > 1)
+                <div class="relative ml-auto shrink-0 lg:hidden">
+                    <button type="button" @click="moreOpen = !moreOpen" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-extrabold text-gray-700 transition-all hover:bg-white hover:shadow-sm">
+                        <span>Modules</span><svg class="h-3.5 w-3.5 transition-transform" :class="moreOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="moreOpen" x-transition class="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-2xl" style="display:none;">
+                        @foreach($visibleModuleLinks as $m)
+                        <a href="{{ $m['url'] }}" @click="moreOpen = false" class="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 {{ $currentModule === $m['key'] ? 'bg-green-50 text-[#1a5632]' : 'text-gray-700 hover:bg-gray-50' }}">
+                            <span><span class="block text-sm font-extrabold">{{ $m['label'] }}</span><span class="block text-[10px] font-semibold opacity-60">{{ $m['sub'] }}</span></span>
+                            @if(($moduleBadges[$m['key']] ?? 0) > 0)<span class="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white">{{ $moduleBadges[$m['key']] > 99 ? '99+' : $moduleBadges[$m['key']] }}</span>@endif
+                        </a>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
             </nav>
             @endif
 
-        {{-- Right side: notification bell + user chip --}}
+        {{-- Notifications only; settings and account controls live in each sidebar. --}}
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
             {{-- System Settings (super-admin only) --}}
@@ -317,31 +353,6 @@
             </div>
             @endif
 
-            {{-- User chip --}}
-            <div class="flex items-center gap-2 sm:gap-2.5">
-                <div class="hidden sm:block text-right">
-                    <p class="text-sm font-bold text-gray-900 leading-tight">{{ auth()->user()->name ?? 'User' }}</p>
-                    <p class="text-[10px] text-gray-400 leading-none mt-0.5">{{ auth()->user()->role_label ?? ($isStaffEmployee ? 'Staff' : 'Admin') }}</p>
-                </div>
-                <div class="w-8 h-8 rounded-full bg-[#1a5632] text-white flex items-center justify-center text-sm font-bold shrink-0">
-                    {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
-                </div>
-                <a href="{{ route('account.password.edit') }}"
-                   class="flex items-center gap-1.5 rounded-lg border border-gray-200 p-2 text-xs font-bold text-gray-600 transition-colors hover:border-[#1a5632]/30 hover:bg-green-50 hover:text-[#1a5632] sm:px-3 sm:py-1.5"
-                   title="Change Password">
-                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                    </svg>
-                    <span class="hidden xl:inline">Password</span>
-                </a>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit"
-                            class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-600 border border-gray-200 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors">
-                        Logout
-                    </button>
-                </form>
-            </div>
         </div>
     </div>
 </header>

@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('billing.layouts.app')
 
 @section('title', $bill->bill_no)
 
@@ -6,7 +6,7 @@
 <div class="mx-auto max-w-5xl space-y-5">
     <div class="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <p class="text-xs font-bold uppercase tracking-widest text-gray-400">Billing</p>
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400">Salary / Pay Slip</p>
             <h1 class="mt-1 text-2xl font-extrabold text-gray-950">{{ $bill->bill_no }}</h1>
         </div>
         <div class="flex gap-2">
