@@ -587,9 +587,9 @@ class ReportController extends Controller
     private function weekendLabel(Carbon $date): string
     {
         return match ($date->dayOfWeek) {
-            Carbon::SUNDAY => 'आइतबार',
-            Carbon::SATURDAY => 'शनिबार',
-            default => 'विदा',
+            Carbon::SUNDAY => 'Sunday',
+            Carbon::SATURDAY => 'Saturday',
+            default => 'Weekend',
         };
     }
 
