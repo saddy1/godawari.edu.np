@@ -27,6 +27,18 @@ class AdmissionsController extends Controller
 
    public function storeAdmission(Request $request)
     {
+        // Honeypot field is invisible to real visitors; only bots fill it in.
+        // A submission faster than 3 seconds after the form rendered is also
+        // almost certainly scripted. Pretend success either way.
+        $renderedAt = (int) $request->input('form_rendered_at');
+        if (filled($request->input('website')) || ($renderedAt && (time() - $renderedAt) < 3)) {
+            return back()->with('success', 'Your admission inquiry has been submitted successfully! Our team will contact you shortly.');
+        }
+
+        if ($request->session()->get('admission_submitted')) {
+            return back()->with('success', 'You have already submitted an admission inquiry. Our team will contact you shortly.');
+        }
+
         // 1. Validate the user's input
         $validated = $request->validate([
             'student_name' => 'required|string|max:255',
@@ -42,6 +54,8 @@ class AdmissionsController extends Controller
 
         // 2. Save exactly what was submitted to the database
         Admission::create($validated);
+
+        $request->session()->put('admission_submitted', true);
 
         // 3. Send them back to the form with a success message
         return back()->with('success', 'Your admission inquiry has been submitted successfully! Our team will contact you shortly.');

@@ -233,6 +233,13 @@
                 <form action="{{ route('contact.submit') }}#contact-form" method="POST" class="space-y-5">
                     @csrf
 
+                    {{-- Honeypot: hidden from humans, bots fill it in --}}
+                    <div style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true">
+                        <label for="website">Website</label>
+                        <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
+                    </div>
+                    <input type="hidden" name="form_rendered_at" value="{{ now()->timestamp }}">
+
                     <div class="grid gap-5 sm:grid-cols-2">
                         <div>
                             <label class="mb-2 block text-xs font-black uppercase tracking-wider"

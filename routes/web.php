@@ -70,7 +70,7 @@ Route::get('/about', [AboutController::class, 'index'])->name('about');
 
 // Admissions
 Route::get('/admissions', [App\Http\Controllers\AdmissionsController::class, 'index'])->middleware('module.enabled:admissions')->name('admissions');
-Route::post('/admissions', [App\Http\Controllers\AdmissionsController::class, 'storeAdmission'])->middleware('module.enabled:admissions')->name('admissions.store');
+Route::post('/admissions', [App\Http\Controllers\AdmissionsController::class, 'storeAdmission'])->middleware(['module.enabled:admissions', 'throttle:5,1'])->name('admissions.store');
 
 // Academics
 Route::get('/academics/elementary', [AcademicsController::class, 'elementary'])->name('academics.elementary');
@@ -93,7 +93,7 @@ Route::get('/news', [EventsController::class, 'news'])->name('news');
 Route::get('/news/{news:slug}', [NoticesController::class, 'show'])->name('news.show');
 // Contact
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
-Route::post('/contact', [ContactController::class, 'storeContact'])->name('contact.submit');
+Route::post('/contact', [ContactController::class, 'storeContact'])->middleware('throttle:5,1')->name('contact.submit');
 
 // Vacancies (public listing, apply requires verified auth)
 Route::get('/vacancies', [VacancyController::class, 'index'])->middleware('module.enabled:vacancy')->name('vacancies');
