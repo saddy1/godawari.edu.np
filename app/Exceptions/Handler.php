@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -26,5 +27,17 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+    }
+
+    /**
+     * Send visitors hitting an undefined URL back to the home page instead of a 404 error page.
+     */
+    public function render($request, Throwable $e)
+    {
+        if ($e instanceof NotFoundHttpException && ! $request->expectsJson()) {
+            return redirect('/');
+        }
+
+        return parent::render($request, $e);
     }
 }

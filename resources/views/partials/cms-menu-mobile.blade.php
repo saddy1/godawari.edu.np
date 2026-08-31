@@ -1,10 +1,10 @@
 @foreach($items as $item)
     @php
         $path = trim((string) parse_url($item->resolved_url, PHP_URL_PATH), '/');
-        $isActive = $path === '' ? request()->is('/') : request()->is($path) || request()->is($path.'/*');
+        $isActive = $item->resolved_url !== '#' && ($path === '' ? request()->is('/') : (request()->is($path) || request()->is($path.'/*')));
         $hasActiveChild = $item->children->contains(function ($child) {
             $childPath = trim((string) parse_url($child->resolved_url, PHP_URL_PATH), '/');
-            return $childPath === '' ? request()->is('/') : request()->is($childPath) || request()->is($childPath.'/*');
+            return $child->resolved_url !== '#' && ($childPath === '' ? request()->is('/') : (request()->is($childPath) || request()->is($childPath.'/*')));
         });
     @endphp
     @if($item->children->isNotEmpty())

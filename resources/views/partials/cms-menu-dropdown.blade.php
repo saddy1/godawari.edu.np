@@ -1,7 +1,7 @@
 @foreach($items as $item)
     @php
         $path = trim((string) parse_url($item->resolved_url, PHP_URL_PATH), '/');
-        $isActive = $path === '' ? request()->is('/') : request()->is($path) || request()->is($path.'/*');
+        $isActive = $item->resolved_url !== '#' && ($path === '' ? request()->is('/') : (request()->is($path) || request()->is($path.'/*')));
     @endphp
     <div class="relative group/drop">
         <a href="{{ $item->resolved_url }}" target="{{ $item->target }}"
