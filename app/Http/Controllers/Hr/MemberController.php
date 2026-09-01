@@ -312,6 +312,81 @@ class MemberController extends Controller
         return back()->with('success', "User account \"{$name}\" deleted.");
     }
 
+    // ── Bulk edit page: search-and-select members, then update in one go ───
+    public function bulkEdit()
+    {
+        $streams = Student::query()->whereNotNull('stream')->where('stream', '!=', '')->distinct()->orderBy('stream')->pluck('stream');
+        $sections = Student::query()->whereNotNull('section')->where('section', '!=', '')->distinct()->orderBy('section')->pluck('section');
+
+        return view('hr.members.bulk-edit', compact('streams', 'sections'));
+    }
+
+    public function bulkEditSearch(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+        $type = $request->input('type');
+        $stream = $request->input('stream');
+        $section = $request->input('section');
+
+        if ($q === '' && !$type && !$stream && !$section) {
+            return response()->json(['members' => []]);
+        }
+
+        $members = Student::query()
+            ->when($type, fn ($query) => $query->where('member_type', $type))
+            ->when($stream, fn ($query) => $query->where('stream', $stream))
+            ->when($section, fn ($query) => $query->where('section', $section))
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($inner) use ($q) {
+                    $inner->where('first_name', 'like', "%{$q}%")
+                        ->orWhere('middle_name', 'like', "%{$q}%")
+                        ->orWhere('last_name', 'like', "%{$q}%")
+                        ->orWhere('roll_number', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%")
+                        ->orWhere('mobile', 'like', "%{$q}%");
+                });
+            })
+            ->orderBy('first_name')
+            ->limit(30)
+            ->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number', 'member_type', 'stream', 'section', 'photo'])
+            ->map(fn (Student $s) => [
+                'id'          => $s->id,
+                'name'        => trim("{$s->first_name} {$s->middle_name} {$s->last_name}"),
+                'roll_number' => $s->roll_number,
+                'member_type' => $s->member_type,
+                'stream'      => $s->stream,
+                'section'     => $s->section,
+                'photo_url'   => $s->photo_url,
+            ]);
+
+        return response()->json(['members' => $members]);
+    }
+
+    // ── Bulk update class / section / valid till ────────────────────────────
+    public function bulkUpdate(Request $request)
+    {
+        $request->validate([
+            'ids'        => 'required|array|min:1',
+            'ids.*'      => 'integer|exists:students,id',
+            'valid_till' => 'nullable|date',
+            'stream'     => 'nullable|string|max:255',
+            'section'    => 'nullable|string|max:255',
+        ]);
+
+        $data = array_filter(
+            $request->only(['valid_till', 'stream', 'section']),
+            fn ($value) => filled($value)
+        );
+
+        if (empty($data)) {
+            return back()->with('error', 'Choose at least one field to update before applying to the selected members.');
+        }
+
+        $count = Student::whereIn('id', $request->ids)->update($data);
+
+        return back()->with('success', "{$count} member(s) updated.");
+    }
+
     public function bulkDestroy(Request $request)
     {
         $ids = array_values(array_filter(array_map('intval', (array) $request->input('ids', []))));

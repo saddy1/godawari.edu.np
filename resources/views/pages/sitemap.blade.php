@@ -8,7 +8,7 @@
     @foreach($urls as $url)
     <url>
         <loc>{{ $url['loc'] }}</loc>
-        <lastmod>{{ $url['lastmod'] ?? now()->toAtomString() }}</lastmod>
+        @isset($url['lastmod'])<lastmod>{{ $url['lastmod'] }}</lastmod>@endisset
         <changefreq>{{ $url['freq'] }}</changefreq>
         <priority>{{ $url['priority'] }}</priority>
     </url>

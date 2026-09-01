@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Announcement;
 use App\Models\Card\Student;
+use App\Models\CmsPage;
 use App\Models\HomeBanner;
 use App\Models\HomeContent;
 use App\Models\KeyPerson;
@@ -170,36 +171,52 @@ class HomeController extends Controller
 
     public function sitemap()
     {
-        $now = now()->toAtomString();
-
-        // Static pages
+        // Public landing pages. Omit artificial last-modified dates: a page should
+        // only claim a new date when its content has actually changed.
         $urls = [
-            ['loc' => route('home'),                 'priority' => '1.0', 'freq' => 'daily',   'lastmod' => $now],
-            ['loc' => route('about'),                'priority' => '0.9', 'freq' => 'monthly', 'lastmod' => $now],
-            ['loc' => route('admissions'),           'priority' => '0.9', 'freq' => 'weekly',  'lastmod' => $now],
-            ['loc' => route('academics.elementary'), 'priority' => '0.8', 'freq' => 'monthly', 'lastmod' => $now],
-            ['loc' => route('academics.primary'),    'priority' => '0.8', 'freq' => 'monthly', 'lastmod' => $now],
-            ['loc' => route('academics.secondary'),  'priority' => '0.8', 'freq' => 'monthly', 'lastmod' => $now],
-            ['loc' => route('gallery'),              'priority' => '0.7', 'freq' => 'weekly',  'lastmod' => $now],
-            ['loc' => route('news'),                 'priority' => '0.8', 'freq' => 'daily',   'lastmod' => $now],
-            ['loc' => route('events'),               'priority' => '0.8', 'freq' => 'weekly',  'lastmod' => $now],
-            ['loc' => route('notices'),              'priority' => '0.8', 'freq' => 'daily',   'lastmod' => $now],
-            ['loc' => route('frontend.faculty'),     'priority' => '0.7', 'freq' => 'monthly', 'lastmod' => $now],
-            ['loc' => route('vacancies'),            'priority' => '0.8', 'freq' => 'weekly',  'lastmod' => $now],
-            ['loc' => route('contact'),              'priority' => '0.7', 'freq' => 'yearly',  'lastmod' => $now],
-            ['loc' => route('privacy'),              'priority' => '0.3', 'freq' => 'yearly',  'lastmod' => $now],
-            ['loc' => route('terms'),                'priority' => '0.3', 'freq' => 'yearly',  'lastmod' => $now],
+            ['loc' => route('home'),             'priority' => '1.0', 'freq' => 'daily'],
+            ['loc' => route('about'),            'priority' => '0.9', 'freq' => 'monthly'],
+            ['loc' => route('admissions'),       'priority' => '0.9', 'freq' => 'weekly'],
+            ['loc' => route('gallery'),          'priority' => '0.7', 'freq' => 'weekly'],
+            ['loc' => route('news'),             'priority' => '0.8', 'freq' => 'daily'],
+            ['loc' => route('events'),           'priority' => '0.8', 'freq' => 'weekly'],
+            ['loc' => route('notices'),          'priority' => '0.8', 'freq' => 'daily'],
+            ['loc' => route('frontend.faculty'), 'priority' => '0.7', 'freq' => 'monthly'],
+            ['loc' => route('vacancies'),        'priority' => '0.7', 'freq' => 'weekly'],
+            ['loc' => route('contact'),          'priority' => '0.7', 'freq' => 'yearly'],
+            ['loc' => route('privacy'),          'priority' => '0.3', 'freq' => 'yearly'],
+            ['loc' => route('terms'),            'priority' => '0.3', 'freq' => 'yearly'],
         ];
 
-        // Dynamic announcement pages (news & events)
+        // Include every published CMS page, especially program pages such as
+        // /pages/bsc-csit and /pages/bbs. About has a shorter canonical route.
+        CmsPage::published()
+            ->where('slug', '!=', 'about-godawari-college')
+            ->orderBy('sort_order')
+            ->get(['slug', 'updated_at'])
+            ->each(function (CmsPage $page) use (&$urls) {
+                $urls[] = [
+                    'loc' => route('cms.pages.show', $page->slug),
+                    'priority' => in_array($page->slug, ['bsc-csit', 'bbs'], true) ? '0.9' : '0.7',
+                    'freq' => 'monthly',
+                    'lastmod' => $page->updated_at->toAtomString(),
+                ];
+            });
+
         $announcements = Announcement::where('is_published', true)
             ->whereNotNull('slug')
             ->latest()
             ->get(['slug', 'type', 'updated_at']);
 
         foreach ($announcements as $item) {
+            $routeName = match (strtolower((string) $item->type)) {
+                'event' => 'events.show',
+                'notice' => 'notices.show',
+                default => 'news.show',
+            };
+
             $urls[] = [
-                'loc'      => route('news.show', $item->slug),
+                'loc'      => route($routeName, $item->slug),
                 'priority' => '0.6',
                 'freq'     => 'monthly',
                 'lastmod'  => $item->updated_at->toAtomString(),
@@ -207,7 +224,8 @@ class HomeController extends Controller
         }
 
         return response()->view('pages.sitemap', compact('urls'))
-                         ->header('Content-Type', 'application/xml');
+            ->header('Content-Type', 'application/xml')
+            ->header('Cache-Control', 'public, max-age=3600');
     }
 
   

@@ -126,7 +126,41 @@
             <input type="hidden" name="roll_number" value="{{ $member->roll_number }}">
         @endif
 
-        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        {{-- ── Type gate: shown alone, before any other field, until a type is picked ── --}}
+        <section x-show="!typeChosen" x-cloak class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+            <p class="text-xs font-extrabold uppercase tracking-widest text-[#1a5632]">Step 1</p>
+            <h2 class="mt-1 text-2xl font-extrabold text-gray-950">Who are you adding?</h2>
+            <p class="mt-1 text-sm font-medium text-gray-500">Pick one to continue. The form below will only show the fields that type needs.</p>
+
+            <div class="mt-6 grid gap-4 md:grid-cols-3">
+                <button type="button" @click="memberType = 'student'; typeChosen = true"
+                        class="flex flex-col items-start rounded-2xl border-2 border-gray-200 bg-white p-5 text-left transition hover:border-[#1a5632] hover:bg-emerald-50">
+                    <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-[#1a5632]">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                    </span>
+                    <span class="mt-3 text-lg font-extrabold text-gray-950">Student</span>
+                    <span class="mt-1 text-xs font-semibold text-gray-500">Class, section, roll, guardian</span>
+                </button>
+                <button type="button" @click="memberType = 'teacher'; typeChosen = true"
+                        class="flex flex-col items-start rounded-2xl border-2 border-gray-200 bg-white p-5 text-left transition hover:border-[#1a5632] hover:bg-emerald-50">
+                    <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-[#1a5632]">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0v6m0-6L3 9m9 5v6M3 9v6a9 9 0 0018 0V9"/></svg>
+                    </span>
+                    <span class="mt-3 text-lg font-extrabold text-gray-950">Academic Employee</span>
+                    <span class="mt-1 text-xs font-semibold text-gray-500">Teacher, resources, attendance</span>
+                </button>
+                <button type="button" @click="memberType = 'staff'; typeChosen = true"
+                        class="flex flex-col items-start rounded-2xl border-2 border-gray-200 bg-white p-5 text-left transition hover:border-[#1a5632] hover:bg-emerald-50">
+                    <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-[#1a5632]">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    </span>
+                    <span class="mt-3 text-lg font-extrabold text-gray-950">Administrative Employee</span>
+                    <span class="mt-1 text-xs font-semibold text-gray-500">Office staff, attendance, payroll</span>
+                </button>
+            </div>
+        </section>
+
+        <section x-show="typeChosen" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-xs font-extrabold uppercase tracking-widest text-[#1a5632]">Step 1</p>
@@ -161,6 +195,11 @@
                     </span>
                 </label>
             </div>
+            @unless($lockAcademic)
+                <button type="button" @click="typeChosen = false" class="mt-3 text-xs font-extrabold text-gray-400 hover:text-[#1a5632] hover:underline">
+                    &larr; Change member type
+                </button>
+            @endunless
 
             <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div>
@@ -197,6 +236,8 @@
                 <input type="hidden" name="employee_category" :value="memberType === 'teacher' ? 'academic' : (memberType === 'staff' ? 'administrative' : '')">
             </div>
         </section>
+
+        <div x-show="typeChosen" x-cloak class="space-y-5">
 
         <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p class="text-xs font-extrabold uppercase tracking-widest text-[#1a5632]">Step 2</p>
@@ -600,6 +641,8 @@
             <a href="{{ route('admin.hr.members.index') }}" class="inline-flex justify-center rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-extrabold text-gray-700 hover:bg-gray-50">Cancel</a>
             <button class="rounded-xl bg-[#1a5632] px-5 py-3 text-sm font-extrabold text-white hover:bg-[#0b2415]">{{ $isEdit ? 'Update Member' : 'Create Member' }}</button>
         </div>
+
+        </div>
     </form>
 </div>
 
@@ -779,6 +822,8 @@ function photoCapture() {
             tempMunicipality: @json(old('temporary_municipality', $isEdit ? $member->temporary_municipality : '')),
             tempWard:         @json(old('temporary_ward',         $isEdit ? $member->temporary_ward         : '')),
             tempTole:         @json(old('temporary_tole',         $isEdit ? $member->temporary_tole         : '')),
+
+            typeChosen: @json($isEdit || (bool) old('member_type') || (bool) $p),
 
             sameAddress: @json(
                 old('same_address') !== null

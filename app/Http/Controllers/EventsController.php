@@ -28,8 +28,13 @@ class EventsController extends Controller
         ->get();
         return view('pages.events', compact('upcomingEvents', 'pastEvents'));
     }
-    public function show($event)
+    public function show(string $event)
     {
+        $event = Announcement::where('slug', $event)
+            ->where('type', 'event')
+            ->where('is_published', true)
+            ->firstOrFail();
+
         return view('pages.event-detail', compact('event'));
     }
 

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View; // Import View facade
+use Illuminate\Support\Facades\URL;
 use App\Models\Announcement; // Import Announcement model
 use App\Models\CmsMenuItem;
 use App\Services\ModuleService;
@@ -30,6 +31,11 @@ class AppServiceProvider extends ServiceProvider
      */
    public function boot(): void
     {
+        $publicRoot = config('app.env') === 'production'
+            ? config('seo.canonical_url')
+            : config('app.url');
+        URL::forceRootUrl(rtrim((string) $publicRoot, '/'));
+
         $this->applyDatabaseMailSettings();
 
         View::share('siteSettings', app(SiteSettings::class));

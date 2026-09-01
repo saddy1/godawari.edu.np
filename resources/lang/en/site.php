@@ -455,6 +455,8 @@ return [
         'hero_eyebrow' => 'Established 1992 AD · Itahari, Sunsari',
         'hero_title' => 'Knowledge for today. Confidence for tomorrow.',
         'hero_text' => 'Build the academic foundation, practical skills, and professional confidence to move forward in technology, business, and beyond.',
+        'visit_school' => 'Visit School',
+        'school_name' => 'Sushma Secondary School',
         'admission_cta' => 'Start Your Admission',
         'explore_programs' => 'Explore Programs',
         'tu_affiliated' => 'Affiliated with Tribhuvan University',

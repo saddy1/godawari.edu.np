@@ -23,6 +23,22 @@
 @endphp
 
 <main class="bg-white text-slate-700">
+    <a href="https://sushmasecondary.edu.np/"
+       target="_blank"
+       rel="noopener noreferrer"
+       aria-label="{{ __('site.college_home.visit_school') }} — {{ __('site.college_home.school_name') }}"
+       title="{{ __('site.college_home.school_name') }}"
+       class="group fixed right-0 top-[46%] z-40 flex w-12 -translate-y-1/2 flex-col items-center gap-2 bg-[var(--theme-primary)] px-2 pb-6 pt-3 text-white shadow-xl shadow-slate-950/20 transition hover:w-14 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--theme-secondary)] sm:w-14 sm:hover:w-16"
+       style="clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),50% 100%,0 calc(100% - 12px));">
+        <svg class="h-5 w-5 shrink-0 text-[var(--theme-secondary)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5 12 4l9 6.5M5 9.5V20h14V9.5M9 20v-6h6v6M8 10h.01M12 10h.01M16 10h.01"/>
+        </svg>
+        <span class="text-xs font-black tracking-wide sm:text-sm" style="writing-mode:vertical-rl;transform:rotate(180deg);">{{ __('site.college_home.visit_school') }}</span>
+        <svg class="h-4 w-4 shrink-0 text-white/75 transition-transform group-hover:-translate-y-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5M19 5l-9 9M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>
+        </svg>
+    </a>
+
     {{-- Every banner in this hero is managed from Admin → Home Banners. --}}
     <section
         x-data="{ active: 0, total: {{ $banners->count() }} }"

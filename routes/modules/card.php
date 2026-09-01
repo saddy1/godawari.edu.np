@@ -46,8 +46,6 @@ Route::prefix('admin/students')->middleware(['auth', 'admin', 'module.enabled:ca
     Route::match(['put', 'patch'], '/students/{student}', [StudentController::class, 'update'])->middleware('permission:students.edit')->name('students.update');
     Route::get('/api/suggestions', [StudentController::class, 'suggestions'])->middleware('permission:students.view')->name('api.suggestions');
     Route::get('/api/member-form-options', [StudentController::class, 'formOptions'])->middleware('permission:students.create,students.edit')->name('api.member-form-options');
-    Route::post('/students/bulk-valid-till', [StudentController::class, 'bulkValidTill'])->middleware('permission:students.edit')->name('students.bulk-valid-till');
-    Route::post('/bulk-valid-till', [StudentController::class, 'bulkValidTill'])->middleware('permission:students.edit')->name('students.bulk-valid-till.alias');
     Route::post('/students/bulk-learning-accounts', [StudentController::class, 'bulkLearningAccounts'])->middleware('permission:students.edit')->name('students.bulk-learning-accounts');
 
     // Certificates

@@ -389,21 +389,6 @@ class StudentController extends Controller
         return response()->json($this->buildFormOptions());
     }
 
-    // ── Bulk update valid_till ────────────────────────────────────────────
-    public function bulkValidTill(Request $request)
-    {
-        $request->validate([
-            'ids'        => 'required|array|min:1',
-            'ids.*'      => 'integer|exists:students,id',
-            'valid_till' => 'required|date',
-        ]);
-
-        $count = $this->scopedStudentsQuery($request->ids)
-            ->update(['valid_till' => $request->valid_till]);
-
-        return back()->with('success', "{$count} member(s) valid date updated.");
-    }
-
     public function bulkDestroy(Request $request)
     {
         abort_unless(auth()->user()->isSuperAdmin(), 403);

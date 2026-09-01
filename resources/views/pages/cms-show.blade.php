@@ -4,6 +4,44 @@
 @section('meta_description', $page->localizedMetaDescription() ?: str($page->localizedTitle())->limit(150))
 @section('meta_keywords', $page->localizedMetaKeywords())
 @section('og_image', $page->featured_image ? asset($page->featured_image) : $siteSettings->logoUrl())
+@section('robots', $page->status === 'published' ? 'index, follow, max-snippet:-1, max-image-preview:large' : 'noindex, nofollow')
+
+@section('schema')
+@php
+    $schemaRoot = rtrim(config('app.env') === 'production' ? config('seo.canonical_url') : config('app.url'), '/');
+    $schemaUrl = $page->slug === 'about-godawari-college'
+        ? $schemaRoot.'/about'
+        : $schemaRoot.'/pages/'.$page->slug;
+    $schemaGraph = [[
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => [
+            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => $schemaRoot],
+            ['@type' => 'ListItem', 'position' => 2, 'name' => $page->localizedTitle(), 'item' => $schemaUrl],
+        ],
+    ]];
+
+    if (in_array($page->slug, ['bsc-csit', 'bbs'], true)) {
+        $isCsit = $page->slug === 'bsc-csit';
+        $schemaGraph[] = [
+            '@type' => 'EducationalOccupationalProgram',
+            'name' => $page->localizedTitle(),
+            'url' => $schemaUrl,
+            'description' => $page->localizedMetaDescription(),
+            'provider' => ['@id' => $schemaRoot.'/#organization'],
+            'educationalProgramMode' => 'On campus',
+            'timeToComplete' => 'P4Y',
+            'numberOfCredits' => $isCsit ? 126 : 120,
+            'occupationalCategory' => $isCsit
+                ? ['Software development', 'Information technology']
+                : ['Business administration', 'Management'],
+        ];
+    }
+@endphp
+<script type="application/ld+json">{!! json_encode([
+    '@context' => 'https://schema.org',
+    '@graph' => $schemaGraph,
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+@endsection
 
 @section('content')
 @php

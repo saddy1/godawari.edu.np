@@ -23,28 +23,38 @@
 
         // 4. THE LOGIC: DB wins -> then @section() with auto school-name suffix -> then $default
         $sectionTitle    = View::getSection('title');
+        $titleHasBrand   = $sectionTitle && str_contains(mb_strtolower($sectionTitle), mb_strtolower($schoolName));
         $finalTitle      = $seo->meta_title
-            ?? ($sectionTitle ? rtrim($sectionTitle) . ' — ' . $schoolName : null)
+            ?? ($sectionTitle ? rtrim($sectionTitle) . ($titleHasBrand ? '' : ' — ' . $schoolName) : null)
             ?? $defaultTitle;
         $finalDesc       = $seo->meta_description ?? View::getSection('meta_description') ?? $defaultDesc;
         $finalKeywords   = $seo->meta_keywords    ?? View::getSection('meta_keywords')    ?? $defaultKeywords;
+        $canonicalRoot   = rtrim(config('app.env') === 'production' ? config('seo.canonical_url') : config('app.url'), '/');
+        $canonicalPath   = request()->path() === '/' ? '' : '/'.ltrim(request()->path(), '/');
+        $canonicalUrl    = $canonicalRoot.$canonicalPath;
+        $socialProfiles  = collect(['social_facebook', 'social_instagram', 'social_tiktok', 'social_twitter', 'social_youtube'])
+            ->map(fn ($key) => $siteSettings->get($key))
+            ->filter()
+            ->values()
+            ->all();
+        $robotsDirective = View::getSection('robots') ?: 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
     @endphp
 
     {{-- Primary SEO Meta Tags --}}
     <title>{{ $finalTitle }}</title>
     <meta name="description" content="{{ $finalDesc }}">
     <meta name="keywords" content="{{ $finalKeywords }}">
-    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="robots" content="{{ $robotsDirective }}">
     <meta name="author" content="{{ $schoolName }}">
-    <meta name="geo.region" content="NP-P7">
+    <meta name="geo.region" content="NP-P1">
     <meta name="geo.placename" content="{{ $schoolAddress }}">
-    <link rel="canonical" href="{{ url()->current() }}">
-    <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ url('/sitemap.xml') }}">
+    <link rel="canonical" href="{{ $canonicalUrl }}">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ $canonicalRoot }}/sitemap.xml">
 
     {{-- Open Graph / Social Media Meta Tags --}}
     <meta property="og:title" content="{{ $finalTitle }}">
     <meta property="og:description" content="{{ $finalDesc }}">
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ $canonicalUrl }}">
     <meta property="og:type" content="website">
     <meta property="og:image" content="@yield('og_image', $logoUrl)">
     <meta property="og:image:width" content="1200">
@@ -64,11 +74,11 @@
         "@context": "https://schema.org",
         "@graph": [
             {
-                "@type": "EducationalOrganization",
-                "@id": "{{ url('/') }}/#organization",
+                "@type": ["CollegeOrUniversity", "LocalBusiness"],
+                "@id": "{{ $canonicalRoot }}/#organization",
                 "name": @json($schoolName),
                 "alternateName": @json($siteSettings->get('school_alternate_name', $schoolName)),
-                "url": "{{ url('/') }}",
+                "url": "{{ $canonicalRoot }}",
                 "logo": {
                     "@type": "ImageObject",
                     "url": "{{ $logoUrl }}",
@@ -82,48 +92,45 @@
                     "streetAddress": @json($siteSettings->get('school_street', '')),
                     "addressLocality": @json($siteSettings->get('school_locality', '')),
                     "addressRegion": @json($siteSettings->get('school_region', '')),
+                    "postalCode": "56705",
                     "addressCountry": "NP"
                 },
-                "email": "{{ $siteSettings->get('school_email') }}",
-                "sameAs": [
-                    "{{ url('/') }}"
-                ],
+                "email": @json($siteSettings->get('school_email')),
+                "telephone": @json($siteSettings->get('school_phone')),
+                "sameAs": @json($socialProfiles),
+                "geo": {
+                    "@type": "GeoCoordinates",
+                    "latitude": @json($siteSettings->get('map_latitude')),
+                    "longitude": @json($siteSettings->get('map_longitude'))
+                },
                 "hasMap": "https://maps.google.com/?q={{ $siteSettings->get('map_latitude') }},{{ $siteSettings->get('map_longitude') }}",
                 "openingHours": "{{ $siteSettings->get('school_hours_schema', 'Su-Fr 09:00-17:00') }}",
                 "areaServed": {
                     "@type": "AdministrativeArea",
-                    "name": @json($siteSettings->get('school_area_served', 'Doti'))
+                    "name": @json($siteSettings->get('school_area_served', 'Koshi Province'))
                 }
             },
             {
                 "@type": "WebSite",
-                "@id": "{{ url('/') }}/#website",
-                "url": "{{ url('/') }}",
+                "@id": "{{ $canonicalRoot }}/#website",
+                "url": "{{ $canonicalRoot }}",
                 "name": @json($schoolName),
                 "description": @json($defaultDesc),
                 "publisher": {
-                    "@id": "{{ url('/') }}/#organization"
-                },
-                "potentialAction": {
-                    "@type": "SearchAction",
-                    "target": {
-                        "@type": "EntryPoint",
-                        "urlTemplate": "{{ url('/news') }}?q={search_term_string}"
-                    },
-                    "query-input": "required name=search_term_string"
+                    "@id": "{{ $canonicalRoot }}/#organization"
                 },
                 "inLanguage": "{{ app()->getLocale() === 'ne' ? 'ne-NP' : 'en-US' }}"
             },
             {
                 "@type": "WebPage",
-                "@id": "{{ url()->current() }}/#webpage",
-                "url": "{{ url()->current() }}",
-                "name": "{{ $finalTitle }}",
-                "description": "{{ $finalDesc }}",
-                "isPartOf": { "@id": "{{ url('/') }}/#website" },
-                "publisher": { "@id": "{{ url('/') }}/#organization" },
-                "inLanguage": "{{ app()->getLocale() === 'ne' ? 'ne-NP' : 'en-US' }}",
-                "dateModified": "{{ now()->toIso8601String() }}"
+                "@id": "{{ $canonicalUrl }}/#webpage",
+                "url": "{{ $canonicalUrl }}",
+                "name": @json($finalTitle),
+                "description": @json($finalDesc),
+                "isPartOf": { "@id": "{{ $canonicalRoot }}/#website" },
+                "publisher": { "@id": "{{ $canonicalRoot }}/#organization" },
+                "inLanguage": "{{ app()->getLocale() === 'ne' ? 'ne-NP' : 'en-US' }}"@if(isset($page) && $page?->updated_at),
+                "dateModified": @json($page->updated_at->toIso8601String())@endif
             }
         ]
     }

@@ -22,6 +22,9 @@ Route::prefix('admin/hr')
         Route::get('/members/template', [MemberController::class, 'template'])->middleware('permission:hr.members.create')->name('members.template');
         Route::get('/members/create', [MemberController::class, 'create'])->middleware('permission:hr.members.create')->name('members.create');
         Route::post('/members', [MemberController::class, 'store'])->middleware('permission:hr.members.create')->name('members.store');
+        Route::get('/members/bulk-edit', [MemberController::class, 'bulkEdit'])->middleware('permission:hr.members.edit')->name('members.bulk-edit.index');
+        Route::get('/members/bulk-edit/search', [MemberController::class, 'bulkEditSearch'])->middleware('permission:hr.members.edit')->name('members.bulk-edit.search');
+        Route::post('/members/bulk-update', [MemberController::class, 'bulkUpdate'])->middleware('permission:hr.members.edit')->name('members.bulk-update');
         Route::post('/members/bulk-destroy', [MemberController::class, 'bulkDestroy'])->middleware('permission:hr.members.delete')->name('members.bulk-destroy');
         Route::delete('/members/orphan-users/{user}', [MemberController::class, 'destroyOrphanUser'])->middleware('permission:hr.members.delete')->name('members.orphan-users.destroy');
 

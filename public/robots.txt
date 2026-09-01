@@ -1,5 +1,5 @@
-# robots.txt — Barchhain Secondary School
-# https://barchhainsecondary.edu.np
+# robots.txt — Godawari College
+# https://www.godawari.edu.np
 
 User-agent: *
 Allow: /
@@ -8,6 +8,9 @@ Allow: /
 Disallow: /admin/
 Disallow: /login
 Disallow: /logout
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /student/card/
 Disallow: /storage/vacancy-cvs/
 
 # Allow public assets
@@ -15,8 +18,5 @@ Allow: /assets/
 Allow: /storage/
 Allow: /build/
 
-# Crawl delay
-Crawl-delay: 1
-
 # Sitemap — submit this URL to Google Search Console
-Sitemap: https://barchhainsecondary.edu.np/sitemap.xml
+Sitemap: https://www.godawari.edu.np/sitemap.xml

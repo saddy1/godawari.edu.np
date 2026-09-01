@@ -72,10 +72,10 @@ Route::get('/about', [AboutController::class, 'index'])->name('about');
 Route::get('/admissions', [App\Http\Controllers\AdmissionsController::class, 'index'])->middleware('module.enabled:admissions')->name('admissions');
 Route::post('/admissions', [App\Http\Controllers\AdmissionsController::class, 'storeAdmission'])->middleware(['module.enabled:admissions', 'throttle:5,1'])->name('admissions.store');
 
-// Academics
-Route::get('/academics/elementary', [AcademicsController::class, 'elementary'])->name('academics.elementary');
-Route::get('/academics/primary', [AcademicsController::class, 'primary'])->name('academics.primary');
-Route::get('/academics/secondary', [AcademicsController::class, 'secondary'])->name('academics.secondary');
+// Preserve authority from the retired school-era academic URLs.
+Route::permanentRedirect('/academics/elementary', '/pages/bsc-csit')->name('academics.elementary');
+Route::permanentRedirect('/academics/primary', '/pages/bbs')->name('academics.primary');
+Route::permanentRedirect('/academics/secondary', '/')->name('academics.secondary');
 
 // Gallery
 Route::get('/gallery', [GalleryController::class, 'index'])->name('gallery');

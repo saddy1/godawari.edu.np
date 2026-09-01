@@ -162,17 +162,16 @@
     </div>
     @endif
 
-    {{-- ── Bulk valid_till panel ──────────────────────────────────────── --}}
+    @if(session('error'))
+    <div class="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">
+        {{ session('error') }}
+    </div>
+    @endif
+
+    {{-- ── Bulk actions panel ───────────────────────────────────────── --}}
+    {{-- Class/Section/Valid Till bulk edits moved to HR → Members (admin/hr/members), which manages all member types. --}}
     <div id="bulkBar" class="hidden bg-blue-50 border border-blue-200 rounded-xl px-4 sm:px-5 py-3 flex flex-wrap items-center gap-3">
         <span class="text-sm font-medium text-blue-700" id="selectedCount">0 selected</span>
-        <span class="text-blue-300">|</span>
-        <label class="text-sm text-blue-700 font-medium">Set Valid Till:</label>
-        <input type="date" name="valid_till" form="bulkForm"
-               class="border border-blue-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
-        <button type="submit" form="bulkForm"
-                class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition">
-            Update Selected
-        </button>
         <span class="text-blue-300">|</span>
         <label class="text-sm text-blue-700 font-medium">Learning Password:</label>
         <input type="password" name="learning_password" form="bulkLearningForm"
@@ -189,9 +188,6 @@
                 class="text-blue-500 text-sm hover:underline">Clear</button>
     </div>
 
-    <form method="POST" action="{{ route('students.bulk-valid-till.alias') }}" id="bulkForm" class="hidden">
-        @csrf
-    </form>
     <form method="POST" action="{{ route('students.bulk-learning-accounts') }}" id="bulkLearningForm" class="hidden">
         @csrf
     </form>
@@ -235,7 +231,6 @@
                 <tr class="transition group {{ $isExpired ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-gray-50/70' }}">
                     <td class="px-3 py-3.5">
                         <input type="checkbox" name="ids[]" value="{{ $student->id }}"
-                               form="bulkForm"
                                class="row-check accent-primary">
                     </td>
                     {{-- Member info --}}
