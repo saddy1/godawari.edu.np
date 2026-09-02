@@ -2,7 +2,18 @@
     $isStaffEmployee = auth()->check() && !auth()->user()->isAdmin()
         && (auth()->user()->isTeacher() || auth()->user()->hasRole('staff') || auth()->user()->device_id);
     $isAdmin         = auth()->check() && auth()->user()->isAdmin();
-    $currentModule   = request()->is('admin/hr*') ? 'hr' : (request()->is('admin/students*', 'admin/id-card*') ? 'id-card' : (request()->is('admin/hajiri*') ? 'hajiri' : (request()->is('admin/learning*') ? 'learning' : (request()->is('admin/library*') ? 'library' : (request()->is('admin/work-tasks*') ? 'work-tasks' : (request()->is('admin/store*') ? 'store' : (request()->is('admin/billing*') ? 'billing' : 'website')))))));
+    $currentModule = match (true) {
+        request()->is('admin/hr*') => 'hr',
+        request()->is('admin/students*', 'admin/id-card*') => 'id-card',
+        request()->is('admin/hajiri*') => 'hajiri',
+        request()->is('admin/teaching-learning*') => 'teaching-learning',
+        request()->is('admin/learning*') => 'learning',
+        request()->is('admin/library*') => 'library',
+        request()->is('admin/work-tasks*') => 'work-tasks',
+        request()->is('admin/store*') => 'store',
+        request()->is('admin/billing*') => 'billing',
+        default => 'website',
+    };
     if (request()->is('my-payslips*')) $currentModule = 'billing';
     $user = auth()->user();
     $hasCustomPermissions = $user?->permissions()->exists() ?? false;
@@ -24,6 +35,7 @@
     $moduleLinks = [
         ['key' => 'website',    'label' => 'Website',    'sub' => 'Public site',      'url' => route('admin.dashboard'),            'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['dashboard.admin', 'dashboard.view', 'dashboard.financial'])],
         ['key' => 'hr',         'label' => 'HR',         'sub' => 'People master',    'url' => route('admin.hr.members.index'),      'show' => $isAdmin && $user?->canAccess(['hr.members.view', 'hr.members.create', 'hr.members.edit', 'hr.members.delete']) && \App\Services\ModuleService::enabled('hr')],
+        ['key' => 'teaching-learning', 'label' => 'Teaching & Learning', 'sub' => 'Subjects & electives', 'url' => route('admin.teaching-learning.dashboard'), 'show' => $isAdmin && $user?->canAccess(['teaching-learning.subjects.view', 'teaching-learning.subjects.create', 'teaching-learning.subjects.delete']) && \App\Services\ModuleService::enabled('teaching_learning')],
         ['key' => 'id-card',    'label' => 'Students',   'sub' => 'Records & cards',  'url' => $idCardUrl,                          'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['students.view', 'students.create', 'students.edit', 'students.delete', 'users.bulk-import', 'cards.view', 'cards.print', 'students.card-request', 'card-settings.view']) && \App\Services\ModuleService::enabled('card')],
         ['key' => 'hajiri',     'label' => 'Hajiri',     'sub' => 'Attendance',       'url' => route('hajiri.home'),                'show' => ($isAdmin || $isStaffEmployee) && ($isStaffEmployee || $user?->device_id || $user?->canAccess(['attendance.view', 'attendance.report', 'users.view', 'leaves.view', 'settings.view'])) && \App\Services\ModuleService::enabled('hajiri')],
         ['key' => 'learning',   'label' => 'Learning',   'sub' => 'Courses & tests',  'url' => route('admin.learning.dashboard'),   'show' => ($isAdmin || $isScopedTeacher) && $hasLearningAssignment && $user?->canAccess(['learning.courses.view', 'learning.students.view', 'learning.lessons.view', 'learning.resources.view', 'learning.quizzes.view', 'learning.reports.view']) && \App\Services\ModuleService::enabled('learning')],
@@ -70,6 +82,7 @@
         'id-card' => $notifStudCards,
         'website' => $notifContacts,
         'hr' => 0,
+        'teaching-learning' => 0,
         'learning' => 0,
         'store' => 0,
         'library' => 0,

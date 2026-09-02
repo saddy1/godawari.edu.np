@@ -631,6 +631,26 @@
                 <div><label class="{{ $label }}">Login Password</label><input type="password" name="password" placeholder="{{ $isEdit ? 'New password optional' : 'Blank = Login User ID / Email' }}" class="{{ $input }}"></div>
                 <div><label class="{{ $label }}">Confirm Password</label><input type="password" name="password_confirmation" class="{{ $input }}"></div>
                 <div x-show="isStudent" x-transition><label class="{{ $label }}">Batch</label><input name="batch" value="{{ old('batch', $isEdit ? $member->batch : '') }}" class="{{ $input }}"></div>
+                <div x-show="isStudent && academicSystem === 'semester'" x-transition>
+                    <label class="{{ $label }}">Semester</label>
+                    <select name="semester" :disabled="academicSystem !== 'semester'" class="{{ $input }}">
+                        <option value="">Select semester</option>
+                        @for($s = 1; $s <= 8; $s++)
+                            <option value="{{ $s }}" @selected(old('semester', $isEdit ? $member->semester : '') == $s)>Semester {{ $s }}</option>
+                        @endfor
+                    </select>
+                    <p class="mt-1 text-[11px] font-semibold text-gray-400">Automatically shown because this faculty uses the semester system.</p>
+                </div>
+                <div x-show="isStudent && academicSystem === 'year'" x-transition>
+                    <label class="{{ $label }}">Study Year</label>
+                    <select name="year_level" :disabled="academicSystem !== 'year'" class="{{ $input }}">
+                        <option value="">Select year</option>
+                        @for($year = 1; $year <= 4; $year++)
+                            <option value="{{ $year }}" @selected(old('year_level', $isEdit ? $member->year_level : '') == $year)>Year {{ $year }}</option>
+                        @endfor
+                    </select>
+                    <p class="mt-1 text-[11px] font-semibold text-gray-400">Automatically shown because this faculty uses the year system.</p>
+                </div>
                 <div x-show="isStudent" x-transition><label class="{{ $label }}">Library ID</label><input name="library_id" value="{{ old('library_id', $isEdit ? $member->library_id : '') }}" class="{{ $input }}"></div>
                 <div x-show="isStudent" x-transition><label class="{{ $label }}">Bus Route</label><input name="bus_route" value="{{ old('bus_route', $isEdit ? $member->bus_route : '') }}" class="{{ $input }}"></div>
                 <div x-show="isStudent" x-transition><label class="{{ $label }}">Bus Stop</label><input name="bus_stop" value="{{ old('bus_stop', $isEdit ? $member->bus_stop : '') }}" class="{{ $input }}"></div>
@@ -845,6 +865,9 @@ function photoCapture() {
             },
             get sectionOptions() {
                 return this.cardOptions[this.organization]?.streams?.[this.stream] || [];
+            },
+            get academicSystem() {
+                return this.cardOptions[this.organization]?.academic_systems?.[this.stream] || 'none';
             },
             get guardianName() {
                 if (this.guardianRelation === 'father')   return this.fatherName;

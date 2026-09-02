@@ -22,14 +22,21 @@
                     Add students, teachers, and staff once. HR syncs them to ID Card, Hajiri, Learning, and future ERP modules.
                 </p>
             </div>
-            @if(auth()->user()?->canAccess('hr.members.create'))
-                <a href="{{ route('admin.hr.members.import') }}" class="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-extrabold text-white hover:bg-white/20">
-                    Bulk Import
-                </a>
-                <a href="{{ route('admin.hr.members.create') }}" class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-extrabold text-[#1a5632] hover:bg-gray-100">
-                    New Member
-                </a>
-            @endif
+            <div class="flex flex-wrap gap-2">
+                @if(auth()->user()?->canAccess('hr.members.edit'))
+                    <a href="{{ route('admin.hr.members.bulk-edit.index') }}" class="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-extrabold text-white hover:bg-white/20">
+                        Bulk Edit
+                    </a>
+                @endif
+                @if(auth()->user()?->canAccess('hr.members.create'))
+                    <a href="{{ route('admin.hr.members.import') }}" class="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-extrabold text-white hover:bg-white/20">
+                        Bulk Import
+                    </a>
+                    <a href="{{ route('admin.hr.members.create') }}" class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-extrabold text-[#1a5632] hover:bg-gray-100">
+                        New Member
+                    </a>
+                @endif
+            </div>
         </div>
     </div>
 

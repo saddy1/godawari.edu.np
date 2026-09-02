@@ -224,6 +224,19 @@ class AdminPermissionMatrix
                     ],
                 ],
             ],
+            'teaching_learning' => [
+                'label' => 'Teaching & Learning',
+                'components' => [
+                    'subjects' => [
+                        'label' => 'Subjects & Electives',
+                        'permissions' => [
+                            'view' => 'teaching-learning.subjects.view',
+                            'create' => 'teaching-learning.subjects.create',
+                            'delete' => 'teaching-learning.subjects.delete',
+                        ],
+                    ],
+                ],
+            ],
             'id-card' => [
                 'label' => 'Student Management',
                 'components' => [

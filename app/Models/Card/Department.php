@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Department extends Model
 {
-    protected $fillable = ['organization_id', 'name', 'university', 'university_college', 'university_logo', 'is_active'];
+    protected $fillable = ['organization_id', 'name', 'academic_system', 'university', 'university_college', 'university_logo', 'is_active'];
     protected $casts = ['is_active' => 'boolean'];
 
     public function organization()

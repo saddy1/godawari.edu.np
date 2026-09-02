@@ -549,8 +549,14 @@ class MemberController extends Controller
         $stream     = $request->input('stream') ?: null;
         $section    = $request->input('section') ?: null;
         $ignoredUserId = $member?->user_id ?: $prefillUser?->id;
+        $academicSystem = $memberType === 'student'
+            ? (CardDepartment::query()
+                ->where('name', $stream)
+                ->whereHas('organization', fn ($query) => $query->where('slug', $org))
+                ->value('academic_system') ?? 'none')
+            : 'none';
 
-        return $request->validate([
+        $data = $request->validate([
             'organization' => ['required', 'string', 'max:100'],
             'member_type' => ['required', Rule::in(['student', 'teacher', 'staff'])],
             'stream' => ['required_if:member_type,student', 'nullable', 'string', 'max:100'],
@@ -643,6 +649,8 @@ class MemberController extends Controller
             'valid_till_bs' => ['nullable', 'string', 'max:20'],
             'program' => ['nullable', 'string', 'max:100'],
             'batch' => ['nullable', 'string', 'max:20'],
+            'semester' => [Rule::requiredIf($academicSystem === 'semester'), 'nullable', 'integer', 'min:1', 'max:8'],
+            'year_level' => [Rule::requiredIf($academicSystem === 'year'), 'nullable', 'integer', 'min:1', 'max:6'],
             'zone' => ['nullable', 'string', 'max:50'],
             'district' => ['nullable', 'string', 'max:50'],
             'municipality' => ['nullable', 'string', 'max:100'],
@@ -684,6 +692,22 @@ class MemberController extends Controller
             'work_assigned_id' => $this->optionalForeignIdRules((new WorkAssigned())->getTable()),
             'hajiri_department_id' => $this->optionalForeignIdRules((new HajiriDepartment())->getTable()),
         ]);
+
+        if ($memberType === 'student') {
+            if ($academicSystem === 'semester') {
+                $data['year_level'] = null;
+            } elseif ($academicSystem === 'year') {
+                $data['semester'] = null;
+            } else {
+                $data['semester'] = null;
+                $data['year_level'] = null;
+            }
+        } else {
+            $data['semester'] = null;
+            $data['year_level'] = null;
+        }
+
+        return $data;
     }
 
     private function orphanStaffUserFromRequest(Request $request): ?User
@@ -1754,6 +1778,10 @@ class MemberController extends Controller
                     return [
                         $organization->slug => [
                             'label' => $organization->name,
+                            'academic_systems' => $organization->departments
+                                ->where('is_active', true)
+                                ->mapWithKeys(fn ($department) => [$department->name => $department->academic_system ?? 'none'])
+                                ->all(),
                             'streams' => $organization->departments
                                 ->where('is_active', true)
                                 ->mapWithKeys(fn ($department) => [

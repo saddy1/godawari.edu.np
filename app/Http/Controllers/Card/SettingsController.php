@@ -10,6 +10,8 @@ use App\Models\Card\OrgAsset;
 use App\Models\Card\Department;
 use App\Models\Card\Section;
 use App\Models\Card\MemberType;
+use App\Models\Card\Student;
+use App\Models\Card\SubjectOffering;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\File;
@@ -102,6 +104,7 @@ class SettingsController extends Controller
         $data = $request->validate([
             'organization_id'    => 'required|exists:organizations,id',
             'name'               => 'required|string|max:150',
+            'academic_system'    => ['required', Rule::in(['semester', 'year', 'none'])],
             'university'         => 'nullable|string|max:200',
             'university_college' => 'nullable|string|max:200',
             'university_logo'    => 'nullable|string|max:255',
@@ -116,13 +119,30 @@ class SettingsController extends Controller
     {
         $data = $request->validate([
             'name'               => 'required|string|max:150',
+            'academic_system'    => ['required', Rule::in(['semester', 'year', 'none'])],
             'university'         => 'nullable|string|max:200',
             'university_college' => 'nullable|string|max:200',
             'university_logo'    => 'nullable|string|max:255',
             'is_active'          => 'boolean',
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $originalDepartmentName = $department->name;
         $department->update($data);
+
+        $studentLevelReset = match ($data['academic_system']) {
+            'semester' => ['year_level' => null],
+            'year' => ['semester' => null],
+            default => ['semester' => null, 'year_level' => null],
+        };
+        $offeringLevelReset = $studentLevelReset;
+        $organizationSlug = $department->organization()->value('slug');
+
+        Student::query()
+            ->where('organization', $organizationSlug)
+            ->where('stream', $originalDepartmentName)
+            ->update($studentLevelReset);
+        SubjectOffering::where('department_id', $department->id)->update($offeringLevelReset);
+
         return back()->with('success', "Department updated.");
     }
 
@@ -141,6 +161,7 @@ class SettingsController extends Controller
         $data = $request->validate([
             'department_id' => 'required|exists:departments,id',
             'name'          => 'required|string|max:100',
+            'group_name'    => 'nullable|string|max:100',
             'is_active'     => 'boolean',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
@@ -151,8 +172,9 @@ class SettingsController extends Controller
     public function updateSection(Request $request, Section $section)
     {
         $data = $request->validate([
-            'name'      => 'required|string|max:100',
-            'is_active' => 'boolean',
+            'name'       => 'required|string|max:100',
+            'group_name' => 'nullable|string|max:100',
+            'is_active'  => 'boolean',
         ]);
         $data['is_active'] = $request->boolean('is_active');
         $section->update($data);
@@ -299,7 +321,7 @@ class SettingsController extends Controller
     public function departments(Organization $organization)
     {
         return response()->json(
-            $organization->activeDepartments()->get(['id', 'name'])
+            $organization->activeDepartments()->get(['id', 'name', 'academic_system'])
         );
     }
 

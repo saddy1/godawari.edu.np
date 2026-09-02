@@ -21,7 +21,7 @@ protected $fillable = [
         'employee_category', 'joining_date', 'permanent_date',
         'bank_name', 'bank_branch', 'bank_account_name', 'bank_account_number',
         'pan_number', 'ssf_number', 'cit_number',
-        'program', 'stream', 'section', 'batch',
+        'program', 'stream', 'section', 'section_id', 'batch', 'semester', 'year_level',
         'zone', 'district', 'municipality', 'country',
         'permanent_province', 'permanent_district', 'permanent_municipality', 'permanent_ward', 'permanent_tole',
         'address_en',
@@ -111,6 +111,18 @@ protected $fillable = [
         return Organization::with(['logoAsset', 'signatureAsset', 'stampAsset'])
             ->where('slug', $this->organization)
             ->first();
+    }
+
+    // Named section master-list record, once staff assign one via Bulk Edit.
+    // Not yet backfilled for existing students — see `section` for the legacy text value.
+    public function academicSection()
+    {
+        return $this->belongsTo(Section::class, 'section_id');
+    }
+
+    public function subjectEnrollments()
+    {
+        return $this->hasMany(StudentSubjectEnrollment::class);
     }
 
     public function getAddressLabelAttribute(): ?string
