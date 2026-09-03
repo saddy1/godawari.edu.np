@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Subject extends Model
 {
-    protected $fillable = ['name', 'code', 'credit_hours', 'has_practical', 'is_active'];
+    protected $fillable = ['name', 'code', 'credit_hours', 'has_practical', 'practical_code', 'is_active'];
     protected $casts = [
         'has_practical' => 'boolean',
         'is_active' => 'boolean',

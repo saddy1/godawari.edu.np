@@ -3,20 +3,18 @@
 @section('title', 'Bulk Edit Members')
 
 @section('content')
-<div class="space-y-6" x-data="bulkEditApp()">
+<div class="space-y-4" x-data="bulkEditApp(@js($academicOptions))">
 
     {{-- Header --}}
-    <div class="rounded-2xl bg-gradient-to-br from-[#0b2415] to-[#1a5632] p-5 sm:p-6 text-white shadow-sm">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div class="rounded-2xl bg-gradient-to-br from-[#0b2415] to-[#1a5632] p-4 text-white shadow-sm">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <p class="text-sm font-bold uppercase tracking-widest text-white/50">Human Resource</p>
-                <h1 class="mt-1 text-3xl font-extrabold">Bulk Edit Members</h1>
-                <p class="mt-2 max-w-3xl text-sm font-medium text-white/70">
-                    Search and pick any members, from as many searches as you need — your picks stay selected until you apply or clear them. Then set a class, section, or valid-till date to apply to everyone selected at once.
-                </p>
+                <p class="text-[10px] font-bold uppercase tracking-widest text-white/50">Human Resource</p>
+                <h1 class="mt-0.5 text-xl font-extrabold">Assign Students to Sections</h1>
+                <p class="mt-1 text-xs font-medium text-white/65">Find students, select them, and assign a section from the academic master list.</p>
             </div>
             <a href="{{ route('admin.hr.members.index') }}"
-               class="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-extrabold text-white hover:bg-white/20">
+               class="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-extrabold text-white hover:bg-white/20">
                 ← Back to Members
             </a>
         </div>
@@ -34,7 +32,7 @@
         {{-- ── LEFT: Search + results ─────────────────────────────────── --}}
         <div class="space-y-4">
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.6fr_1fr_1fr_1fr]">
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.5fr_0.8fr_1fr_1fr_1fr]">
                     <input type="text" x-model="q" @input.debounce.300ms="search()"
                            placeholder="Search name, roll number, email, mobile…" autocomplete="off"
                            class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
@@ -47,20 +45,22 @@
                         <option value="staff">Staff</option>
                     </select>
 
-                    <select x-model="stream" @change="search()"
+                    <select x-model="organization" @change="stream = ''; section = ''; search()"
                             class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
-                        <option value="">All classes</option>
-                        @foreach($streams ?? [] as $streamOption)
-                            <option value="{{ $streamOption }}">{{ $streamOption }}</option>
-                        @endforeach
+                        <option value="">All organizations</option>
+                        <template x-for="entry in organizationOptions" :key="entry[0]"><option :value="entry[0]" x-text="entry[1].label"></option></template>
                     </select>
 
-                    <select x-model="section" @change="search()"
+                    <select x-model="stream" @change="section = ''; search()" :disabled="!organization"
                             class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
-                        <option value="">All sections</option>
-                        @foreach($sections ?? [] as $sectionOption)
-                            <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
-                        @endforeach
+                        <option value="" x-text="organization ? 'All classes' : 'Choose organization'"></option>
+                        <template x-for="item in streamOptions" :key="item"><option :value="item" x-text="item"></option></template>
+                    </select>
+
+                    <select x-model="section" @change="search()" :disabled="!stream"
+                            class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                        <option value="" x-text="stream ? 'All sections' : 'Choose class'"></option>
+                        <template x-for="item in sectionOptions" :key="item.id"><option :value="item.name" x-text="sectionLabel(item)"></option></template>
                     </select>
                 </div>
             </div>
@@ -69,15 +69,15 @@
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                     <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">
                         <span x-show="loading">Searching…</span>
-                        <span x-show="!loading && q === '' && !type && !stream && !section">Search or filter to find members</span>
-                        <span x-show="!loading && (q !== '' || type || stream || section)"><span x-text="results.length"></span> result<span x-show="results.length !== 1">s</span></span>
+                        <span x-show="!loading && q === '' && !type && !organization && !stream && !section">Search or filter to find members</span>
+                        <span x-show="!loading && (q !== '' || type || organization || stream || section)"><span x-text="visibleResults.length"></span> available</span>
                     </p>
-                    <button type="button" @click="selectAllVisible()" x-show="results.length > 0"
+                    <button type="button" @click="selectAllVisible()" x-show="visibleResults.length > 0"
                             class="text-xs font-extrabold text-[#1a5632] hover:underline">Select all visible</button>
                 </div>
 
                 <div class="divide-y divide-gray-50 max-h-[32rem] overflow-y-auto">
-                    <template x-for="m in results" :key="m.id">
+                    <template x-for="m in visibleResults" :key="m.id">
                         <label class="flex cursor-pointer items-center gap-3 px-5 py-3 hover:bg-gray-50">
                             <input type="checkbox" :checked="selectedIds.includes(m.id)" @change="toggle(m)"
                                    class="h-4 w-4 rounded accent-[#1a5632]">
@@ -99,8 +99,10 @@
                         </label>
                     </template>
 
-                    <p x-show="!loading && (q !== '' || type || stream || section) && results.length === 0"
+                    <p x-show="!loading && (q !== '' || type || organization || stream || section) && results.length === 0"
                        class="px-5 py-10 text-center text-sm font-semibold text-gray-400">No members match your search.</p>
+                    <p x-show="!loading && results.length > 0 && visibleResults.length === 0"
+                       class="px-5 py-10 text-center text-sm font-semibold text-emerald-700">All matching students have been moved to the selected list.</p>
                 </div>
             </div>
         </div>
@@ -141,25 +143,30 @@
                     <input type="hidden" name="ids[]" :value="id">
                 </template>
 
-                <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">Apply to selected</p>
+                <div><p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">Assign academic section</p><p class="mt-1 text-[11px] font-semibold text-gray-400">Sections come directly from Student Settings.</p></div>
 
                 <div>
-                    <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Set Class</label>
-                    <select name="stream" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
-                        <option value="">— unchanged —</option>
-                        @foreach($streams ?? [] as $streamOption)
-                            <option value="{{ $streamOption }}">{{ $streamOption }}</option>
-                        @endforeach
+                    <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Organization</label>
+                    <select x-model="targetOrganization" @change="targetStream = ''; targetSectionId = ''" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                        <option value="">Choose organization</option>
+                        <template x-for="entry in organizationOptions" :key="entry[0]"><option :value="entry[0]" x-text="entry[1].label"></option></template>
                     </select>
                 </div>
                 <div>
-                    <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Set Section</label>
-                    <select name="section" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
-                        <option value="">— unchanged —</option>
-                        @foreach($sections ?? [] as $sectionOption)
-                            <option value="{{ $sectionOption }}">{{ $sectionOption }}</option>
-                        @endforeach
+                    <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Faculty / Class</label>
+                    <select x-model="targetStream" @change="targetSectionId = ''" :disabled="!targetOrganization" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-100">
+                        <option value="" x-text="targetOrganization ? 'Choose faculty / class' : 'Choose organization first'"></option>
+                        <template x-for="item in targetStreamOptions" :key="item"><option :value="item" x-text="item"></option></template>
                     </select>
+                </div>
+                <div>
+                    <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Section</label>
+                    <select name="section_id" x-model="targetSectionId" :disabled="!targetStream" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-100">
+                        <option value="" x-text="targetStream ? 'Choose section' : 'Choose class first'"></option>
+                        <template x-for="item in targetSectionOptions" :key="item.id"><option :value="item.id" x-text="sectionLabel(item)"></option></template>
+                    </select>
+                    <p x-show="targetStream && targetSectionOptions.length === 0" class="mt-1 text-[10px] font-semibold text-amber-600">No active sections created for this class.</p>
+                    <p x-show="targetSectionId" class="mt-1 text-[10px] font-semibold text-emerald-700">This replaces the student's previous section; it does not add a second section.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Set Valid Till</label>
@@ -178,30 +185,63 @@
 
 @push('scripts')
 <script>
-    function bulkEditApp() {
+    function bulkEditApp(formOptions) {
         return {
+            formOptions,
             q: '',
             type: '',
+            organization: '',
             stream: '',
             section: '',
+            targetOrganization: '',
+            targetStream: '',
+            targetSectionId: '',
             loading: false,
             results: [],
             selectedIds: [],
             selectedMembers: {},
             controller: null,
 
+            get organizationOptions() {
+                return Object.entries(this.formOptions || {});
+            },
+
+            get visibleResults() {
+                return this.results.filter(member => !this.selectedIds.includes(member.id));
+            },
+
+            get streamOptions() {
+                return Object.keys(this.formOptions?.[this.organization]?.streams || {});
+            },
+
+            get sectionOptions() {
+                return this.formOptions?.[this.organization]?.streams?.[this.stream] || [];
+            },
+
+            get targetStreamOptions() {
+                return Object.keys(this.formOptions?.[this.targetOrganization]?.streams || {});
+            },
+
+            get targetSectionOptions() {
+                return this.formOptions?.[this.targetOrganization]?.streams?.[this.targetStream] || [];
+            },
+
+            sectionLabel(item) {
+                return item.group ? `${item.name} · ${item.group}` : item.name;
+            },
+
             async search() {
                 if (this.controller) this.controller.abort();
                 this.controller = new AbortController();
 
-                if (!this.q && !this.type && !this.stream && !this.section) {
+                if (!this.q && !this.type && !this.organization && !this.stream && !this.section) {
                     this.results = [];
                     return;
                 }
 
                 this.loading = true;
                 try {
-                    const params = new URLSearchParams({ q: this.q, type: this.type, stream: this.stream, section: this.section });
+                    const params = new URLSearchParams({ q: this.q, type: this.type, organization: this.organization, stream: this.stream, section: this.section });
                     const res = await fetch(`{{ route('admin.hr.members.bulk-edit.search') }}?${params}`, {
                         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                         signal: this.controller.signal,
@@ -228,7 +268,7 @@
             },
 
             selectAllVisible() {
-                this.results.forEach(m => {
+                [...this.visibleResults].forEach(m => {
                     if (!this.selectedIds.includes(m.id)) {
                         this.selectedIds.push(m.id);
                         this.selectedMembers[m.id] = m;

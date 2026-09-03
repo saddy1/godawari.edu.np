@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Hr;
 use App\Http\Controllers\Controller;
 use App\Models\Card\Department as CardDepartment;
 use App\Models\Card\Organization as CardOrganization;
+use App\Models\Card\Section as CardSection;
 use App\Models\Card\Student;
 use App\Models\LibraryLoan;
 use App\Models\User;
@@ -13,6 +14,7 @@ use App\Models\Hajiri\Designation;
 use App\Models\Hajiri\EmploymentType;
 use App\Models\Hajiri\WorkAssigned;
 use App\Services\MemberAccountService;
+use App\Services\SubjectEnrollmentService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -126,7 +128,7 @@ class MemberController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, SubjectEnrollmentService $subjectEnrollments)
     {
         $prefillUser = $this->orphanStaffUserFromRequest($request);
         $data = $this->validated($request, null, $prefillUser);
@@ -146,7 +148,7 @@ class MemberController extends Controller
             $data['photo'] = $this->storeBase64Photo($request->input('photo_capture'), $data['roll_number']);
         }
 
-        DB::transaction(function () use ($data, $password, $loginUserId, $deviceId, $hajiriData, $prefillUser) {
+        DB::transaction(function () use ($data, $password, $loginUserId, $deviceId, $hajiriData, $prefillUser, $subjectEnrollments) {
             $member = Student::create($data);
 
             if ($prefillUser) {
@@ -164,6 +166,7 @@ class MemberController extends Controller
             }
 
             $user->forceFill($userData)->save();
+            $subjectEnrollments->syncStudent($member);
         });
 
         return redirect()->route('admin.hr.members.index')->with('success', 'Member created and synced across ERP modules.');
@@ -190,7 +193,7 @@ class MemberController extends Controller
         ]);
     }
 
-    public function update(Request $request, Student $member)
+    public function update(Request $request, Student $member, SubjectEnrollmentService $subjectEnrollments)
     {
         if ($member->member_type === 'student') {
             $request->merge([
@@ -223,7 +226,7 @@ class MemberController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($member, $data, $password, $loginUserId, $deviceId, $hajiriData) {
+            DB::transaction(function () use ($member, $data, $password, $loginUserId, $deviceId, $hajiriData, $subjectEnrollments) {
                 $member->update($data);
                 $user = app(MemberAccountService::class)->sync($member, $password, $loginUserId);
 
@@ -242,6 +245,8 @@ class MemberController extends Controller
                         ->where('user_id', (int) $oldDeviceId)
                         ->update(['user_id' => (int) $newDeviceId]);
                 }
+
+                $subjectEnrollments->syncStudent($member->fresh());
             });
         } catch (\Illuminate\Database\QueryException $e) {
             return back()->withInput()->withErrors([
@@ -315,25 +320,50 @@ class MemberController extends Controller
     // ── Bulk edit page: search-and-select members, then update in one go ───
     public function bulkEdit()
     {
-        $streams = Student::query()->whereNotNull('stream')->where('stream', '!=', '')->distinct()->orderBy('stream')->pluck('stream');
-        $sections = Student::query()->whereNotNull('section')->where('section', '!=', '')->distinct()->orderBy('section')->pluck('section');
+        $academicOptions = CardOrganization::query()
+            ->with('departments.sections')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (CardOrganization $organization) => [
+                $organization->slug => [
+                    'label' => $organization->name,
+                    'streams' => $organization->departments
+                        ->where('is_active', true)
+                        ->mapWithKeys(fn ($department) => [
+                            $department->name => $department->sections
+                                ->where('is_active', true)
+                                ->map(fn ($section) => [
+                                    'id' => $section->id,
+                                    'name' => $section->name,
+                                    'group' => $section->group_name,
+                                ])
+                                ->values()
+                                ->all(),
+                        ])
+                        ->all(),
+                ],
+            ])
+            ->all();
 
-        return view('hr.members.bulk-edit', compact('streams', 'sections'));
+        return view('hr.members.bulk-edit', compact('academicOptions'));
     }
 
     public function bulkEditSearch(Request $request)
     {
         $q = trim((string) $request->input('q', ''));
         $type = $request->input('type');
+        $organization = $request->input('organization');
         $stream = $request->input('stream');
         $section = $request->input('section');
 
-        if ($q === '' && !$type && !$stream && !$section) {
+        if ($q === '' && !$type && !$organization && !$stream && !$section) {
             return response()->json(['members' => []]);
         }
 
         $members = Student::query()
             ->when($type, fn ($query) => $query->where('member_type', $type))
+            ->when($organization, fn ($query) => $query->where('organization', $organization))
             ->when($stream, fn ($query) => $query->where('stream', $stream))
             ->when($section, fn ($query) => $query->where('section', $section))
             ->when($q !== '', function ($query) use ($q) {
@@ -347,7 +377,6 @@ class MemberController extends Controller
                 });
             })
             ->orderBy('first_name')
-            ->limit(30)
             ->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number', 'member_type', 'stream', 'section', 'photo'])
             ->map(fn (Student $s) => [
                 'id'          => $s->id,
@@ -363,26 +392,44 @@ class MemberController extends Controller
     }
 
     // ── Bulk update class / section / valid till ────────────────────────────
-    public function bulkUpdate(Request $request)
+    public function bulkUpdate(Request $request, SubjectEnrollmentService $subjectEnrollments)
     {
         $request->validate([
             'ids'        => 'required|array|min:1',
             'ids.*'      => 'integer|exists:students,id',
             'valid_till' => 'nullable|date',
-            'stream'     => 'nullable|string|max:255',
-            'section'    => 'nullable|string|max:255',
+            'section_id' => 'nullable|integer|exists:sections,id',
         ]);
 
-        $data = array_filter(
-            $request->only(['valid_till', 'stream', 'section']),
-            fn ($value) => filled($value)
-        );
+        $data = array_filter($request->only(['valid_till']), fn ($value) => filled($value));
+
+        if ($request->filled('section_id')) {
+            $containsNonStudents = Student::whereIn('id', $request->ids)
+                ->where('member_type', '!=', 'student')
+                ->exists();
+
+            if ($containsNonStudents) {
+                return back()->with('error', 'A class section can only be assigned to students. Remove teachers or staff from the selection first.');
+            }
+
+            $section = CardSection::with('department.organization')->findOrFail($request->integer('section_id'));
+            $data['organization'] = $section->department->organization->slug;
+            $data['stream'] = $section->department->name;
+            $data['section'] = $section->name;
+            $data['section_id'] = $section->id;
+        }
 
         if (empty($data)) {
             return back()->with('error', 'Choose at least one field to update before applying to the selected members.');
         }
 
         $count = Student::whereIn('id', $request->ids)->update($data);
+
+        Student::whereIn('id', $request->ids)
+            ->where('member_type', 'student')
+            ->with('academicSection')
+            ->get()
+            ->each(fn (Student $student) => $subjectEnrollments->syncStudent($student));
 
         return back()->with('success', "{$count} member(s) updated.");
     }

@@ -11,10 +11,7 @@
                 <h1 class="mt-1 text-2xl font-black">Teaching &amp; Learning</h1>
                 <p class="mt-1 max-w-2xl text-sm font-medium text-white/65">Manage subject masters, practical subjects, and faculty-wise fixed or elective allocations.</p>
             </div>
-            <a href="{{ route('admin.teaching-learning.subjects.index') }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-[#1a5632] shadow-sm transition hover:bg-emerald-50">
-                Manage faculty subjects
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-            </a>
+            <div class="flex flex-wrap gap-2"><a href="{{ route('admin.teaching-learning.subjects.index') }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-[#1a5632] shadow-sm transition hover:bg-emerald-50">Faculty subjects<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></a><a href="{{ route('admin.teaching-learning.subject-assignments.index') }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-white/20">Assign subjects<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></a><a href="{{ route('admin.teaching-learning.routine-configuration.index') }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-white/20">Routine setup<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></a></div>
         </div>
     </section>
 
@@ -60,7 +57,7 @@
                 @forelse($recentSubjects as $subject)
                     <div class="flex items-center gap-3 px-5 py-3.5">
                         <span class="flex h-9 min-w-12 items-center justify-center rounded-lg bg-gray-100 px-2 text-[10px] font-black text-gray-600">{{ $subject->code }}</span>
-                        <div class="min-w-0 flex-1"><p class="truncate text-sm font-extrabold text-gray-800">{{ $subject->name }}</p><p class="mt-0.5 text-[11px] font-semibold text-gray-400">{{ $subject->offerings_count }} {{ Str::plural('allocation', $subject->offerings_count) }}{{ $subject->has_practical ? ' · Practical' : '' }}</p></div>
+                        <div class="min-w-0 flex-1"><p class="truncate text-sm font-extrabold text-gray-800">{{ $subject->name }}</p><p class="mt-0.5 text-[11px] font-semibold text-gray-400">{{ $subject->offerings_count }} {{ Str::plural('allocation', $subject->offerings_count) }}{{ $subject->has_practical ? ' · Practical '.$subject->practical_code : '' }}</p></div>
                     </div>
                 @empty
                     <p class="px-5 py-10 text-center text-sm font-semibold text-gray-400">No subjects created yet.</p>

@@ -8,6 +8,7 @@ use App\Models\Card\Organization;
 use App\Models\Card\Student;
 use App\Models\LibraryLoan;
 use App\Services\MemberAccountService;
+use App\Services\SubjectEnrollmentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
@@ -159,7 +160,7 @@ class StudentController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, SubjectEnrollmentService $subjectEnrollments)
     {
         $data = $request->validate([
             'organization'    => 'required',
@@ -223,12 +224,14 @@ class StudentController extends Controller
         $learningPassword = $request->input('learning_password');
         unset($data['create_learning_account'], $data['learning_password']);
 
-        DB::transaction(function () use ($data, $createLearningAccount, $learningPassword) {
+        DB::transaction(function () use ($data, $createLearningAccount, $learningPassword, $subjectEnrollments) {
             $student = Student::create($data);
 
             if ($createLearningAccount) {
                 app(MemberAccountService::class)->sync($student, $learningPassword);
             }
+
+            $subjectEnrollments->syncStudent($student);
         });
 
         return redirect()->route('students.index')
@@ -248,7 +251,7 @@ class StudentController extends Controller
         ]);
     }
 
-    public function update(Request $request, Student $student)
+    public function update(Request $request, Student $student, SubjectEnrollmentService $subjectEnrollments)
     {
         if ($student->member_type === 'student') {
             $request->merge([
@@ -317,12 +320,15 @@ class StudentController extends Controller
         $learningPassword = $request->input('learning_password');
         unset($data['create_learning_account'], $data['learning_password']);
 
-        DB::transaction(function () use ($student, $data, $createLearningAccount, $learningPassword) {
+        DB::transaction(function () use ($student, $data, $createLearningAccount, $learningPassword, $subjectEnrollments) {
             $student->update($data);
 
             if ($createLearningAccount || $student->user_id) {
                 app(MemberAccountService::class)->sync($student->fresh(), $learningPassword);
             }
+
+
+            $subjectEnrollments->syncStudent($student->fresh());
         });
 
         return redirect()->route('students.index')

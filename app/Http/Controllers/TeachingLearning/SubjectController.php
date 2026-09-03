@@ -7,6 +7,7 @@ use App\Models\Card\Department;
 use App\Models\Card\Organization;
 use App\Models\Card\Subject;
 use App\Models\Card\SubjectOffering;
+use App\Services\SubjectEnrollmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -78,10 +79,14 @@ class SubjectController extends Controller
 
     // ── Subject Offerings (which subjects a faculty/class/group takes) ─────
 
-    public function storeSubjectOffering(Request $request)
+    public function storeSubjectOffering(Request $request, SubjectEnrollmentService $enrollments)
     {
         $subjectCode = strtoupper(preg_replace('/\s+/', '', (string) $request->input('subject_code')));
-        $request->merge(['subject_code' => $subjectCode]);
+        $practicalCode = strtoupper(preg_replace('/\s+/', '', (string) $request->input('practical_code')));
+        $request->merge([
+            'subject_code' => $subjectCode,
+            'practical_code' => $practicalCode ?: null,
+        ]);
         $existingSubject = Subject::where('code', $subjectCode)->first();
 
         $data = $request->validate([
@@ -93,6 +98,7 @@ class SubjectController extends Controller
             'subject_name'  => [Rule::requiredIf(! $existingSubject), 'nullable', 'string', 'max:150'],
             'credit_hours'  => 'nullable|integer|min:0|max:255',
             'has_practical' => 'nullable|boolean',
+            'practical_code' => 'nullable|string|max:50',
             'is_elective'   => 'nullable|boolean',
             'elective_group' => 'nullable|string|max:50',
         ]);
@@ -105,15 +111,23 @@ class SubjectController extends Controller
             ? ($data['elective_group'] ?? null)
             : null;
 
-        DB::transaction(function () use ($data, $request, $existingSubject) {
-            $subject = $existingSubject ?: Subject::create([
-                'code' => $data['subject_code'],
-                'name' => $data['subject_name'],
-                'credit_hours' => $data['credit_hours'] ?? null,
-                'has_practical' => $request->boolean('has_practical'),
-            ]);
+        $offering = DB::transaction(function () use ($data, $request, $existingSubject) {
+            $subject = $existingSubject;
 
-            SubjectOffering::updateOrCreate(
+            if (! $subject) {
+                $hasPractical = $request->boolean('has_practical');
+                $subject = Subject::create([
+                    'code' => $data['subject_code'],
+                    'name' => $data['subject_name'],
+                    'credit_hours' => $data['credit_hours'] ?? null,
+                    'has_practical' => $hasPractical,
+                    'practical_code' => $hasPractical
+                        ? ($data['practical_code'] ?: $data['subject_code'])
+                        : null,
+                ]);
+            }
+
+            return SubjectOffering::updateOrCreate(
                 [
                     'department_id' => $data['department_id'],
                     'group_name' => $data['group_name'],
@@ -127,10 +141,14 @@ class SubjectController extends Controller
                 ]
             );
         });
+        $assignedCount = $enrollments->syncOffering($offering);
 
-        return back()->with('success', $existingSubject
+        $message = $existingSubject
             ? "Existing subject {$subjectCode} assigned to the faculty."
-            : "New subject {$subjectCode} created and assigned to the faculty.");
+            : "New subject {$subjectCode} created and assigned to the faculty.";
+        if (! $offering->is_elective) $message .= " {$assignedCount} matching student(s) received it automatically.";
+
+        return back()->with('success', $message);
     }
 
     public function destroySubjectOffering(SubjectOffering $subjectOffering)
@@ -141,5 +159,59 @@ class SubjectController extends Controller
         $subjectOffering->delete();
         return redirect()->route('admin.teaching-learning.subjects.index', ['org' => $orgId, 'dept' => $deptId])
             ->with('success', "Subject removed from the class.");
+    }
+
+    public function updateSubjectOffering(Request $request, SubjectOffering $subjectOffering, SubjectEnrollmentService $enrollments)
+    {
+        $subjectOffering->loadMissing(['subject', 'department']);
+
+        $subjectCode = strtoupper(preg_replace('/\s+/', '', (string) $request->input('subject_code')));
+        $practicalCode = strtoupper(preg_replace('/\s+/', '', (string) $request->input('practical_code')));
+        $request->merge([
+            'subject_code' => $subjectCode,
+            'practical_code' => $practicalCode ?: null,
+        ]);
+
+        $data = $request->validate([
+            'subject_name' => ['required', 'string', 'max:150'],
+            'subject_code' => ['required', 'string', 'max:50', Rule::unique('subjects', 'code')->ignore($subjectOffering->subject_id)],
+            'credit_hours' => ['nullable', 'integer', 'min:0', 'max:255'],
+            'has_practical' => ['nullable', 'boolean'],
+            'practical_code' => ['nullable', 'string', 'max:50'],
+            'group_name' => ['nullable', 'string', 'max:100'],
+            'semester' => ['nullable', 'integer', 'min:1', 'max:8'],
+            'year_level' => ['nullable', 'integer', 'min:1', 'max:6'],
+            'is_elective' => ['nullable', 'boolean'],
+            'elective_group' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $hasPractical = $request->boolean('has_practical');
+        $isElective = $request->boolean('is_elective');
+        $department = $subjectOffering->department;
+
+        DB::transaction(function () use ($data, $subjectOffering, $department, $hasPractical, $isElective) {
+            $subjectOffering->subject->update([
+                'name' => $data['subject_name'],
+                'code' => $data['subject_code'],
+                'credit_hours' => $data['credit_hours'] ?? null,
+                'has_practical' => $hasPractical,
+                'practical_code' => $hasPractical
+                    ? ($data['practical_code'] ?: $data['subject_code'])
+                    : null,
+            ]);
+
+            $subjectOffering->update([
+                'semester' => $department->academic_system === 'semester' ? ($data['semester'] ?? null) : null,
+                'year_level' => $department->academic_system === 'year' ? ($data['year_level'] ?? null) : null,
+                'group_name' => $data['group_name'] ?? null,
+                'is_elective' => $isElective,
+                'elective_group' => $isElective ? ($data['elective_group'] ?? null) : null,
+            ]);
+        });
+        $assignedCount = $enrollments->syncOffering($subjectOffering->fresh());
+
+        return back()->with('success', $isElective
+            ? 'Subject allocation updated. Elective assignment remains manual.'
+            : "Subject allocation updated and synchronized to {$assignedCount} matching student(s).");
     }
 }

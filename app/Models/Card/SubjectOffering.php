@@ -18,4 +18,9 @@ class SubjectOffering extends Model
     {
         return $this->belongsTo(Subject::class);
     }
+
+    public function studentEnrollments()
+    {
+        return $this->hasMany(StudentSubjectEnrollment::class);
+    }
 }
