@@ -33,13 +33,17 @@ class SubjectAssignmentController extends Controller
         $offerings = collect();
         $students = collect();
         $enrollmentMap = collect();
+        $electiveSummary = collect();
+        $electiveEnrollmentCount = 0;
 
         if ($selectedDepartment && $selectedYear) {
             $offerings = SubjectOffering::with('subject')
                 ->where('department_id', $selectedDepartment->id)
-                ->where(fn ($query) => $query->whereNull('semester')->when($semester, fn ($query) => $query->orWhere('semester', $semester)))
-                ->where(fn ($query) => $query->whereNull('year_level')->when($yearLevel, fn ($query) => $query->orWhere('year_level', $yearLevel)))
-                ->where(fn ($query) => $query->whereNull('group_name')->when($selectedSection?->group_name, fn ($query, $group) => $query->orWhere('group_name', $group)))
+                ->when($semester, fn ($query) => $query->where(fn ($query) => $query->whereNull('semester')->orWhere('semester', $semester)))
+                ->when($yearLevel, fn ($query) => $query->where(fn ($query) => $query->whereNull('year_level')->orWhere('year_level', $yearLevel)))
+                ->when($selectedSection, fn ($query) => $query->where(fn ($query) => $query
+                    ->whereNull('group_name')
+                    ->when($selectedSection->group_name, fn ($query, $group) => $query->orWhere('group_name', $group))))
                 ->orderBy('is_elective')->orderBy('elective_group')->get();
 
             $students = Student::query()
@@ -59,11 +63,43 @@ class SubjectAssignmentController extends Controller
                 ->get()
                 ->groupBy('student_id')
                 ->map(fn ($rows) => $rows->pluck('subject_offering_id')->map(fn ($id) => (int) $id)->values());
+
+            $sectionNames = $selectedDepartment->sections->pluck('name', 'id');
+            $electiveEnrollments = StudentSubjectEnrollment::with([
+                'student:id,first_name,middle_name,last_name,roll_number,section,section_id',
+                'offering.subject',
+            ])
+                ->whereIn('student_id', $students->pluck('id'))
+                ->where('academic_year', $selectedYear->name)
+                ->where('assignment_source', 'manual')
+                ->whereHas('offering', fn ($query) => $query
+                    ->where('department_id', $selectedDepartment->id)
+                    ->where('is_elective', true))
+                ->get();
+            $electiveEnrollmentCount = $electiveEnrollments->count();
+            $electiveSummary = $electiveEnrollments
+                ->groupBy(function ($enrollment) use ($sectionNames) {
+                    $student = $enrollment->student;
+                    return $student?->section_id
+                        ? ($sectionNames->get($student->section_id) ?? $student->section ?? 'Unassigned')
+                        : ($student?->section ?: 'Unassigned');
+                })
+                ->map(fn ($sectionEnrollments) => $sectionEnrollments
+                    ->groupBy('subject_offering_id')
+                    ->map(fn ($subjectEnrollments) => [
+                        'offering' => $subjectEnrollments->first()->offering,
+                        'students' => $subjectEnrollments->pluck('student')->filter()
+                            ->sortBy(fn ($student) => sprintf('%s|%s', $student->roll_number, $student->full_name))
+                            ->values(),
+                    ])
+                    ->values())
+                ->sortKeys();
         }
 
         return view('teaching_learning.subject-assignments.index', compact(
             'organizations', 'academicYears', 'selectedYear', 'selectedOrganization', 'selectedDepartment',
-            'selectedSection', 'semester', 'yearLevel', 'offerings', 'students', 'enrollmentMap'
+            'selectedSection', 'semester', 'yearLevel', 'offerings', 'students', 'enrollmentMap',
+            'electiveSummary', 'electiveEnrollmentCount'
         ));
     }
 
@@ -77,8 +113,17 @@ class SubjectAssignmentController extends Controller
         if ($year->is_locked) throw ValidationException::withMessages(['academic_year_id' => 'Unlock the academic year before synchronizing subjects.']);
         $department = Department::with('organization')->findOrFail($data['department_id']);
         $count = $enrollments->syncDepartment($department, $year);
+        $studentCount = StudentSubjectEnrollment::query()
+            ->where('academic_year', $year->name)
+            ->where('assignment_source', 'automatic')
+            ->whereHas('offering', fn ($query) => $query->where('department_id', $department->id))
+            ->distinct('student_id')
+            ->count('student_id');
+        $subjectCount = SubjectOffering::where('department_id', $department->id)
+            ->where('is_elective', false)
+            ->count();
 
-        return back()->with('success', "Compulsory subjects synchronized. {$count} student-subject assignment(s) are active.");
+        return back()->with('success', "{$studentCount} student(s) synchronized with {$subjectCount} compulsory subject(s). {$count} individual subject enrollment record(s) are active.");
     }
 
     public function updateElective(Request $request, SubjectEnrollmentService $enrollments)
@@ -86,28 +131,53 @@ class SubjectAssignmentController extends Controller
         $data = $request->validate([
             'academic_year_id' => ['required', 'integer', 'exists:academic_years,id'],
             'subject_offering_id' => ['required', 'integer', 'exists:subject_offerings,id'],
-            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['integer', 'exists:students,id'],
-            'mode' => ['required', 'in:assign,remove'],
+            'scope_student_ids' => ['nullable', 'array'],
+            'scope_student_ids.*' => ['integer', 'exists:students,id'],
+            'mode' => ['required', 'in:assign,remove,replace'],
         ]);
         $year = AcademicYear::findOrFail($data['academic_year_id']);
         if ($year->is_locked) throw ValidationException::withMessages(['academic_year_id' => 'Unlock the academic year before changing elective assignments.']);
         $offering = SubjectOffering::with('department.organization')->findOrFail($data['subject_offering_id']);
         if (! $offering->is_elective) throw ValidationException::withMessages(['subject_offering_id' => 'Compulsory subjects are assigned automatically.']);
 
+        $studentIds = collect($data['student_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+        if ($data['mode'] !== 'replace' && $studentIds->isEmpty()) {
+            throw ValidationException::withMessages(['student_ids' => 'Select at least one student.']);
+        }
         $students = Student::query()
             ->tap(fn ($query) => auth()->user()->applyStudentScope($query))
-            ->whereIn('id', $data['student_ids'])
+            ->whereIn('id', $studentIds)
             ->get();
-        if ($students->count() !== count(array_unique($data['student_ids']))) {
+        if ($students->count() !== $studentIds->count()) {
             throw ValidationException::withMessages(['student_ids' => 'One or more selected students are outside your access scope.']);
         }
         if ($students->contains(fn ($student) => ! $enrollments->studentMatchesOffering($student, $offering))) {
             throw ValidationException::withMessages(['student_ids' => 'Every selected student must match the elective department, semester/year, and class group.']);
         }
 
-        DB::transaction(function () use ($data, $year, $offering, $students) {
-            if ($data['mode'] === 'assign' && $offering->elective_group) {
+        $scopeIds = collect($data['scope_student_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+        if ($data['mode'] === 'replace') {
+            if ($scopeIds->isEmpty() || $studentIds->diff($scopeIds)->isNotEmpty()) {
+                throw ValidationException::withMessages(['scope_student_ids' => 'The edited students must belong to the selected section.']);
+            }
+            $scopeStudents = Student::query()->tap(fn ($query) => auth()->user()->applyStudentScope($query))->whereIn('id', $scopeIds)->get();
+            if ($scopeStudents->count() !== $scopeIds->count() || $scopeStudents->contains(fn ($student) => ! $enrollments->studentMatchesOffering($student, $offering))) {
+                throw ValidationException::withMessages(['scope_student_ids' => 'The edited section is outside your access scope.']);
+            }
+        }
+
+        DB::transaction(function () use ($data, $year, $offering, $students, $scopeIds) {
+            if ($data['mode'] === 'replace') {
+                StudentSubjectEnrollment::whereIn('student_id', $scopeIds)
+                    ->where('subject_offering_id', $offering->id)
+                    ->where('academic_year', $year->name)
+                    ->where('assignment_source', 'manual')
+                    ->delete();
+            }
+
+            if (in_array($data['mode'], ['assign', 'replace'], true) && $offering->elective_group) {
                 StudentSubjectEnrollment::whereIn('student_id', $students->pluck('id'))
                     ->where('academic_year', $year->name)
                     ->where('assignment_source', 'manual')
@@ -135,8 +205,10 @@ class SubjectAssignmentController extends Controller
             }
         });
 
-        return back()->with('success', $data['mode'] === 'assign'
-            ? "Elective assigned to {$students->count()} student(s)."
-            : "Elective removed from {$students->count()} student(s).");
+        return back()->with('success', match ($data['mode']) {
+            'assign' => "Elective assigned to {$students->count()} student(s).",
+            'remove' => "Elective removed from {$students->count()} student(s).",
+            default => "Elective assignment updated for the section. {$students->count()} student(s) selected.",
+        });
     }
 }

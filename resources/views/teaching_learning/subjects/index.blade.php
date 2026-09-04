@@ -13,6 +13,10 @@
         if ($offering->group_name) $parts[] = $offering->group_name;
         return $parts ? implode(' · ', $parts) : 'Whole faculty / class';
     });
+    $sectionGroupMemberships = $selectedDept
+        ? $selectedDept->sections->filter(fn ($section) => filled($section->group_name))
+            ->groupBy('group_name')->map(fn ($sections) => $sections->pluck('id')->map(fn ($id) => (string) $id)->values())
+        : collect();
 @endphp
 
 <div class="space-y-4" x-data="facultySubjectsPage()">
@@ -76,6 +80,46 @@
                         </div>
                         <div class="flex flex-wrap gap-1.5 text-[11px] font-extrabold"><span class="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-gray-500">{{ $selectedDept->sections->count() }} {{ Str::plural('section', $selectedDept->sections->count()) }}</span><span class="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-700">{{ ['semester' => 'Semester', 'year' => 'Year', 'none' => 'Class-based'][$selectedDept->academic_system] ?? 'Class-based' }}</span><span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-700">{{ $offerings->count() }} allocated</span></div>
                     </div>
+
+                    @if($canCreate && $selectedDept->sections->isNotEmpty())
+                        <div class="border-b border-gray-100 bg-emerald-50/30 p-3 sm:p-4" x-data="sectionGroupManager()">
+                            <form method="POST" action="{{ route('admin.teaching-learning.section-groups.update') }}" class="space-y-3" @submit="if ($event.submitter?.value === 'save' && !selected.length) { $event.preventDefault(); alert('Select at least one section.'); }">
+                                @csrf @method('PUT')
+                                <input type="hidden" name="department_id" value="{{ $selectedDept->id }}">
+                                <div class="flex flex-col gap-2 lg:flex-row lg:items-end">
+                                    <div class="min-w-56 lg:w-64">
+                                        <label class="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">Section group name</label>
+                                        <input name="group_name" x-model="groupName" @input.debounce.150ms="loadExistingGroup()" list="section-group-list" required placeholder="e.g. Bio" class="w-full rounded-lg border-emerald-200 bg-white px-3 py-2 text-sm font-extrabold focus:border-emerald-600 focus:ring-emerald-600">
+                                        <datalist id="section-group-list">@foreach($deptGroups as $group)<option value="{{ $group }}"></option>@endforeach</datalist>
+                                    </div>
+                                    <div class="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                                        @foreach($deptGroups as $group)
+                                            <button type="button" @click="chooseGroup(@js($group))" :class="groupName === @js($group) ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 bg-white text-emerald-800'" class="rounded-lg border px-2.5 py-2 text-[10px] font-black transition">{{ $group }}</button>
+                                        @endforeach
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button type="submit" name="intent" value="save" :disabled="!groupName.trim() || !selected.length" class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40">Save group</button>
+                                        <button type="submit" name="intent" value="remove" x-show="isExisting" onclick="return confirm('Remove this section group? Subject allocations using its name will remain available.')" class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-extrabold text-red-600">Remove</button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="mb-1.5 flex items-center justify-between gap-3"><p class="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Choose all sections in this group</p><p class="text-[10px] font-bold text-emerald-700"><span x-text="selected.length"></span> selected</p></div>
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach($selectedDept->sections as $section)
+                                            <label :class="selected.includes(@js((string) $section->id)) ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-300'" class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-extrabold transition">
+                                                <input type="checkbox" name="section_ids[]" value="{{ $section->id }}" x-model="selected" class="sr-only">
+                                                <span :class="selected.includes(@js((string) $section->id)) ? 'border-white bg-white text-emerald-700' : 'border-gray-300 bg-white text-transparent'" class="flex h-4 w-4 items-center justify-center rounded border-2 transition"><svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>
+                                                {{ $section->name }}
+                                                @if($section->group_name)<span class="text-[9px] opacity-70">{{ $section->group_name }}</span>@endif
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <p class="mt-2 text-[10px] font-semibold text-gray-400">Students follow their current section automatically. Moving a student to another class or section recalculates compulsory subjects; no student list needs to be maintained here.</p>
+                                </div>
+                            </form>
+                        </div>
+                    @endif
 
                     @if($canCreate)
                         <div class="border-b border-gray-100 p-3 sm:p-4">
@@ -240,6 +284,33 @@ function facultySubjectsPage() {
 
         get isNewSubject() {
             return this.subjectCode.length > 0 && !this.existingSubject;
+        },
+    };
+}
+
+function sectionGroupManager() {
+    return {
+        memberships: @js($sectionGroupMemberships),
+        groupName: @js((string) old('group_name', '')),
+        selected: @js(collect(old('section_ids', []))->map(fn ($id) => (string) $id)->values()),
+
+        get existingName() {
+            const wanted = this.groupName.trim().toLowerCase();
+            return Object.keys(this.memberships).find(name => name.toLowerCase() === wanted) || null;
+        },
+
+        get isExisting() {
+            return Boolean(this.existingName);
+        },
+
+        loadExistingGroup() {
+            const name = this.existingName;
+            if (name) this.selected = [...this.memberships[name]];
+        },
+
+        chooseGroup(name) {
+            this.groupName = name;
+            this.selected = [...(this.memberships[name] || [])];
         },
     };
 }

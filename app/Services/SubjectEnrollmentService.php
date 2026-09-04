@@ -11,9 +11,18 @@ use Illuminate\Database\Eloquent\Builder;
 
 class SubjectEnrollmentService
 {
+    public function currentWritableAcademicYear(): ?AcademicYear
+    {
+        return AcademicYear::where('is_locked', false)
+            ->orderByDesc('is_active')
+            ->latest('starts_on')
+            ->latest('id')
+            ->first();
+    }
+
     public function syncOffering(SubjectOffering $offering, ?AcademicYear $academicYear = null): int
     {
-        $academicYear ??= AcademicYear::where('is_active', true)->first();
+        $academicYear ??= $this->currentWritableAcademicYear();
         if (! $academicYear) return 0;
 
         StudentSubjectEnrollment::where('subject_offering_id', $offering->id)
@@ -64,7 +73,7 @@ class SubjectEnrollmentService
     {
         if ($student->member_type !== 'student') return 0;
 
-        $academicYear ??= AcademicYear::where('is_active', true)->first();
+        $academicYear ??= $this->currentWritableAcademicYear();
         if (! $academicYear) return 0;
 
         $department = $student->department_record;

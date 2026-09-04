@@ -13,6 +13,7 @@
 
     $value = fn ($text) => filled($text) ? $text : '—';
     $dateValue = fn ($date) => $date ? $date->format('d M Y') : '—';
+    $electiveGroups = $electiveEnrollments->pluck('offering.elective_group')->filter()->unique()->values();
 @endphp
 
 <div class="space-y-6">
@@ -31,6 +32,9 @@
                             <span class="text-white/30">/</span>
                             <span>{{ $member->stream }}{{ $member->section ? ' - ' . $member->section : '' }}</span>
                         @endif
+                        @foreach($electiveGroups as $group)
+                            <span class="rounded-full border border-purple-300/30 bg-purple-400/20 px-2 py-0.5 text-xs font-extrabold text-purple-100">{{ $group }}</span>
+                        @endforeach
                     </div>
                 </div>
             </div>
@@ -99,6 +103,9 @@
                     <div><dt class="text-xs font-bold text-gray-400">Organization</dt><dd class="mt-1 text-sm font-semibold text-gray-900">{{ ucfirst($value($member->organization)) }}</dd></div>
                     <div><dt class="text-xs font-bold text-gray-400">Class / Stream</dt><dd class="mt-1 text-sm font-semibold text-gray-900">{{ $value($member->stream) }}</dd></div>
                     <div><dt class="text-xs font-bold text-gray-400">Section</dt><dd class="mt-1 text-sm font-semibold text-gray-900">{{ $value($member->section) }}</dd></div>
+                    <div><dt class="text-xs font-bold text-gray-400">Section Group</dt><dd class="mt-1">@if($member->academicSection?->group_name)<span class="inline-flex rounded-md bg-emerald-50 px-2 py-1 text-xs font-extrabold text-emerald-700">{{ $member->academicSection->group_name }}</span>@else<span class="text-sm font-semibold text-gray-400">—</span>@endif</dd></div>
+                    <div><dt class="text-xs font-bold text-gray-400">Elective Group{{ $academicYear ? ' · '.$academicYear->name : '' }}</dt><dd class="mt-1 flex flex-wrap gap-1.5">@forelse($electiveGroups as $group)<span class="inline-flex rounded-md bg-purple-50 px-2 py-1 text-xs font-extrabold text-purple-700">{{ $group }}</span>@empty<span class="text-sm font-semibold text-gray-400">—</span>@endforelse</dd></div>
+                    <div class="sm:col-span-2"><dt class="text-xs font-bold text-gray-400">Elective Subjects{{ $academicYear ? ' · '.$academicYear->name : '' }}</dt><dd class="mt-1 flex flex-wrap gap-1.5">@forelse($electiveEnrollments as $enrollment)<span class="inline-flex rounded-md border border-purple-100 bg-purple-50 px-2 py-1 text-xs font-extrabold text-purple-800">{{ $enrollment->offering->subject->name }} <span class="ml-1 text-purple-500">{{ $enrollment->offering->subject->code }}</span></span>@empty<span class="text-sm font-semibold text-gray-400">No elective assigned</span>@endforelse</dd></div>
                     <div><dt class="text-xs font-bold text-gray-400">Program</dt><dd class="mt-1 text-sm font-semibold text-gray-900">{{ $value($member->program) }}</dd></div>
                     <div><dt class="text-xs font-bold text-gray-400">Batch</dt><dd class="mt-1 text-sm font-semibold text-gray-900">{{ $value($member->batch) }}</dd></div>
                 </dl>

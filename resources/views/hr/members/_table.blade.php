@@ -31,6 +31,11 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse($members as $member)
+                    @php
+                        $memberElectiveGroups = $member->subjectEnrollments
+                            ->filter(fn ($enrollment) => $enrollment->offering?->is_elective)
+                            ->pluck('offering.elective_group')->filter()->unique()->values();
+                    @endphp
                     <tr class="hover:bg-gray-50">
                         <td class="w-20 px-5 py-4">
                             <label class="inline-flex items-center">
@@ -58,10 +63,18 @@
                                 {{ $typeLabels[$member->member_type] ?? ucfirst($member->member_type) }}
                             </span>
                         </td>
-                        <td class="px-5 py-4 text-sm font-semibold text-gray-700" data-highlight>
-                            {{ $member->stream ?: '-' }}
-                            <span class="text-gray-400">/</span>
-                            {{ $member->section ?: '-' }}
+                        <td class="px-5 py-4" data-highlight>
+                            <p class="text-sm font-semibold text-gray-700">{{ $member->stream ?: '-' }} <span class="text-gray-400">/</span> {{ $member->section ?: '-' }}</p>
+                            @if($member->member_type === 'student' && ($member->academicSection?->group_name || $memberElectiveGroups->isNotEmpty()))
+                                <div class="mt-1.5 flex max-w-64 flex-wrap gap-1">
+                                    @if($member->academicSection?->group_name)
+                                        <span class="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-extrabold text-emerald-700" title="Section group">Section: {{ $member->academicSection->group_name }}</span>
+                                    @endif
+                                    @foreach($memberElectiveGroups as $group)
+                                        <span class="rounded-md bg-purple-50 px-1.5 py-0.5 text-[9px] font-extrabold text-purple-700" title="Elective group">{{ $group }}</span>
+                                    @endforeach
+                                </div>
+                            @endif
                         </td>
                         <td class="px-5 py-4">
                             <div class="flex flex-wrap gap-1.5">

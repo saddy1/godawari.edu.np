@@ -54,6 +54,14 @@
                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span class="flex-1 truncate">Routine Configuration</span>
             </a>
+            @can('teaching-learning.routine.view')
+            <a href="{{ route('admin.teaching-learning.routine-builder.index') }}"
+               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.teaching-learning.routine-builder.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3M5 11h14M6 5h12a2 2 0 012 2v12H4V7a2 2 0 012-2zm2 9h3v3H8z"/></svg>
+                <span class="flex-1 truncate">Routine Builder</span>
+                <span class="rounded bg-amber-400/20 px-1.5 py-0.5 text-[8px] font-black text-amber-300">NEW</span>
+            </a>
+            @endcan
         @endif
 
         <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/20 uppercase tracking-widest">Coming soon</p>

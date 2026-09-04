@@ -12,6 +12,7 @@ use App\Models\Card\Section;
 use App\Models\Card\MemberType;
 use App\Models\Card\Student;
 use App\Models\Card\SubjectOffering;
+use App\Services\SubjectEnrollmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\File;
@@ -169,7 +170,7 @@ class SettingsController extends Controller
         return back()->with('success', "Section '{$data['name']}' added.");
     }
 
-    public function updateSection(Request $request, Section $section)
+    public function updateSection(Request $request, Section $section, SubjectEnrollmentService $subjectEnrollments)
     {
         $data = $request->validate([
             'name'       => 'required|string|max:100',
@@ -178,14 +179,22 @@ class SettingsController extends Controller
         ]);
         $data['is_active'] = $request->boolean('is_active');
         $section->update($data);
+        $academicYear = $subjectEnrollments->currentWritableAcademicYear();
+        if ($academicYear) {
+            $subjectEnrollments->syncDepartment($section->department()->with('organization')->firstOrFail(), $academicYear);
+        }
         return back()->with('success', "Section updated.");
     }
 
-    public function destroySection(Section $section)
+    public function destroySection(Section $section, SubjectEnrollmentService $subjectEnrollments)
     {
         $deptId = $section->department_id;
-        $dept   = $section->department;
+        $dept = $section->department()->with('organization')->firstOrFail();
         $section->delete();
+        $academicYear = $subjectEnrollments->currentWritableAcademicYear();
+        if ($academicYear) {
+            $subjectEnrollments->syncDepartment($dept, $academicYear);
+        }
         return redirect()->route('settings.index', ['tab' => 'sections', 'org' => $dept->organization_id, 'dept' => $deptId])
             ->with('success', "Section deleted.");
     }

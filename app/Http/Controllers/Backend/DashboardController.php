@@ -26,6 +26,10 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        if ($user?->isTeacher() && ModuleService::enabled('teaching_learning')) {
+            return redirect()->route('admin.teacher.workspace');
+        }
+
         if (! $user?->canAccess(['dashboard.admin', 'dashboard.view', 'dashboard.financial'])) {
             $landingUrl = $this->firstAccessibleModuleUrl($user);
 
@@ -87,6 +91,12 @@ class DashboardController extends Controller
      */
     private function firstAccessibleModuleUrl(User $user): ?string
     {
+        if (ModuleService::enabled('teaching_learning') && ($user->isTeacher() || $user->canAccess([
+            'examinations.marks.enter', 'teaching-learning.routine.manage',
+        ]))) {
+            return route('admin.teacher.workspace');
+        }
+
         if (ModuleService::enabled('hr')) {
             if ($user->canAccess('hr.members.view')) {
                 return route('admin.hr.members.index');

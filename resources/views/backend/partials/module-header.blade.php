@@ -6,6 +6,7 @@
         request()->is('admin/hr*') => 'hr',
         request()->is('admin/students*', 'admin/id-card*') => 'id-card',
         request()->is('admin/hajiri*') => 'hajiri',
+        request()->is('admin/examinations*') => 'examinations',
         request()->is('admin/teaching-learning*') => 'teaching-learning',
         request()->is('admin/learning*') => 'learning',
         request()->is('admin/library*') => 'library',
@@ -33,20 +34,20 @@
     }
 
     $moduleLinks = [
-        ['key' => 'website',    'label' => 'Website',    'sub' => 'Public site',      'url' => route('admin.dashboard'),            'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['dashboard.admin', 'dashboard.view', 'dashboard.financial'])],
-        ['key' => 'hr',         'label' => 'HR',         'sub' => 'People master',    'url' => route('admin.hr.members.index'),      'show' => $isAdmin && $user?->canAccess(['hr.members.view', 'hr.members.create', 'hr.members.edit', 'hr.members.delete']) && \App\Services\ModuleService::enabled('hr')],
-        ['key' => 'teaching-learning', 'label' => 'Teaching & Learning', 'sub' => 'Subjects & electives', 'url' => route('admin.teaching-learning.dashboard'), 'show' => $isAdmin && $user?->canAccess(['teaching-learning.subjects.view', 'teaching-learning.subjects.create', 'teaching-learning.subjects.delete']) && \App\Services\ModuleService::enabled('teaching_learning')],
-        ['key' => 'id-card',    'label' => 'Students',   'sub' => 'Records & cards',  'url' => $idCardUrl,                          'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['students.view', 'students.create', 'students.edit', 'students.delete', 'users.bulk-import', 'cards.view', 'cards.print', 'students.card-request', 'card-settings.view']) && \App\Services\ModuleService::enabled('card')],
-        ['key' => 'hajiri',     'label' => 'Hajiri',     'sub' => 'Attendance',       'url' => route('hajiri.home'),                'show' => ($isAdmin || $isStaffEmployee) && ($isStaffEmployee || $user?->device_id || $user?->canAccess(['attendance.view', 'attendance.report', 'users.view', 'leaves.view', 'settings.view'])) && \App\Services\ModuleService::enabled('hajiri')],
-        ['key' => 'learning',   'label' => 'Learning',   'sub' => 'Courses & tests',  'url' => route('admin.learning.dashboard'),   'show' => ($isAdmin || $isScopedTeacher) && $hasLearningAssignment && $user?->canAccess(['learning.courses.view', 'learning.students.view', 'learning.lessons.view', 'learning.resources.view', 'learning.quizzes.view', 'learning.reports.view']) && \App\Services\ModuleService::enabled('learning')],
-        ['key' => 'store',      'label' => 'Store',      'sub' => 'Inventory',        'url' => route('admin.store.dashboard'),      'show' => $isAdmin && $user?->canAccess(['store.view', 'store.create', 'store.edit', 'store.delete', 'store.approve', 'store.reports']) && \App\Services\ModuleService::enabled('store')],
-        ['key' => 'library',    'label' => 'Library',    'sub' => 'Books & issue',    'url' => route('admin.library.dashboard'),    'show' => $isAdmin && $user?->canAccess(['library.view', 'library.create', 'library.edit', 'library.issue', 'library.reports']) && \App\Services\ModuleService::enabled('library')],
-        ['key' => 'billing',    'label' => 'Salary / Pay Slip', 'sub' => 'Payroll & salary slips', 'url' => $salaryUrl, 'show' => (($isAdmin && $user?->canAccess(['billing.view', 'billing.create', 'billing.delete'])) || ($isStaffEmployee && $user?->device_id)) && \App\Services\ModuleService::enabled('billing')],
-        ['key' => 'work-tasks', 'label' => 'Work Tasks', 'sub' => 'Performance',      'url' => route('admin.work-tasks.index'),     'show' => $isAdmin && $user?->canAccess(['work-tasks.view', 'work-tasks.create', 'work-tasks.submit', 'work-tasks.review']) && \App\Services\ModuleService::enabled('work_tasks')],
+        ['key' => 'website', 'category' => 'Administration', 'label' => 'Website', 'sub' => 'Public site', 'url' => route('admin.dashboard'), 'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['dashboard.admin', 'dashboard.view', 'dashboard.financial'])],
+        ['key' => 'hr', 'category' => 'People', 'label' => 'HR', 'sub' => 'People master', 'url' => route('admin.hr.members.index'), 'show' => $isAdmin && $user?->canAccess(['hr.members.view', 'hr.members.create', 'hr.members.edit', 'hr.members.delete']) && \App\Services\ModuleService::enabled('hr')],
+        ['key' => 'teaching-learning', 'category' => 'Academic', 'label' => 'Teaching & Learning', 'sub' => 'Subjects & routine', 'url' => route('admin.teaching-learning.dashboard'), 'show' => $isAdmin && $user?->canAccess(['teaching-learning.subjects.view', 'teaching-learning.subjects.create', 'teaching-learning.subjects.delete']) && \App\Services\ModuleService::enabled('teaching_learning')],
+        ['key' => 'examinations', 'category' => 'Academic', 'label' => 'Examinations', 'sub' => 'Marks & results', 'url' => route('admin.examinations.index'), 'show' => ($isAdmin || $isScopedTeacher) && $user?->canAccess(['examinations.view', 'examinations.manage', 'examinations.marks.enter', 'examinations.reports']) && \App\Services\ModuleService::enabled('examinations')],
+        ['key' => 'id-card', 'category' => 'Academic', 'label' => 'Students', 'sub' => 'Records & cards', 'url' => $idCardUrl, 'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['students.view', 'students.create', 'students.edit', 'students.delete', 'users.bulk-import', 'cards.view', 'cards.print', 'students.card-request', 'card-settings.view']) && \App\Services\ModuleService::enabled('card')],
+        ['key' => 'hajiri', 'category' => 'Administration', 'label' => 'Hajiri', 'sub' => 'Attendance', 'url' => route('hajiri.home'), 'show' => ($isAdmin || $isStaffEmployee) && ($isStaffEmployee || $user?->device_id || $user?->canAccess(['attendance.view', 'attendance.report', 'users.view', 'leaves.view', 'settings.view'])) && \App\Services\ModuleService::enabled('hajiri')],
+        ['key' => 'learning', 'category' => 'Academic', 'label' => 'Learning', 'sub' => 'Courses & tests', 'url' => route('admin.learning.dashboard'), 'show' => ($isAdmin || $isScopedTeacher) && $hasLearningAssignment && $user?->canAccess(['learning.courses.view', 'learning.students.view', 'learning.lessons.view', 'learning.resources.view', 'learning.quizzes.view', 'learning.reports.view']) && \App\Services\ModuleService::enabled('learning')],
+        ['key' => 'store', 'category' => 'Resources', 'label' => 'Store', 'sub' => 'Inventory', 'url' => route('admin.store.dashboard'), 'show' => $isAdmin && $user?->canAccess(['store.view', 'store.create', 'store.edit', 'store.delete', 'store.approve', 'store.reports']) && \App\Services\ModuleService::enabled('store')],
+        ['key' => 'library', 'category' => 'Library', 'label' => 'Library', 'sub' => 'Books & issue', 'url' => route('admin.library.dashboard'), 'show' => $isAdmin && $user?->canAccess(['library.view', 'library.create', 'library.edit', 'library.issue', 'library.reports']) && \App\Services\ModuleService::enabled('library')],
+        ['key' => 'billing', 'category' => 'Administration', 'label' => 'Salary / Pay Slip', 'sub' => 'Payroll & slips', 'url' => $salaryUrl, 'show' => (($isAdmin && $user?->canAccess(['billing.view', 'billing.create', 'billing.delete'])) || ($isStaffEmployee && $user?->device_id)) && \App\Services\ModuleService::enabled('billing')],
+        ['key' => 'work-tasks', 'category' => 'People', 'label' => 'Work Tasks', 'sub' => 'Performance', 'url' => route('admin.work-tasks.index'), 'show' => $isAdmin && $user?->canAccess(['work-tasks.view', 'work-tasks.create', 'work-tasks.submit', 'work-tasks.review']) && \App\Services\ModuleService::enabled('work_tasks')],
     ];
     $visibleModuleLinks = collect($moduleLinks)->filter(fn($module) => $module['show'])->values();
-    $desktopModuleColumns = max(1, min(6, (int) ceil($visibleModuleLinks->count() / 2)));
-    $primaryModuleLinks = $visibleModuleLinks;
+    $categorizedModuleLinks = $visibleModuleLinks->groupBy('category');
     $showModuleSwitcher = $visibleModuleLinks->isNotEmpty();
     $showSystemSettings = false;
 
@@ -83,6 +84,7 @@
         'website' => $notifContacts,
         'hr' => 0,
         'teaching-learning' => 0,
+        'examinations' => 0,
         'learning' => 0,
         'store' => 0,
         'library' => 0,
@@ -110,47 +112,26 @@
 
             {{-- Module switcher --}}
             @if($showModuleSwitcher)
-            <nav x-data="{ moreOpen: false }" @click.outside="moreOpen = false" aria-label="ERP modules"
-                 class="erp-module-switcher relative flex min-w-0 flex-1 items-center gap-1.5 overflow-visible rounded-2xl border border-white/90 bg-white/60 p-1.5 shadow-sm lg:grid lg:items-stretch"
-                 style="grid-template-columns:repeat({{ $desktopModuleColumns }},minmax(0,1fr));">
-                @foreach($primaryModuleLinks as $m)
-                @php $badge = $moduleBadges[$m['key']] ?? 0; @endphp
-                <a href="{{ $m['url'] }}"
-                   @if($currentModule === $m['key']) aria-current="page" @endif
-                   class="relative hidden min-h-14 min-w-0 flex-col items-start justify-center whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-bold transition-all duration-200 lg:flex
-                          {{ $currentModule === $m['key']
-                              ? 'border-transparent bg-[#1a5632] text-white shadow-md ring-1 ring-black/5'
-                              : 'border-slate-200 bg-white/95 text-slate-700 shadow-sm hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:text-slate-950 hover:shadow-md' }}">
-                    <span class="block w-full truncate text-sm font-extrabold leading-tight {{ $badge > 0 ? 'pr-8' : '' }}" title="{{ $m['label'] }}">{{ $m['label'] }}</span>
-                    <span class="mt-1 block w-full truncate text-[10px] font-semibold leading-none opacity-70" title="{{ $m['sub'] }}">{{ $m['sub'] }}</span>
-                    @if($badge > 0)
-                    <span class="absolute right-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black leading-none text-white shadow-sm ring-2 ring-white">
-                        {{ $badge > 99 ? '99+' : $badge }}
-                    </span>
-                    @endif
-                </a>
-                @endforeach
-
+            <nav x-data="{ activeCategory: null }" @click.outside="activeCategory = null" aria-label="ERP modules" class="relative flex min-w-0 flex-1 items-center gap-1.5">
                 @php $activeModule = $visibleModuleLinks->firstWhere('key', $currentModule) ?? $visibleModuleLinks->first(); @endphp
-                @if($activeModule)
-                <a href="{{ $activeModule['url'] }}" class="relative flex flex-col items-start rounded-lg bg-[#1a5632] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-sm lg:hidden">
-                    <span class="text-[13px] font-extrabold leading-tight">{{ $activeModule['label'] }}</span>
-                </a>
-                @endif
-
-                @if($visibleModuleLinks->count() > 1)
-                <div class="relative ml-auto shrink-0 lg:hidden">
-                    <button type="button" @click="moreOpen = !moreOpen" class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-extrabold text-gray-700 transition-all hover:bg-white hover:shadow-sm">
-                        <span>Modules</span><svg class="h-3.5 w-3.5 transition-transform" :class="moreOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-                    </button>
-                    <div x-show="moreOpen" x-transition class="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-2 shadow-2xl" style="display:none;">
-                        @foreach($visibleModuleLinks as $m)
-                        <a href="{{ $m['url'] }}" @click="moreOpen = false" class="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 {{ $currentModule === $m['key'] ? 'bg-green-50 text-[#1a5632]' : 'text-gray-700 hover:bg-gray-50' }}">
-                            <span><span class="block text-sm font-extrabold">{{ $m['label'] }}</span><span class="block text-[10px] font-semibold opacity-60">{{ $m['sub'] }}</span></span>
-                            @if(($moduleBadges[$m['key']] ?? 0) > 0)<span class="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white">{{ $moduleBadges[$m['key']] > 99 ? '99+' : $moduleBadges[$m['key']] }}</span>@endif
-                        </a>
-                        @endforeach
+                @if($activeModule)<a href="{{$activeModule['url']}}" class="hidden shrink-0 min-w-0 items-center gap-2 rounded-xl bg-[#1a5632] px-3 py-2 text-white shadow-sm sm:flex"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg></span><span class="min-w-0"><span class="block truncate text-xs font-black">{{$activeModule['label']}}</span><span class="hidden truncate text-[9px] font-semibold text-white/60 md:block">{{$activeModule['sub']}}</span></span></a>@endif
+                @if($visibleModuleLinks->count()>1)
+                <div class="flex min-w-0 flex-1 flex-nowrap items-center gap-1">
+                    @foreach($categorizedModuleLinks as $category=>$modules)
+                    @php $categoryBadge = $modules->sum(fn($m) => $moduleBadges[$m['key']] ?? 0); $categoryActive = $modules->contains('key', $currentModule); @endphp
+                    <div class="relative shrink-0" :class="activeCategory===@js($category)?'z-50':'z-0'">
+                        <button type="button" @click="activeCategory=activeCategory===@js($category)?null:@js($category)"
+                                class="inline-flex items-center gap-1 whitespace-nowrap rounded-xl border px-2 py-2.5 text-[10px] font-black shadow-sm transition-colors sm:px-3 sm:text-xs {{ $categoryActive ? 'border-[#1a5632]/30 bg-[#1a5632]/10 text-[#1a5632]' : 'border-white bg-white/90 text-gray-700 hover:bg-white' }}"
+                                :class="activeCategory===@js($category)?'ring-2 ring-[#1a5632]/30':''">
+                            <span>{{ $category }}</span>
+                            @if($categoryBadge>0)<span class="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-black text-white">{{ $categoryBadge }}</span>@endif
+                            <svg class="h-3.5 w-3.5 shrink-0 text-current opacity-60 transition" :class="activeCategory===@js($category)?'rotate-180':''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="activeCategory===@js($category)" x-transition class="absolute left-0 top-full z-50 mt-2 w-[min(88vw,16rem)] overflow-hidden rounded-2xl border border-gray-100 bg-white p-1.5 shadow-2xl" style="display:none">
+                            @foreach($modules as $m)<a href="{{$m['url']}}" @click="activeCategory=null" class="flex items-center justify-between rounded-lg px-3 py-2 {{ $currentModule===$m['key']?'bg-emerald-100 text-[#1a5632]':'text-gray-700 hover:bg-gray-50' }}"><span><span class="block text-xs font-black">{{$m['label']}}</span><span class="block text-[9px] font-semibold opacity-60">{{$m['sub']}}</span></span>@if(($moduleBadges[$m['key']]??0)>0)<span class="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-black text-white">{{$moduleBadges[$m['key']]}}</span>@endif</a>@endforeach
+                        </div>
                     </div>
+                    @endforeach
                 </div>
                 @endif
             </nav>

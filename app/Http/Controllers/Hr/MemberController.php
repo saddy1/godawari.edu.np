@@ -13,6 +13,7 @@ use App\Models\Hajiri\Department as HajiriDepartment;
 use App\Models\Hajiri\Designation;
 use App\Models\Hajiri\EmploymentType;
 use App\Models\Hajiri\WorkAssigned;
+use App\Models\TeachingLearning\AcademicYear;
 use App\Services\MemberAccountService;
 use App\Services\SubjectEnrollmentService;
 use Carbon\Carbon;
@@ -38,7 +39,16 @@ class MemberController extends Controller
             $perPage = 20;
         }
 
-        $query = Student::query()->with('user.roles');
+        $academicYear = AcademicYear::orderByDesc('is_active')->latest('starts_on')->latest('id')->first();
+        $query = Student::query()->with([
+            'user.roles',
+            'academicSection',
+            'subjectEnrollments' => fn ($query) => $query
+                ->when($academicYear, fn ($query) => $query->where('academic_year', $academicYear->name))
+                ->where('assignment_source', 'manual')
+                ->whereNotNull('subject_offering_id'),
+            'subjectEnrollments.offering',
+        ]);
 
         $query->when($request->filled('type'), fn ($q) => $q->where('member_type', $request->type))
             ->when($request->filled('search'), function ($q) use ($request) {
@@ -188,8 +198,26 @@ class MemberController extends Controller
 
     public function show(Student $member)
     {
+        $member->load([
+            'user.roles',
+            'user.designation',
+            'user.employment',
+            'user.working_at',
+            'user.hajiriDepartment',
+            'academicSection',
+            'subjectEnrollments' => fn ($query) => $query->whereNotNull('subject_offering_id'),
+            'subjectEnrollments.offering.subject',
+        ]);
+        $academicYear = AcademicYear::orderByDesc('is_active')->latest('starts_on')->latest('id')->first();
+        $electiveEnrollments = $member->subjectEnrollments
+            ->when($academicYear, fn ($enrollments) => $enrollments->where('academic_year', $academicYear->name))
+            ->filter(fn ($enrollment) => $enrollment->offering?->is_elective)
+            ->values();
+
         return view('hr.members.show', [
-            'member' => $member->load('user.roles', 'user.designation', 'user.employment', 'user.working_at', 'user.hajiriDepartment'),
+            'member' => $member,
+            'academicYear' => $academicYear,
+            'electiveEnrollments' => $electiveEnrollments,
         ]);
     }
 

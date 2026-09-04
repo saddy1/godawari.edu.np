@@ -5,6 +5,7 @@ namespace App\Http\Controllers\TeachingLearning;
 use App\Http\Controllers\Controller;
 use App\Models\Card\Department;
 use App\Models\Card\Organization;
+use App\Models\Card\Section;
 use App\Models\Card\Subject;
 use App\Models\Card\SubjectOffering;
 use App\Services\SubjectEnrollmentService;
@@ -78,6 +79,51 @@ class SubjectController extends Controller
     }
 
     // ── Subject Offerings (which subjects a faculty/class/group takes) ─────
+
+    public function updateSectionGroup(Request $request, SubjectEnrollmentService $enrollments)
+    {
+        $request->merge(['group_name' => trim(preg_replace('/\s+/', ' ', (string) $request->input('group_name')))]);
+        $data = $request->validate([
+            'department_id' => ['required', 'integer', 'exists:departments,id'],
+            'group_name' => ['required', 'string', 'max:100'],
+            'section_ids' => ['required_unless:intent,remove', 'array'],
+            'section_ids.*' => ['integer', 'exists:sections,id'],
+            'intent' => ['required', 'in:save,remove'],
+        ]);
+
+        $department = Department::with('organization')->findOrFail($data['department_id']);
+        $sectionIds = collect($data['section_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+        $matchedSections = Section::where('department_id', $department->id)->whereIn('id', $sectionIds)->get();
+
+        if ($data['intent'] === 'save' && $matchedSections->count() !== $sectionIds->count()) {
+            return back()->withErrors(['section_ids' => 'Every selected section must belong to this class or department.'])->withInput();
+        }
+
+        DB::transaction(function () use ($data, $department, $sectionIds) {
+            $existingGroup = Section::where('department_id', $department->id)
+                ->where('group_name', $data['group_name']);
+
+            if ($data['intent'] === 'remove') {
+                $existingGroup->update(['group_name' => null]);
+                return;
+            }
+
+            $existingGroup->whereNotIn('id', $sectionIds)->update(['group_name' => null]);
+            Section::where('department_id', $department->id)
+                ->whereIn('id', $sectionIds)
+                ->update(['group_name' => $data['group_name']]);
+        });
+
+        $academicYear = $enrollments->currentWritableAcademicYear();
+        $synced = $academicYear ? $enrollments->syncDepartment($department, $academicYear) : 0;
+
+        $message = $data['intent'] === 'remove'
+            ? "Section group {$data['group_name']} removed."
+            : "{$data['group_name']} saved with {$sectionIds->count()} section(s).";
+        if ($academicYear) $message .= " {$synced} individual compulsory subject enrollment record(s) synchronized.";
+
+        return back()->with('success', $message);
+    }
 
     public function storeSubjectOffering(Request $request, SubjectEnrollmentService $enrollments)
     {

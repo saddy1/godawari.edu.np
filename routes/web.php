@@ -461,3 +461,4 @@ require __DIR__.'/modules/hajiri.php';
 require __DIR__.'/modules/learning.php';
 require __DIR__.'/modules/library.php';
 require __DIR__.'/modules/teaching_learning.php';
+require __DIR__.'/modules/examinations.php';
