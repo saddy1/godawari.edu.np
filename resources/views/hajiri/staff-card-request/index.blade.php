@@ -1,4 +1,4 @@
-@extends('hajiri.layouts.app')
+@extends(auth()->user()?->isTeacher() ? 'teaching_learning.teacher-workspace.layout' : 'hajiri.layouts.app')
 
 @section('content')
 

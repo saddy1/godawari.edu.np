@@ -25,5 +25,6 @@ class ExaminationSubject extends Model
     public function teacher() { return $this->belongsTo(User::class, 'teacher_id'); }
     public function practicalTeacher() { return $this->belongsTo(User::class, 'practical_teacher_id'); }
     public function marks() { return $this->hasMany(ExaminationMark::class); }
+    public function markSubmissions() { return $this->hasMany(ExaminationMarkSubmission::class); }
     public function getTotalFullMarksAttribute(): float { return (float) $this->theory_full_marks + (float) $this->practical_full_marks; }
 }

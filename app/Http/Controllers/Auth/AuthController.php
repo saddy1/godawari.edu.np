@@ -76,6 +76,10 @@ class AuthController extends Controller
         }
 
         if ($user->isTeacher()) {
+            if (\App\Services\ModuleService::enabled('teaching_learning')) {
+                return redirect()->intended(route('admin.teacher.workspace'));
+            }
+
             if (\App\Services\ModuleService::enabled('learning') && $user->assignedLearningClasses()->exists()) {
                 return redirect()->intended(route('admin.learning.dashboard'));
             }

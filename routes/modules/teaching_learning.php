@@ -25,7 +25,9 @@ Route::prefix('admin/teaching-learning')
             Route::get('/', [RoutineBuilderController::class, 'index'])->middleware('permission:teaching-learning.routine.view')->name('index');
             Route::post('/plans', [RoutineBuilderController::class, 'storePlan'])->middleware('permission:teaching-learning.routine.manage')->name('plans.store');
             Route::post('/rooms', [RoutineBuilderController::class, 'storeRoom'])->middleware('permission:teaching-learning.routine.manage')->name('rooms.store');
+            Route::patch('/{routinePlan}', [RoutineBuilderController::class, 'updatePlan'])->middleware('permission:teaching-learning.routine.manage')->name('plans.update');
             Route::get('/{routinePlan}', [RoutineBuilderController::class, 'show'])->middleware('permission:teaching-learning.routine.view')->name('show');
+            Route::get('/{routinePlan}/teachers', [RoutineBuilderController::class, 'teacherOptions'])->middleware('permission:teaching-learning.routine.manage')->name('teachers');
             Route::put('/{routinePlan}/lesson', [RoutineBuilderController::class, 'saveLesson'])->middleware('permission:teaching-learning.routine.manage')->name('lessons.save');
             Route::post('/{routinePlan}/publish', [RoutineBuilderController::class, 'togglePublish'])->middleware('permission:teaching-learning.routine.publish')->name('publish');
             Route::get('/{routinePlan}/print', [RoutineBuilderController::class, 'print'])->middleware('permission:teaching-learning.routine.view')->name('print');

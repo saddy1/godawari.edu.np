@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Examination;
 use App\Http\Controllers\Controller;
 use App\Models\Card\Student;
 use App\Models\Examination\ExaminationMark;
+use App\Models\Examination\ExaminationMarkSubmission;
 use App\Models\Examination\ExaminationSubject;
 use App\Services\ExamTeacherAssignmentService;
 use Illuminate\Http\Request;
@@ -17,27 +18,43 @@ class MarkEntryController extends Controller
     {
         $component = $this->component($request, $examinationSubject);
         $examinationSubject->load(['examination.academicYear', 'examination.departments', 'examination.sections', 'offering.subject', 'offering.department']);
-        $sectionIds = $teacherAssignments->sectionIdsFor($examinationSubject, auth()->user(), $component);
-        if ($sectionIds->isEmpty() && ! $request->has('component') && (float) $examinationSubject->practical_full_marks > 0) {
-            $component = 'practical';
-            $sectionIds = $teacherAssignments->sectionIdsFor($examinationSubject, auth()->user(), $component);
-        }
+        $theorySectionIds = (float) $examinationSubject->theory_full_marks > 0
+            ? $teacherAssignments->sectionIdsFor($examinationSubject, auth()->user(), 'theory')
+            : collect();
+        $practicalSectionIds = (float) $examinationSubject->practical_full_marks > 0
+            ? $teacherAssignments->sectionIdsFor($examinationSubject, auth()->user(), 'practical')
+            : collect();
+        $sectionIds = $theorySectionIds->merge($practicalSectionIds)->unique()->values();
         abort_if($sectionIds->isEmpty(), 403, 'This subject and section are not assigned to you in Routine Builder.');
-        $this->ensureEntryWindow($examinationSubject, $request);
+        if ($message = $this->entryWindowMessage($examinationSubject, $request)) {
+            $route = $request->user()->isTeacher()
+                ? route('admin.teacher.workspace')
+                : route('admin.examinations.index', ['exam' => $examinationSubject->examination_id]);
+            return redirect()->to($route)->with('error', $message);
+        }
         $sections = $examinationSubject->examination->sections->whereIn('id', $sectionIds)->values();
         $students = $this->eligibleStudents($examinationSubject, $sectionIds)->get();
         $marks = ExaminationMark::where('examination_subject_id', $examinationSubject->id)->whereIn('student_id', $students->pluck('id'))->get()->keyBy('student_id');
-        return view('examinations.marks', compact('examinationSubject', 'students', 'marks', 'component', 'sections'));
+        $markSubmission = ExaminationMarkSubmission::where('examination_subject_id', $examinationSubject->id)
+            ->where('teacher_id', $request->user()->id)->first();
+        $submissionProgress = $this->submissionProgress($examinationSubject, $theorySectionIds, $practicalSectionIds);
+        return view('examinations.marks', compact(
+            'examinationSubject', 'students', 'marks', 'component', 'sections',
+            'theorySectionIds', 'practicalSectionIds', 'markSubmission', 'submissionProgress'
+        ));
     }
 
     public function update(Request $request, ExaminationSubject $examinationSubject, ExamTeacherAssignmentService $teacherAssignments)
     {
         $component = $this->component($request, $examinationSubject);
         $examinationSubject->load('examination.academicYear');
+        $this->ensureTeacherSubmissionIsOpen($examinationSubject, $request->user()->id);
         $sectionIds = $teacherAssignments->sectionIdsFor($examinationSubject, auth()->user(), $component);
         abort_if($sectionIds->isEmpty(), 403, 'This subject and section are not assigned to you in Routine Builder.');
         abort_if($examinationSubject->examination->is_locked, 422, 'Marks are locked because this exam is completed or published.');
-        $this->ensureEntryWindow($examinationSubject, $request);
+        if ($message = $this->entryWindowMessage($examinationSubject, $request)) {
+            throw ValidationException::withMessages(['exam' => $message]);
+        }
         $rows = $request->validate([
             'component' => ['required', 'in:theory,practical'],
             'marks' => ['nullable', 'array'], 'marks.*' => ['array'],
@@ -53,10 +70,13 @@ class MarkEntryController extends Controller
     {
         $component = $this->component($request, $examinationSubject);
         $examinationSubject->load('examination.academicYear');
+        $this->ensureTeacherSubmissionIsOpen($examinationSubject, $request->user()->id);
         $sectionIds = $teacherAssignments->sectionIdsFor($examinationSubject, $request->user(), $component);
         abort_if($sectionIds->isEmpty(), 403, 'This subject and section are not assigned to you in Routine Builder.');
         abort_if($examinationSubject->examination->is_locked, 422, 'Marks are locked because this exam is completed or published.');
-        $this->ensureEntryWindow($examinationSubject, $request);
+        if ($message = $this->entryWindowMessage($examinationSubject, $request)) {
+            throw ValidationException::withMessages(['exam' => $message]);
+        }
         $data = $request->validate([
             'component' => ['required', 'in:theory,practical'],
             'student_id' => ['required', 'integer', 'exists:students,id'],
@@ -67,6 +87,60 @@ class MarkEntryController extends Controller
         $this->saveRows([$data['student_id'] => $data], $examinationSubject, $sectionIds, $component);
 
         return response()->json(['saved' => true, 'saved_at' => now()->format('h:i:s A')]);
+    }
+
+    public function submit(Request $request, ExaminationSubject $examinationSubject, ExamTeacherAssignmentService $teacherAssignments)
+    {
+        $examinationSubject->load(['examination.academicYear', 'examination.sections']);
+        $this->ensureTeacherSubmissionIsOpen($examinationSubject, $request->user()->id);
+        abort_if($examinationSubject->examination->is_locked, 422, 'This examination is already locked.');
+        if ($message = $this->entryWindowMessage($examinationSubject, $request)) {
+            throw ValidationException::withMessages(['submission' => $message]);
+        }
+
+        $theorySections = (float) $examinationSubject->theory_full_marks > 0
+            ? $teacherAssignments->sectionIdsFor($examinationSubject, $request->user(), 'theory') : collect();
+        $practicalSections = (float) $examinationSubject->practical_full_marks > 0
+            ? $teacherAssignments->sectionIdsFor($examinationSubject, $request->user(), 'practical') : collect();
+        abort_if($theorySections->merge($practicalSections)->isEmpty(), 403, 'This subject is not assigned to you.');
+        $progress = $this->submissionProgress($examinationSubject, $theorySections, $practicalSections);
+        $missing = collect($progress)->sum('missing');
+        if ($missing > 0) {
+            $detail = collect($progress)->filter(fn ($row) => $row['missing'] > 0)
+                ->map(fn ($row, $name) => ucfirst($name).': '.$row['missing'].' missing')->implode(', ');
+            throw ValidationException::withMessages(['submission' => 'Complete every student before locking. '.$detail.'.']);
+        }
+
+        ExaminationMarkSubmission::updateOrCreate(
+            ['examination_subject_id' => $examinationSubject->id, 'teacher_id' => $request->user()->id],
+            ['section_ids' => $theorySections->merge($practicalSections)->unique()->values()->all(),
+                'locked_at' => now(), 'unlock_requested_at' => null, 'unlock_reason' => null,
+                'unlocked_at' => null, 'unlocked_by' => null]
+        );
+
+        return redirect()->route('admin.examinations.index', ['exam' => $examinationSubject->examination_id])
+            ->with('success', 'All marks were submitted and locked. Request an admin unlock if a correction is needed.');
+    }
+
+    public function requestUnlock(Request $request, ExaminationMarkSubmission $markSubmission)
+    {
+        abort_unless((int) $markSubmission->teacher_id === (int) $request->user()->id, 403);
+        abort_unless($markSubmission->is_locked, 422, 'These marks are not locked.');
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:500']]);
+        $markSubmission->update(['unlock_requested_at' => now(), 'unlock_reason' => $data['reason']]);
+
+        return back()->with('success', 'Correction request sent to the examination admin.');
+    }
+
+    public function unlock(Request $request, ExaminationMarkSubmission $markSubmission)
+    {
+        abort_unless($request->user()->canAccess('examinations.manage'), 403);
+        $markSubmission->update([
+            'locked_at' => null, 'unlock_requested_at' => null,
+            'unlocked_at' => now(), 'unlocked_by' => $request->user()->id,
+        ]);
+
+        return back()->with('success', 'Marks unlocked for '.$markSubmission->teacher?->name.'.');
     }
 
     private function saveRows(array $rows, ExaminationSubject $examinationSubject, $sectionIds, string $component): void
@@ -105,6 +179,31 @@ class MarkEntryController extends Controller
         });
     }
 
+    private function ensureTeacherSubmissionIsOpen(ExaminationSubject $subject, int $teacherId): void
+    {
+        $locked = ExaminationMarkSubmission::where('examination_subject_id', $subject->id)
+            ->where('teacher_id', $teacherId)->whereNotNull('locked_at')->exists();
+        abort_if($locked, 423, 'Your marks are submitted and locked. Request an admin unlock before making corrections.');
+    }
+
+    private function submissionProgress(ExaminationSubject $subject, $theorySectionIds, $practicalSectionIds): array
+    {
+        $progress = [];
+        foreach (['theory' => $theorySectionIds, 'practical' => $practicalSectionIds] as $component => $sectionIds) {
+            if ($sectionIds->isEmpty()) continue;
+            $eligibleIds = $this->eligibleStudents($subject, $sectionIds)->pluck('id');
+            $entered = ExaminationMark::where('examination_subject_id', $subject->id)
+                ->whereIn('student_id', $eligibleIds)
+                ->where(fn ($query) => $query->whereNotNull($component.'_marks')->orWhere($component.'_is_absent', true))
+                ->count();
+            $progress[$component] = [
+                'expected' => $eligibleIds->count(), 'entered' => $entered,
+                'missing' => max(0, $eligibleIds->count() - $entered),
+            ];
+        }
+        return $progress;
+    }
+
     private function eligibleStudents(ExaminationSubject $subject, $allowedSectionIds)
     {
         $subject->loadMissing(['examination.academicYear', 'examination.sections', 'offering']);
@@ -129,14 +228,19 @@ class MarkEntryController extends Controller
         return $component;
     }
 
-    private function ensureEntryWindow(ExaminationSubject $subject, Request $request): void
+    private function entryWindowMessage(ExaminationSubject $subject, Request $request): ?string
     {
-        if ($request->user()->canAccess(['examinations.manage', 'examinations.marks.verify'])) return;
+        if ($request->user()->canAccess(['examinations.manage', 'examinations.marks.verify'])) return null;
         $exam = $subject->examination;
-        abort_unless($exam->status === 'ongoing', 422, 'Mark entry opens when the exam is started.');
+        if ($exam->status !== 'ongoing') return 'Marks cannot be entered yet. An examination manager must change this exam from Draft to Ongoing.';
         $today = now()->startOfDay();
-        abort_if($exam->starts_on && $today->lt($exam->starts_on->startOfDay()), 422, 'Mark entry has not opened yet.');
-        abort_if($exam->ends_on && $today->gt($exam->ends_on->endOfDay()), 422, 'The mark-entry period has ended.');
+        if ($exam->starts_on && $today->lt($exam->starts_on->copy()->startOfDay())) {
+            return 'Mark entry opens on '.$exam->starts_on->format('M d, Y').'.';
+        }
+        if ($exam->ends_on && $today->gt($exam->ends_on->copy()->endOfDay())) {
+            return 'Mark entry closed on '.$exam->ends_on->format('M d, Y').'. Ask an examination manager to update the exam dates.';
+        }
+        return null;
     }
 
 }

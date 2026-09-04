@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Examination extends Model
 {
-    protected $fillable = ['academic_year_id', 'organization_id', 'department_id', 'name', 'category', 'semester', 'year_level', 'starts_on', 'ends_on', 'starts_at', 'theory_duration_minutes', 'practical_duration_minutes', 'status', 'notes', 'created_by'];
+    protected $fillable = ['academic_year_id', 'organization_id', 'scope_type', 'department_id', 'name', 'category', 'semester', 'year_level', 'starts_on', 'ends_on', 'starts_at', 'theory_duration_minutes', 'practical_duration_minutes', 'status', 'notes', 'created_by'];
     protected $casts = ['starts_on' => 'date', 'ends_on' => 'date'];
 
     public function academicYear() { return $this->belongsTo(AcademicYear::class); }

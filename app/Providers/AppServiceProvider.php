@@ -31,10 +31,12 @@ class AppServiceProvider extends ServiceProvider
      */
    public function boot(): void
     {
-        $publicRoot = config('app.env') === 'production'
-            ? config('seo.canonical_url')
-            : config('app.url');
-        URL::forceRootUrl(rtrim((string) $publicRoot, '/'));
+        // In development Laravel must use the current request host. Forcing the
+        // configured 127.0.0.1 URL breaks CSS/JS when the site is opened from a
+        // phone over the LAN because 127.0.0.1 then points to the phone itself.
+        if (config('app.env') === 'production') {
+            URL::forceRootUrl(rtrim((string) config('seo.canonical_url'), '/'));
+        }
 
         $this->applyDatabaseMailSettings();
 
@@ -66,6 +68,26 @@ class AppServiceProvider extends ServiceProvider
                 'notices' => $notices,
                 'headerMenuItems' => $headerMenuItems,
             ]);
+        });
+
+        // Feed the focused teacher app from the same published notices as the website.
+        View::composer('teaching_learning.teacher-workspace.layout', function ($view) {
+            $teacherNotices = collect();
+
+            try {
+                if (Schema::hasTable('announcements')) {
+                    $teacherNotices = Announcement::query()
+                        ->where('type', 'notice')
+                        ->where('is_published', true)
+                        ->latest()
+                        ->limit(8)
+                        ->get(['id', 'title', 'slug', 'excerpt', 'created_at']);
+                }
+            } catch (Throwable) {
+                // Keep the workspace usable while the database is being prepared.
+            }
+
+            $view->with('teacherNotices', $teacherNotices);
         });
     }
 

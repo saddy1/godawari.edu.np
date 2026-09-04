@@ -145,6 +145,8 @@ Route::post('/applicant/logout', [ApplicantLoginController::class, 'logout'])
     ->name('applicant.logout')
     ->middleware('auth');
 Route::middleware('auth')->group(function () {
+    Route::get('/account/profile', [AccountController::class, 'editProfile'])->name('account.profile.edit');
+    Route::patch('/account/profile', [AccountController::class, 'updateProfile'])->name('account.profile.update');
     Route::get('/account/password', [AccountController::class, 'editPassword'])->name('account.password.edit');
     Route::put('/account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
     Route::get('/account/applications', [VacancyController::class, 'myApplications'])->middleware('module.enabled:vacancy')->name('account.applications.index');

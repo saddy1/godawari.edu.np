@@ -9,10 +9,10 @@ use App\Models\Card\Section;
 use App\Models\Card\SubjectOffering;
 use App\Models\Examination\Examination;
 use App\Models\Examination\ExaminationSubject;
+use App\Models\Examination\ExaminationMarkSubmission;
 use App\Models\TeachingLearning\AcademicYear;
 use App\Services\ExamAnalyticsService;
 use App\Services\ExamTeacherAssignmentService;
-use App\Services\SubjectEnrollmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -35,17 +35,53 @@ class ExaminationController extends Controller
         if (! $canManage && ! $user->canAccess('examinations.reports')) {
             $examinations = $examinations->filter(fn ($exam) => $teacherAssignments->teachesExam($exam, $user))->values();
         }
-        $selectedExam = $examinations->firstWhere('id', $request->integer('exam')) ?? $examinations->first();
-        $snapshot = $selectedExam ? $analytics->forExam($selectedExam) : null;
+        if ($user->isTeacher()) {
+            $selectedExam = $request->filled('exam')
+                ? $examinations->firstWhere('id', $request->integer('exam'))
+                : ($examinations->firstWhere('status', 'ongoing') ?? $examinations->first());
+            $entries = collect();
+            if ($selectedExam) {
+                $subjects = ExaminationSubject::with(['examination.sections', 'offering.subject', 'offering.department', 'marks'])
+                    ->where('examination_id', $selectedExam->id)->get();
+                foreach ($subjects as $subject) {
+                    $theorySections = (float) $subject->theory_full_marks > 0
+                        ? $teacherAssignments->sectionIdsFor($subject, $user, 'theory') : collect();
+                    $practicalSections = (float) $subject->practical_full_marks > 0
+                        ? $teacherAssignments->sectionIdsFor($subject, $user, 'practical') : collect();
+                    $sectionIds = $theorySections->merge($practicalSections)->unique()->values();
+                    if ($sectionIds->isEmpty()) continue;
+                    $entries->push((object) [
+                        'subject' => $subject,
+                        'sections' => $subject->examination->sections->whereIn('id', $sectionIds)->pluck('name')->implode(', '),
+                        'has_theory' => $theorySections->isNotEmpty(),
+                        'has_practical' => $practicalSections->isNotEmpty(),
+                        'theory_entered' => $subject->marks->filter(fn ($mark) => $mark->theory_marks !== null || $mark->theory_is_absent)->count(),
+                        'practical_entered' => $subject->marks->filter(fn ($mark) => $mark->practical_marks !== null || $mark->practical_is_absent)->count(),
+                        'submission' => ExaminationMarkSubmission::where('examination_subject_id', $subject->id)
+                            ->where('teacher_id', $user->id)->first(),
+                    ]);
+                }
+            }
+            $today = now()->startOfDay();
+            $entryOpen = $selectedExam && $selectedExam->status === 'ongoing'
+                && (! $selectedExam->starts_on || $today->gte($selectedExam->starts_on))
+                && (! $selectedExam->ends_on || $today->lte($selectedExam->ends_on));
+
+            return view('examinations.teacher-index', compact('examinations', 'selectedExam', 'entries', 'entryOpen'));
+        }
+        $selectedExam = $request->filled('exam') ? $examinations->firstWhere('id', $request->integer('exam')) : null;
+        $workspace = $selectedExam ? $this->workspaceData($selectedExam, $analytics, $teacherAssignments) : [];
 
         return view('examinations.index', [
             'examinations' => $examinations,
             'selectedExam' => $selectedExam,
-            'snapshot' => $snapshot,
-            'organizations' => Organization::with('departments.sections')->where('is_active', true)->orderBy('name')->get(),
+            'snapshot' => $workspace['analytics'] ?? null,
+            'organizations' => Organization::with(['departments' => fn ($query) => $query->where('is_active', true)->orderBy('name')
+                ->with(['sections' => fn ($sections) => $sections->where('is_active', true)->orderBy('name')])])
+                ->where('is_active', true)->orderBy('name')->get(),
             'academicYears' => AcademicYear::latest('starts_on')->get(),
             'canManage' => $canManage,
-        ]);
+        ] + $workspace);
     }
 
     public function store(Request $request)
@@ -53,7 +89,9 @@ class ExaminationController extends Controller
         $data = $request->validate([
             'academic_year_id' => ['required', 'exists:academic_years,id'],
             'organization_id' => ['required', 'exists:organizations,id'],
-            'department_id' => ['required', 'exists:departments,id'],
+            'scope_type' => ['required', 'in:organization,departments'],
+            'department_ids' => ['nullable', 'array'],
+            'department_ids.*' => ['integer', 'exists:departments,id'],
             'name' => ['required', 'string', 'max:150'],
             'category' => ['required', 'string', 'max:80'],
             'semester' => ['nullable', 'integer', 'min:1', 'max:8'],
@@ -63,25 +101,23 @@ class ExaminationController extends Controller
             'starts_at' => ['nullable', 'date_format:H:i'],
             'theory_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
             'practical_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
-            'section_ids' => ['required', 'array', 'min:1'],
-            'section_ids.*' => ['integer', 'exists:sections,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
         $organization = Organization::findOrFail($data['organization_id']);
-        $department = Department::findOrFail($data['department_id']);
-        if ((int) $department->organization_id !== (int) $data['organization_id']) throw ValidationException::withMessages(['department_id' => 'The class/department does not belong to the selected organization.']);
-        $departments = $organization->type === 'school'
-            ? Department::where('organization_id', $organization->id)->where('is_active', true)->pluck('id')
-            : collect([$department->id]);
-        $sections = $organization->type === 'school'
-            ? Section::whereIn('department_id', $departments)->pluck('id')
-            : Section::where('department_id', $department->id)->whereIn('id', $data['section_ids'])->pluck('id');
-        if ($organization->type !== 'school' && $sections->count() !== count(array_unique($data['section_ids']))) throw ValidationException::withMessages(['section_ids' => 'Every exam section must belong to the selected class/department.']);
-        $data['semester'] = $organization->type !== 'school' && $department->academic_system === 'semester' ? ($data['semester'] ?? null) : null;
-        $data['year_level'] = $organization->type !== 'school' && $department->academic_system === 'year' ? ($data['year_level'] ?? null) : null;
+        $organizationDepartments = Department::where('organization_id', $organization->id)->where('is_active', true)->get();
+        $departments = $data['scope_type'] === 'organization'
+            ? $organizationDepartments->pluck('id')
+            : $organizationDepartments->whereIn('id', collect($data['department_ids'] ?? [])->map(fn ($id) => (int) $id))->pluck('id');
+        if ($departments->isEmpty()) throw ValidationException::withMessages(['department_ids' => 'Choose at least one faculty/class, or select the whole organization.']);
+        $sections = Section::whereIn('department_id', $departments)->where('is_active', true)->pluck('id');
+        if ($sections->isEmpty()) throw ValidationException::withMessages(['department_ids' => 'The selected exam scope has no active sections.']);
+        $department = $organizationDepartments->firstWhere('id', $departments->first());
+        $data['department_id'] = $department->id;
+        $data['semester'] = $departments->count() === 1 && $department->academic_system === 'semester' ? ($data['semester'] ?? null) : null;
+        $data['year_level'] = $departments->count() === 1 && $department->academic_system === 'year' ? ($data['year_level'] ?? null) : null;
         $data['status'] = 'draft';
         $data['created_by'] = auth()->id();
-        unset($data['section_ids']);
+        unset($data['department_ids']);
 
         $exam = DB::transaction(function () use ($data, $sections, $departments) {
             $exam = Examination::create($data);
@@ -90,13 +126,18 @@ class ExaminationController extends Controller
             return $exam;
         });
 
-        return redirect()->route('admin.examinations.show', $exam)->with('success', 'Exam created. Now select subjects and set theory/practical FM and PM.');
+        return redirect()->route('admin.examinations.index', ['exam' => $exam->id])->with('success', 'Exam created. Configure each unique subject below.');
     }
 
     public function show(Examination $examination, ExamAnalyticsService $analytics, ExamTeacherAssignmentService $teacherAssignments)
     {
         $this->authorizeExamView($examination, $teacherAssignments);
-        $examination->load(['academicYear', 'organization', 'department.sections', 'departments.sections', 'sections', 'subjects.offering.subject', 'subjects.offering.department', 'subjects.marks']);
+        return redirect()->route('admin.examinations.index', ['exam' => $examination->id]);
+    }
+
+    private function workspaceData(Examination $examination, ExamAnalyticsService $analytics, ExamTeacherAssignmentService $teacherAssignments): array
+    {
+        $examination->load(['academicYear', 'organization', 'department.sections', 'departments.sections', 'sections', 'subjects.offering.subject', 'subjects.offering.department', 'subjects.marks', 'subjects.markSubmissions.teacher']);
         $departmentIds = $examination->departments->pluck('id');
         if ($departmentIds->isEmpty()) $departmentIds = collect([$examination->department_id]);
         $sectionIds = $examination->sections->pluck('id');
@@ -112,15 +153,16 @@ class ExaminationController extends Controller
                 ->whereHas('student', fn ($students) => $students->whereIn('section_id', $sectionIds)
                     ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->whereIn('section', $sectionNames)))))
             ->orderBy('is_elective')->get();
-        $subjectRows = $offerings->groupBy('subject_id')->map(function ($subjectOfferings) use ($examination, $teacherAssignments) {
+        $teacherLabels = $teacherAssignments->labelsByOffering($examination, $offerings->pluck('id'));
+        $subjectRows = $offerings->groupBy('subject_id')->map(function ($subjectOfferings) use ($examination, $teacherLabels) {
             $first = $subjectOfferings->first();
             return [
                 'subject' => $first->subject,
                 'offerings' => $subjectOfferings,
                 'configured' => $examination->subjects->whereIn('subject_offering_id', $subjectOfferings->pluck('id')),
                 'is_elective' => $subjectOfferings->every(fn ($offering) => $offering->is_elective),
-                'theory_labels' => $subjectOfferings->flatMap(fn ($offering) => $teacherAssignments->labelsFor($examination, $offering->id, 'theory'))->unique()->sort()->values(),
-                'practical_labels' => $subjectOfferings->flatMap(fn ($offering) => $teacherAssignments->labelsFor($examination, $offering->id, 'practical'))->unique()->sort()->values(),
+                'theory_labels' => $subjectOfferings->flatMap(fn ($offering) => $teacherLabels->get($offering->id)['theory'] ?? collect())->unique()->sort()->values(),
+                'practical_labels' => $subjectOfferings->flatMap(fn ($offering) => $teacherLabels->get($offering->id)['practical'] ?? collect())->unique()->sort()->values(),
             ];
         })->values();
         $markAccess = $examination->subjects->mapWithKeys(fn ($subject) => [$subject->id => [
@@ -128,15 +170,22 @@ class ExaminationController extends Controller
             'practical' => (float) $subject->practical_full_marks > 0
                 ? $teacherAssignments->sectionIdsFor($subject, auth()->user(), 'practical')->count() : 0,
         ]]);
+        $unlockRequests = ExaminationMarkSubmission::with(['teacher', 'examinationSubject.offering.subject'])
+            ->whereHas('examinationSubject', fn ($query) => $query->where('examination_id', $examination->id))
+            ->whereNotNull('unlock_requested_at')->latest('unlock_requested_at')->get();
 
-        return view('examinations.show', [
+        return [
             'examination' => $examination,
             'offerings' => $offerings,
             'subjectRows' => $subjectRows,
             'markAccess' => $markAccess,
+            'unlockRequests' => $unlockRequests,
             'analytics' => $analytics->forExam($examination),
+            'markEntryOpen' => $examination->status === 'ongoing'
+                && (! $examination->starts_on || now()->startOfDay()->gte($examination->starts_on))
+                && (! $examination->ends_on || now()->startOfDay()->lte($examination->ends_on)),
             'canManage' => auth()->user()->canAccess('examinations.manage'),
-        ]);
+        ];
     }
 
     public function update(Request $request, Examination $examination)
@@ -161,7 +210,7 @@ class ExaminationController extends Controller
         return back()->with('success', 'Exam details updated.');
     }
 
-    public function saveSubjects(Request $request, Examination $examination, SubjectEnrollmentService $enrollments)
+    public function saveSubjects(Request $request, Examination $examination)
     {
         abort_if($examination->is_locked, 422, 'Completed/published exams are locked.');
         $data = $request->validate([
@@ -190,11 +239,12 @@ class ExaminationController extends Controller
         $rows = collect($data['subjects'] ?? []);
 
         DB::transaction(function () use ($rows, $validOfferings, $examination) {
+            $upserts = [];
+            $enabledOfferingIds = collect();
+            $now = now();
             foreach ($validOfferings->groupBy('subject_id') as $subjectId => $subjectOfferings) {
                 $row = $rows->get((string) $subjectId, $rows->get($subjectId, []));
                 if (! filter_var($row['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                    ExaminationSubject::where('examination_id', $examination->id)->whereIn('subject_offering_id', $subjectOfferings->pluck('id'))
-                        ->whereDoesntHave('marks')->delete();
                     continue;
                 }
                 $theoryFull = (float) ($row['theory_full_marks'] ?? 0); $theoryPass = (float) ($row['theory_pass_marks'] ?? 0);
@@ -203,13 +253,21 @@ class ExaminationController extends Controller
                     throw ValidationException::withMessages(["subjects.{$subjectId}" => 'Pass marks cannot exceed full marks, and total full marks must be greater than zero.']);
                 }
                 $hasPractical = (bool) $subjectOfferings->first()->subject->has_practical;
-                foreach ($subjectOfferings as $offering) ExaminationSubject::updateOrCreate(
-                    ['examination_id' => $examination->id, 'subject_offering_id' => $offering->id],
-                    ['theory_full_marks' => $theoryFull, 'theory_pass_marks' => $theoryPass, 'practical_full_marks' => $hasPractical ? $practicalFull : 0, 'practical_pass_marks' => $hasPractical ? $practicalPass : 0]);
+                foreach ($subjectOfferings as $offering) {
+                    $enabledOfferingIds->push($offering->id);
+                    $upserts[] = ['examination_id' => $examination->id, 'subject_offering_id' => $offering->id,
+                        'theory_full_marks' => $theoryFull, 'theory_pass_marks' => $theoryPass,
+                        'practical_full_marks' => $hasPractical ? $practicalFull : 0, 'practical_pass_marks' => $hasPractical ? $practicalPass : 0,
+                        'created_at' => $now, 'updated_at' => $now];
+                }
             }
+            if ($upserts) ExaminationSubject::upsert($upserts, ['examination_id', 'subject_offering_id'], [
+                'theory_full_marks', 'theory_pass_marks', 'practical_full_marks', 'practical_pass_marks', 'updated_at',
+            ]);
+            ExaminationSubject::where('examination_id', $examination->id)->whereIn('subject_offering_id', $validOfferings->pluck('id'))
+                ->when($enabledOfferingIds->isNotEmpty(), fn ($query) => $query->whereNotIn('subject_offering_id', $enabledOfferingIds))
+                ->whereDoesntHave('marks')->delete();
         });
-        if (! $examination->academicYear->is_locked) Department::with('organization')->whereIn('id', $departmentIds)->get()
-            ->each(fn ($department) => $enrollments->syncDepartment($department, $examination->academicYear));
         return back()->with('success', 'Exam subjects and theory/practical FM/PM saved. Teacher access follows Routine Builder assignments.');
     }
 

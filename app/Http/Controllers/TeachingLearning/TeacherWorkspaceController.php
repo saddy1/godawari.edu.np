@@ -4,6 +4,7 @@ namespace App\Http\Controllers\TeachingLearning;
 
 use App\Http\Controllers\Controller;
 use App\Models\Examination\ExaminationSubject;
+use App\Models\Examination\ExaminationMarkSubmission;
 use App\Models\TeachingLearning\RoutineAttendanceSession;
 use App\Models\TeachingLearning\RoutineLesson;
 use App\Models\TeachingLearning\RoutineStudentAttendance;
@@ -37,17 +38,23 @@ class TeacherWorkspaceController extends Controller
                 ->get();
 
             foreach ($subjects as $subject) {
-                foreach (['theory', 'practical'] as $component) {
-                    if ((float) $subject->{$component.'_full_marks'} <= 0) continue;
-                    $sectionIds = $examAssignments->sectionIdsFor($subject, $user, $component);
-                    if ($sectionIds->isEmpty()) continue;
-                    $markEntries->push((object) [
-                        'subject' => $subject,
-                        'component' => $component,
-                        'sections' => $subject->examination->sections->whereIn('id', $sectionIds)->pluck('name')->implode(', '),
-                        'entered' => $subject->marks->filter(fn ($mark) => $mark->{$component.'_marks'} !== null || $mark->{$component.'_is_absent'})->count(),
-                    ]);
-                }
+                $theorySections = (float) $subject->theory_full_marks > 0
+                    ? $examAssignments->sectionIdsFor($subject, $user, 'theory') : collect();
+                $practicalSections = (float) $subject->practical_full_marks > 0
+                    ? $examAssignments->sectionIdsFor($subject, $user, 'practical') : collect();
+                $sectionIds = $theorySections->merge($practicalSections)->unique()->values();
+                if ($sectionIds->isEmpty()) continue;
+
+                $markEntries->push((object) [
+                    'subject' => $subject,
+                    'examination' => $subject->examination,
+                    'entry_component' => $theorySections->isNotEmpty() ? 'theory' : 'practical',
+                    'sections' => $subject->examination->sections->whereIn('id', $sectionIds)->pluck('name')->implode(', '),
+                    'entered' => $subject->marks->filter(fn ($mark) => $mark->theory_marks !== null
+                        || $mark->theory_is_absent || $mark->practical_marks !== null || $mark->practical_is_absent)->count(),
+                    'submission' => ExaminationMarkSubmission::where('examination_subject_id', $subject->id)
+                        ->where('teacher_id', $user->id)->first(),
+                ]);
             }
         }
 

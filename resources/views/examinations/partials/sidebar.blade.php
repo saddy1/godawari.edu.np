@@ -5,8 +5,7 @@
         <p class="px-2 pb-1 pt-2 text-[10px] font-bold uppercase tracking-widest text-white/30">Workspace</p>
         @if(auth()->user()->isTeacher())<a href="{{route('admin.teacher.workspace')}}" class="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-bold text-amber-300 hover:bg-white/10">My teaching</a>@endif
         <a href="{{route('admin.examinations.index')}}" class="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-bold {{request()->routeIs('admin.examinations.index')?'bg-white/15 text-white':'text-white/60 hover:bg-white/10 hover:text-white'}}"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>Exam dashboard</a>
-        @if(request()->route('examination'))<a href="{{route('admin.examinations.show',request()->route('examination'))}}" class="flex items-center gap-2.5 rounded-lg bg-white/15 px-3 py-2.5 text-sm font-bold text-white"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2"/></svg>Current exam</a>@endif
-        @if(request()->route('examinationSubject'))<a href="{{route('admin.examinations.show',request()->route('examinationSubject')->examination_id)}}" class="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-bold text-white/60 hover:bg-white/10 hover:text-white">← Exam setup</a>@endif
+        @if(request()->route('examinationSubject'))<a href="{{route('admin.examinations.index',['exam'=>request()->route('examinationSubject')->examination_id])}}" class="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-bold text-white/60 hover:bg-white/10 hover:text-white">← Exam setup</a>@endif
     </nav>
     @include('backend.partials.sidebar-user-footer')
 </aside>

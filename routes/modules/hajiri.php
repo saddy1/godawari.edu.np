@@ -24,6 +24,7 @@ Route::prefix('admin/hajiri')->name('hajiri.')->middleware(['auth', 'module.enab
     Route::middleware('module.enabled:hajiri_leave')->group(function () {
         Route::get('my-leaves',       [LeaveRequestController::class, 'myLeaves'])->name('my-leaves');
         Route::post('leave-requests', [LeaveRequestController::class, 'store'])->name('leave-requests.store');
+        Route::delete('my-leaves/{id}', [LeaveRequestController::class, 'destroy'])->name('my-leaves.destroy');
     });
 
     // Staff ID card requests (employee self-service)

@@ -54,10 +54,41 @@ class ExamTeacherAssignmentService
             })->unique()->sort()->values();
     }
 
+    public function labelsByOffering(Examination $exam, Collection $offeringIds): Collection
+    {
+        $labels = $offeringIds->mapWithKeys(fn ($id) => [(int) $id => [
+            'theory' => collect(), 'practical' => collect(),
+        ]]);
+        if ($offeringIds->isEmpty()) return $labels;
+
+        $this->baseLessons($exam)
+            ->whereHas('groups', fn ($groups) => $groups->whereIn('subject_offering_id', $offeringIds))
+            ->with(['section:id,name', 'groups' => fn ($groups) => $groups
+                ->whereIn('subject_offering_id', $offeringIds)->with(['teacher:id,name', 'teachers:id,name'])])
+            ->get()->each(function ($lesson) use ($labels) {
+                $component = $lesson->mode === 'practical_split' ? 'practical' : 'theory';
+                foreach ($lesson->groups as $group) {
+                    $teachers = $group->teachers->isNotEmpty() ? $group->teachers : collect([$group->teacher])->filter();
+                    foreach ($teachers as $teacher) {
+                        $labels[$group->subject_offering_id][$component]->push($teacher->name.' · '.$lesson->section->name);
+                        if ($component === 'theory') {
+                            $labels[$group->subject_offering_id]['practical']->push($teacher->name.' · '.$lesson->section->name);
+                        }
+                    }
+                }
+            });
+
+        return $labels->map(fn ($components) => collect($components)->map(fn ($items) => $items->unique()->sort()->values())->all());
+    }
+
     private function lessonsFor(Examination $exam, int $offeringId, string $component)
     {
         return $this->baseLessons($exam)
-            ->where('mode', $component === 'practical' ? 'practical_split' : 'single')
+            // The subject teacher is responsible for practical marks too.
+            // A practical-only lab teacher still does not gain theory access.
+            ->whereIn('mode', $component === 'practical'
+                ? ['single', 'practical_split']
+                : ['single'])
             ->whereHas('groups', fn ($groups) => $groups->where('subject_offering_id', $offeringId));
     }
 

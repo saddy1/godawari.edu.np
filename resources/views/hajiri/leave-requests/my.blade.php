@@ -1,4 +1,4 @@
-@extends('hajiri.layouts.app')
+@extends(auth()->user()?->isTeacher() ? 'teaching_learning.teacher-workspace.layout' : 'hajiri.layouts.app')
 
 @section('content')
 
@@ -168,7 +168,7 @@
                             <p class="text-[11px] text-gray-500 italic bg-gray-50 rounded-lg px-2 py-1.5 mb-2">Remarks: {{ $req->admin_remarks }}</p>
                         @endif
                         @if($req->status === 'pending')
-                        <form method="POST" action="{{ route('hajiri.leave-requests.destroy', $req->id) }}"
+                        <form method="POST" action="{{ route('hajiri.my-leaves.destroy', $req->id) }}"
                               onsubmit="return confirm('Cancel this leave request?')">
                             @csrf @method('DELETE')
                             <button type="submit" class="text-xs font-bold text-red-400 hover:text-red-600 underline">Cancel Request</button>
@@ -214,7 +214,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     @if($req->status === 'pending')
-                                    <form method="POST" action="{{ route('hajiri.leave-requests.destroy', $req->id) }}"
+                                    <form method="POST" action="{{ route('hajiri.my-leaves.destroy', $req->id) }}"
                                           onsubmit="return confirm('Cancel this leave request?')">
                                         @csrf @method('DELETE')
                                         <button type="submit"

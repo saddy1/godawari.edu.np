@@ -14,4 +14,7 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::get('/marks/{examinationSubject}', [MarkEntryController::class, 'edit'])->middleware('permission:examinations.marks.enter')->name('marks.edit');
     Route::put('/marks/{examinationSubject}', [MarkEntryController::class, 'update'])->middleware('permission:examinations.marks.enter')->name('marks.update');
     Route::put('/marks/{examinationSubject}/autosave', [MarkEntryController::class, 'autosave'])->middleware('permission:examinations.marks.enter')->name('marks.autosave');
+    Route::post('/marks/{examinationSubject}/submit', [MarkEntryController::class, 'submit'])->middleware('permission:examinations.marks.enter')->name('marks.submit');
+    Route::post('/mark-submissions/{markSubmission}/request-unlock', [MarkEntryController::class, 'requestUnlock'])->middleware('permission:examinations.marks.enter')->name('marks.request-unlock');
+    Route::patch('/mark-submissions/{markSubmission}/unlock', [MarkEntryController::class, 'unlock'])->middleware('permission:examinations.manage')->name('marks.unlock');
 });

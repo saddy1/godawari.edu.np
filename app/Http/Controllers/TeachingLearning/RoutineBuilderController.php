@@ -76,7 +76,7 @@ class RoutineBuilderController extends Controller
 
     public function show(Request $request, RoutinePlan $routinePlan)
     {
-        $routinePlan->load(['academicYear', 'organization', 'department', 'shift.periods', 'sections', 'lessons.period', 'lessons.endPeriod', 'lessons.groups.offering.subject', 'lessons.groups.teacher', 'lessons.groups.teachers', 'lessons.groups.room', 'lessons.groups.students']);
+        $routinePlan->load(['academicYear', 'organization', 'department.sections', 'shift.periods', 'sections', 'lessons.period', 'lessons.endPeriod', 'lessons.groups.offering.subject', 'lessons.groups.teacher', 'lessons.groups.teachers', 'lessons.groups.room', 'lessons.groups.students']);
         $day = in_array($request->day, $routinePlan->shift->working_days ?? [], true) ? $request->day : ($routinePlan->shift->working_days[0] ?? 'Sunday');
         $offerings = SubjectOffering::with('subject')->where('department_id', $routinePlan->department_id)
             ->when($routinePlan->semester, fn ($query) => $query->where(fn ($query) => $query->whereNull('semester')->orWhere('semester', $routinePlan->semester)))
@@ -117,11 +117,17 @@ class RoutineBuilderController extends Controller
                 'section_ids' => $sectionIds,
             ];
         })->filter(fn ($row) => $row['section_ids']->isNotEmpty())->values();
-        $teachers = User::role('teacher')->where('is_active', true)->orderBy('name')->get(['id', 'name'])->map(fn ($teacher) => [
+        $teachers = User::role('teacher')->where('is_active', true)->orderBy('name')->limit(12)->get(['id', 'name'])->map(fn ($teacher) => [
             'id' => $teacher->id, 'name' => $teacher->name, 'initials' => $this->initials($teacher->name),
         ]);
         $rooms = RoutineRoom::where('organization_id', $routinePlan->organization_id)->where('is_active', true)->orderBy('type')->orderBy('name')->get();
         $periods = $routinePlan->shift->periods->keyBy('id');
+        $availableShifts = RoutineShift::with('periods')->where('is_active', true)
+            ->whereHas('assignments', fn ($query) => $query
+                ->where('academic_year_id', $routinePlan->academic_year_id)
+                ->where('organization_id', $routinePlan->organization_id)
+                ->where(fn ($query) => $query->whereNull('department_id')->orWhere('department_id', $routinePlan->department_id)))
+            ->orderBy('starts_at')->get();
         $entries = collect();
         $cellLessons = collect();
         foreach ($routinePlan->lessons->where('day_of_week', $day) as $lesson) {
@@ -150,7 +156,78 @@ class RoutineBuilderController extends Controller
             }
         }
 
-        return view('teaching_learning.routine-builder.show', compact('routinePlan', 'day', 'offeringOptions', 'teachers', 'rooms', 'entries', 'cellLessons'));
+        return view('teaching_learning.routine-builder.show', compact('routinePlan', 'day', 'offeringOptions', 'teachers', 'rooms', 'entries', 'cellLessons', 'availableShifts'));
+    }
+
+    public function teacherOptions(Request $request, RoutinePlan $routinePlan)
+    {
+        abort_unless(auth()->user()->canAccess(['teaching-learning.routine.view', 'teaching-learning.routine.manage']), 403);
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'ids' => ['nullable', 'array', 'max:20'],
+            'ids.*' => ['integer', 'exists:users,id'],
+        ]);
+        $search = trim((string) ($data['q'] ?? ''));
+        $selectedIds = collect($data['ids'] ?? [])->map(fn ($id) => (int) $id)->unique();
+        $base = fn () => User::role('teacher')->where('is_active', true);
+        $selected = $selectedIds->isEmpty() ? collect() : $base()->whereIn('id', $selectedIds)->get(['id', 'name']);
+        $matches = $base()->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
+            ->orderBy('name')->limit(20)->get(['id', 'name']);
+        if ($search !== '' && ! str_contains($search, ' ') && $matches->count() < 20) {
+            $initialMatches = $base()->orderBy('name')->limit(500)->get(['id', 'name'])
+                ->filter(fn ($teacher) => str_contains(mb_strtolower($this->initials($teacher->name)), mb_strtolower($search)))
+                ->take(20 - $matches->count());
+            $matches = $matches->concat($initialMatches)->unique('id')->values();
+        }
+
+        return response()->json($selected->concat($matches)->unique('id')->values()->map(fn ($teacher) => [
+            'id' => $teacher->id,
+            'name' => $teacher->name,
+            'initials' => $this->initials($teacher->name),
+        ]));
+    }
+
+    public function updatePlan(Request $request, RoutinePlan $routinePlan)
+    {
+        $this->ensurePlanEditable($routinePlan);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'routine_shift_id' => ['required', 'integer', 'exists:routine_shifts,id'],
+            'semester' => ['nullable', 'integer', 'min:1', 'max:8'],
+            'year_level' => ['nullable', 'integer', 'min:1', 'max:6'],
+            'section_ids' => ['required', 'array', 'min:1'],
+            'section_ids.*' => ['integer', 'distinct', 'exists:sections,id'],
+        ]);
+        $routinePlan->loadMissing(['department', 'sections']);
+        $sectionIds = Section::where('department_id', $routinePlan->department_id)
+            ->whereIn('id', $data['section_ids'])->pluck('id');
+        if ($sectionIds->count() !== count($data['section_ids'])) {
+            throw ValidationException::withMessages(['section_ids' => 'Every selected section must belong to this faculty/class.']);
+        }
+        $removedWithClasses = $routinePlan->lessons()->whereNotIn('section_id', $sectionIds)->with('section:id,name')->get()
+            ->pluck('section.name')->filter()->unique()->values();
+        if ($removedWithClasses->isNotEmpty()) {
+            throw ValidationException::withMessages(['section_ids' => 'Clear classes from '.$removedWithClasses->implode(', ').' before removing those sections.']);
+        }
+        if ((int) $data['routine_shift_id'] !== (int) $routinePlan->routine_shift_id && $routinePlan->lessons()->exists()) {
+            throw ValidationException::withMessages(['routine_shift_id' => 'Clear the scheduled classes before changing the time slot because period IDs will be different.']);
+        }
+        $levelChanged = ($routinePlan->department->academic_system === 'semester' && (int) ($data['semester'] ?? 0) !== (int) $routinePlan->semester)
+            || ($routinePlan->department->academic_system === 'year' && (int) ($data['year_level'] ?? 0) !== (int) $routinePlan->year_level);
+        if ($levelChanged && $routinePlan->lessons()->exists()) {
+            throw ValidationException::withMessages(['semester' => 'Clear the scheduled classes before changing the semester/study year because its subject allocation is different.']);
+        }
+        $this->ensureShiftAssigned($routinePlan->academic_year_id, $routinePlan->organization_id, $routinePlan->department_id, (int) $data['routine_shift_id']);
+        $data['semester'] = $routinePlan->department->academic_system === 'semester' ? ($data['semester'] ?? null) : null;
+        $data['year_level'] = $routinePlan->department->academic_system === 'year' ? ($data['year_level'] ?? null) : null;
+
+        DB::transaction(function () use ($routinePlan, $data, $sectionIds) {
+            $routinePlan->update(collect($data)->except('section_ids')->all());
+            $routinePlan->sections()->sync($sectionIds);
+        });
+
+        return redirect()->route('admin.teaching-learning.routine-builder.show', $routinePlan)
+            ->with('success', 'Routine settings updated. New sections are ready in every day grid.');
     }
 
     public function saveLesson(Request $request, RoutinePlan $routinePlan, RoutineCollisionService $collisions)
@@ -168,7 +245,9 @@ class RoutineBuilderController extends Controller
             ->where('day_of_week', $base['day_of_week'])->first();
         if (($base['intent'] ?? 'save') === 'delete') {
             $lesson?->delete();
-            return back()->with('success', 'Routine cell cleared.');
+            return $request->expectsJson()
+                ? response()->json(['message' => 'Routine class cleared.'])
+                : back()->with('success', 'Routine cell cleared.');
         }
         $data = $request->validate([
             'mode' => ['required', Rule::in(['single', 'practical_split'])],
@@ -244,7 +323,8 @@ class RoutineBuilderController extends Controller
             }
             $this->assignStudents($lesson->fresh('groups'), $routinePlan);
         });
-        return back()->with('success', $data['mode'] === 'practical_split' ? '50/50 practical groups scheduled.' : 'Theory class scheduled.');
+        $message = $data['mode'] === 'practical_split' ? '50/50 practical groups scheduled.' : 'Theory class scheduled.';
+        return $request->expectsJson() ? response()->json(['message' => $message]) : back()->with('success', $message);
     }
 
     public function togglePublish(RoutinePlan $routinePlan)

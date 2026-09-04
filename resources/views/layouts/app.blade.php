@@ -141,9 +141,14 @@
     <link rel="shortcut icon" href="{{ $siteSettings->faviconUrl() }}">
     <link rel="apple-touch-icon" href="{{ $siteSettings->faviconUrl() }}">
 
-    {{-- Fonts (Global variables for Playfair Display and DM Sans) --}}
+    {{-- Fonts (Global variables for Playfair Display and DM Sans) — loaded async so the third-party
+         round trip doesn't block first paint; the page-loader splash covers this gap visually. --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Inter:wght@400;500;600;700;800&family=Lora:wght@500;600;700&family=Merriweather:wght@700;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&family=Playfair+Display:wght@700;900&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    @php $googleFontsHref = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Inter:wght@400;500;600;700;800&family=Lora:wght@500;600;700&family=Merriweather:wght@700;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&family=Playfair+Display:wght@700;900&family=Poppins:wght@400;500;600;700;800&display=swap'; @endphp
+    <link rel="preload" as="style" href="{{ $googleFontsHref }}">
+    <link rel="stylesheet" href="{{ $googleFontsHref }}" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="{{ $googleFontsHref }}"></noscript>
     @php
         $themePrimary       = $siteSettings->get('primary_color',         '#1a5632');
         $themeSecondary     = $siteSettings->get('secondary_color',       '#e2a024');
