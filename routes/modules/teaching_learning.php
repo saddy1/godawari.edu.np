@@ -43,6 +43,7 @@ Route::prefix('admin/teaching-learning')
             Route::delete('/academic-years/{academicYear}', [RoutineConfigurationController::class, 'destroyAcademicYear'])->middleware('permission:teaching-learning.subjects.delete')->name('academic-years.destroy');
             Route::post('/shifts', [RoutineConfigurationController::class, 'storeShift'])->middleware('permission:teaching-learning.subjects.create')->name('shifts.store');
             Route::patch('/shifts/{routineShift}', [RoutineConfigurationController::class, 'updateShift'])->middleware('permission:teaching-learning.subjects.create')->name('shifts.update');
+            Route::patch('/shifts/{routineShift}/breaks', [RoutineConfigurationController::class, 'updateBreaks'])->middleware('permission:teaching-learning.subjects.create')->name('shifts.breaks.update');
             Route::post('/shifts/{routineShift}/lock', [RoutineConfigurationController::class, 'toggleShiftLock'])->middleware('permission:teaching-learning.subjects.create')->name('shifts.lock');
             Route::delete('/shifts/{routineShift}', [RoutineConfigurationController::class, 'destroyShift'])->middleware('permission:teaching-learning.subjects.delete')->name('shifts.destroy');
             Route::put('/shifts/{routineShift}/departments', [RoutineConfigurationController::class, 'assignDepartments'])->middleware('permission:teaching-learning.subjects.create')->name('shifts.departments');

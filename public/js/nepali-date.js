@@ -54,6 +54,38 @@ function bsDateInput(initVal) {
         let activeInput = null;
         const daysInMonth = (year, month) => Number((calendar[String(year)] || [])[month - 1] || 0);
         const dateValue = (year, month, day) => `${year}-${pad(month)}-${pad(day)}`;
+        const serialDay = value => {
+            const parsed = normalized(value);
+            if (!parsed) return null;
+            const [year, month, day] = parsed.split('-').map(Number);
+            if (!calendar[String(year)] || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return null;
+            let serial = 0;
+            for (const candidateYear of years) {
+                if (candidateYear >= year) break;
+                serial += (calendar[String(candidateYear)] || []).reduce((sum, days) => sum + Number(days || 0), 0);
+            }
+            for (let candidateMonth = 1; candidateMonth < month; candidateMonth++) serial += daysInMonth(year, candidateMonth);
+            return serial + day - 1;
+        };
+        const bsToAd = value => {
+            const targetSerial = serialDay(value), todaySerial = serialDay(config.today);
+            if (targetSerial === null || todaySerial === null || !/^\d{4}-\d{2}-\d{2}$/.test(config.todayAd || '')) return '';
+            const [year, month, day] = config.todayAd.split('-').map(Number);
+            const converted = new Date(Date.UTC(year, month - 1, day));
+            converted.setUTCDate(converted.getUTCDate() + targetSerial - todaySerial);
+            return `${converted.getUTCFullYear()}-${pad(converted.getUTCMonth() + 1)}-${pad(converted.getUTCDate())}`;
+        };
+        const synchronizeAd = input => {
+            const targetId = input.dataset.adTarget;
+            if (!targetId) return;
+            const target = document.getElementById(targetId);
+            if (!target) return;
+            const complete = normalized(input.value);
+            const converted = complete ? bsToAd(complete) : '';
+            target.value = converted;
+            input.setCustomValidity(input.value.length === 10 && !converted ? 'Choose a valid Nepali calendar date.' : '');
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+        };
         const boundary = (input, key) => {
             const raw = input.dataset[key] || '';
             return raw === 'today' ? normalized(config.today) : normalized(raw);
@@ -104,6 +136,7 @@ function bsDateInput(initVal) {
             input.value = value;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.dispatchEvent(new Event('change', { bubbles: true }));
+            synchronizeAd(input);
             close();
         }
 
@@ -111,7 +144,17 @@ function bsDateInput(initVal) {
             panel?.remove();
             panel = document.createElement('div');
             panel.className = 'nepali-date-picker-panel';
+            // A modal <dialog> lives in the browser's top layer, so ordinary
+            // z-index values cannot place a body child above it. A popover is
+            // also promoted to the top layer and therefore remains clickable
+            // above academic-year and examination dialogs.
+            panel.setAttribute('popover', 'manual');
             document.body.appendChild(panel);
+            if (typeof panel.showPopover === 'function') {
+                panel.showPopover();
+            } else {
+                (input.closest('dialog[open]') || document.body).appendChild(panel);
+            }
             const selected = normalized(input.value);
             const today = normalized(config.today);
             const blanks = firstWeekday(year, month);
@@ -161,10 +204,12 @@ function bsDateInput(initVal) {
             input.addEventListener('input', () => {
                 const digits = String(input.value || '').replace(/\D/g, '').slice(0, 8);
                 input.value = digits.length > 6 ? `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}` : (digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits);
+                synchronizeAd(input);
             });
-            input.addEventListener('blur', () => { const value = normalized(input.value); if (value) input.value = value; });
+            input.addEventListener('blur', () => { const value = normalized(input.value); if (value) input.value = value; synchronizeAd(input); });
             input.addEventListener('focus', () => open(input));
             trigger.addEventListener('click', event => { event.preventDefault(); open(input); });
+            synchronizeAd(input);
         });
 
         document.addEventListener('pointerdown', event => {

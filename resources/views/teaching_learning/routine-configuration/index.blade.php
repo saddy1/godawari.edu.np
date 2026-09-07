@@ -8,6 +8,12 @@
     $label = 'mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500';
     $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     $displayTime = fn ($time) => \Carbon\CarbonImmutable::createFromFormat('!H:i', substr((string) $time, 0, 5))->format('g:i A');
+    $npCalendar = new \App\Http\Controllers\Hajiri\NepaliCalendarController();
+    $displayBs = function ($date) use ($npCalendar) {
+        if (!$date) return null;
+        $converted = $npCalendar->ad_2_bs((int) $date->format('Y'), (int) $date->format('m'), (int) $date->format('d'));
+        return $converted ? sprintf('%04d-%02d-%02d', $converted['year'], $converted['month'], $converted['date']) : null;
+    };
 @endphp
 
 <div class="space-y-4">
@@ -25,7 +31,7 @@
         <div class="flex gap-2 overflow-x-auto p-3">
             @forelse($academicYears as $year)
                 <div class="min-w-56 rounded-xl border p-3 {{ $selectedYear?->id === $year->id ? 'border-[#1a5632] bg-emerald-50/60 ring-1 ring-[#1a5632]/10' : 'border-gray-200' }}">
-                    <div class="flex items-start justify-between gap-2"><a href="{{ route('admin.teaching-learning.routine-configuration.index', ['year'=>$year->id]) }}" class="min-w-0"><h3 class="truncate text-sm font-black text-gray-900">{{ $year->name }}</h3><p class="mt-0.5 text-[10px] font-semibold text-gray-400">{{ $year->starts_on?->format('Y-m-d') ?: 'No start date' }} → {{ $year->ends_on?->format('Y-m-d') ?: 'No end date' }}</p></a><div class="flex gap-1">@if($year->is_active)<span class="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black text-emerald-700">ACTIVE</span>@endif @if($year->is_locked)<span class="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-700">LOCKED</span>@endif</div></div>
+                    <div class="flex items-start justify-between gap-2"><a href="{{ route('admin.teaching-learning.routine-configuration.index', ['year'=>$year->id]) }}" class="min-w-0"><h3 class="truncate text-sm font-black text-gray-900">{{ $year->name }}</h3><p class="mt-0.5 text-[10px] font-semibold text-gray-400">BS {{ $displayBs($year->starts_on) ?: 'No start date' }} → {{ $displayBs($year->ends_on) ?: 'No end date' }}</p></a><div class="flex gap-1">@if($year->is_active)<span class="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black text-emerald-700">ACTIVE</span>@endif @if($year->is_locked)<span class="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-700">LOCKED</span>@endif</div></div>
                     <div class="mt-3 flex items-center gap-1.5 border-t border-gray-100 pt-2.5">
                         @unless($year->is_active)<form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.academic-years.activate',$year) }}">@csrf<button class="rounded-lg border px-2 py-1 text-[10px] font-bold text-emerald-700">Activate</button></form>@endunless
                         <form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.academic-years.lock',$year) }}">@csrf<button class="rounded-lg border px-2 py-1 text-[10px] font-bold {{ $year->is_locked ? 'text-amber-700' : 'text-gray-600' }}">{{ $year->is_locked ? 'Unlock' : 'Lock' }}</button></form>
@@ -35,14 +41,14 @@
                     </div>
                 </div>
 
-                <dialog id="edit-year-{{ $year->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.academic-years.update',$year) }}">@csrf @method('PATCH')<div class="flex items-center justify-between border-b px-5 py-4"><h3 class="font-black">Edit academic year</h3><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="grid gap-3 p-5"><div><label class="{{ $label }}">Name</label><input name="name" value="{{ $year->name }}" required class="{{ $input }}"></div><div class="grid grid-cols-2 gap-3"><div><label class="{{ $label }}">Starts on</label><input type="date" name="starts_on" value="{{ $year->starts_on?->format('Y-m-d') }}" class="{{ $input }}"></div><div><label class="{{ $label }}">Ends on</label><input type="date" name="ends_on" value="{{ $year->ends_on?->format('Y-m-d') }}" class="{{ $input }}"></div></div></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Save</button></div></form></dialog>
+                <dialog id="edit-year-{{ $year->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.academic-years.update',$year) }}">@csrf @method('PATCH')<div class="flex items-center justify-between border-b px-5 py-4"><h3 class="font-black">Edit academic year</h3><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="grid gap-3 p-5"><div><label class="{{ $label }}">Name</label><input name="name" value="{{ $year->name }}" required class="{{ $input }}"></div><div class="grid grid-cols-2 gap-3"><div><label class="{{ $label }}">Starts on (BS)</label><x-nepali-date-input name="starts_on" :value="$year->starts_on" :class="$input" /></div><div><label class="{{ $label }}">Ends on (BS)</label><x-nepali-date-input name="ends_on" :value="$year->ends_on" :class="$input" /></div></div></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Save</button></div></form></dialog>
             @empty
                 <p class="w-full py-6 text-center text-sm font-semibold text-gray-400">Create an academic year to begin.</p>
             @endforelse
         </div>
     </section>
 
-    <dialog id="new-academic-year" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.academic-years.store') }}">@csrf<div class="flex items-center justify-between border-b px-5 py-4"><div><p class="text-[10px] font-black uppercase tracking-widest text-[#1a5632]">Routine year</p><h3 class="font-black">Create academic year</h3></div><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="space-y-3 p-5"><div><label class="{{ $label }}">Name</label><input name="name" value="{{ old('name') }}" placeholder="e.g. 2083/84" required class="{{ $input }}"></div><div class="grid grid-cols-2 gap-3"><div><label class="{{ $label }}">Starts on</label><input type="date" name="starts_on" class="{{ $input }}"></div><div><label class="{{ $label }}">Ends on</label><input type="date" name="ends_on" class="{{ $input }}"></div></div><label class="flex items-center gap-2 rounded-lg border p-3 text-xs font-bold text-gray-600"><input type="checkbox" name="is_active" value="1" class="rounded text-[#1a5632]"> Make this the active year</label></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Create year</button></div></form></dialog>
+    <dialog id="new-academic-year" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.academic-years.store') }}">@csrf<div class="flex items-center justify-between border-b px-5 py-4"><div><p class="text-[10px] font-black uppercase tracking-widest text-[#1a5632]">Routine year</p><h3 class="font-black">Create academic year</h3></div><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="space-y-3 p-5"><div><label class="{{ $label }}">Name</label><input name="name" value="{{ old('name') }}" placeholder="e.g. 2083/84" required class="{{ $input }}"></div><div class="grid gap-3 sm:grid-cols-2"><div><label class="{{ $label }}">Starts on (BS)</label><x-nepali-date-input name="starts_on" :value="old('starts_on')" :class="$input" /></div><div><label class="{{ $label }}">Ends on (BS)</label><x-nepali-date-input name="ends_on" :value="old('ends_on')" :class="$input" /></div></div><label class="flex items-center gap-2 rounded-lg border p-3 text-xs font-bold text-gray-600"><input type="checkbox" name="is_active" value="1" class="rounded text-[#1a5632]"> Make this the active year</label></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Create year</button></div></form></dialog>
 
             <details class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" @if($errors->any()) open @endif>
                 <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"><div><h2 class="text-sm font-black text-gray-900">Time-slot master</h2><p class="text-[10px] font-semibold text-gray-400">Create a reusable Morning, Day, or other time slot once, then assign it to organizations or departments.</p></div><span class="rounded-lg bg-[#1a5632] px-3 py-2 text-xs font-black text-white">+ New time slot</span></summary>
@@ -52,8 +58,7 @@
                         <div><label class="{{ $label }}">Starts</label><input type="time" name="starts_at" value="06:30" required class="{{ $input }}"></div>
                         <div><label class="{{ $label }}">Ends</label><input type="time" name="ends_at" value="11:30" required class="{{ $input }}"></div>
                         <div><label class="{{ $label }}">Period minutes</label><input type="number" name="period_minutes" value="45" min="15" max="180" required class="{{ $input }}"><p class="mt-1 text-[9px] font-semibold text-gray-400">The last period uses all remaining time.</p></div>
-                        <div><label class="{{ $label }}">Break after period</label><input type="number" name="break_after_period" min="1" max="20" placeholder="Optional" class="{{ $input }}"></div>
-                        <div><label class="{{ $label }}">Break minutes</label><input type="number" name="break_minutes" min="5" max="120" placeholder="Optional" class="{{ $input }}"></div>
+                        @include('teaching_learning.routine-configuration._break-fields', ['breaks' => old('breaks', [])])
                         <div class="sm:col-span-2 xl:col-span-4"><label class="{{ $label }}">Working days</label><div class="flex flex-wrap gap-1.5">@foreach($days as $day)<label class="cursor-pointer"><input type="checkbox" name="working_days[]" value="{{ $day }}" class="peer sr-only" @checked($day !== 'Saturday')><span class="inline-flex rounded-lg border px-2.5 py-2 text-[10px] font-bold text-gray-500 peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">{{ substr($day,0,3) }}</span></label>@endforeach</div></div>
                         <label class="flex items-center gap-2 text-xs font-bold text-gray-600"><input type="checkbox" name="is_active" value="1" checked class="rounded text-[#1a5632]"> Active</label>
                         <button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Create reusable slot</button>
@@ -77,6 +82,42 @@
                                 <dialog id="edit-period-{{ $period->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.periods.update',$period) }}">@csrf @method('PATCH')<div class="flex items-center justify-between border-b px-5 py-4"><h3 class="font-black">Edit period</h3><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="space-y-3 p-5"><div><label class="{{ $label }}">Name</label><input name="name" value="{{ $period->name }}" required class="{{ $input }}"></div><div class="grid grid-cols-2 gap-3"><div><label class="{{ $label }}">Starts</label><input type="time" name="starts_at" value="{{ substr($period->starts_at,0,5) }}" required class="{{ $input }}"></div><div><label class="{{ $label }}">Ends</label><input type="time" name="ends_at" value="{{ substr($period->ends_at,0,5) }}" required class="{{ $input }}"></div></div><label class="flex items-center gap-2 rounded-lg border p-3 text-xs font-bold"><input type="checkbox" name="is_break" value="1" @checked($period->is_break) class="rounded text-amber-600"> Break / non-teaching slot</label></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Save period</button></div></form></dialog>
                             @endforeach
                         </div>
+
+                        @unless($shift->is_locked)
+                            @php
+                                $configuredBreaks = $shift->breaks ?: ($shift->break_after_period ? [[
+                                    'name' => 'Break',
+                                    'after_period' => (int) $shift->break_after_period,
+                                    'minutes' => (int) $shift->break_minutes,
+                                ]] : []);
+                            @endphp
+                            <div class="mt-2 flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/50 px-3 py-2">
+                                <p class="text-[10px] font-bold text-amber-800">
+                                    {{ count($configuredBreaks) ? count($configuredBreaks).' break'.(count($configuredBreaks) === 1 ? '' : 's').' configured' : 'No break configured' }}
+                                </p>
+                                <button type="button" onclick="document.getElementById('edit-breaks-{{ $shift->id }}').showModal()"
+                                        class="rounded-lg bg-amber-100 px-3 py-1.5 text-[10px] font-black text-amber-800">
+                                    {{ count($configuredBreaks) ? 'Manage breaks' : '+ Add short break' }}
+                                </button>
+                            </div>
+
+                            <dialog id="edit-breaks-{{ $shift->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-2xl rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55">
+                                <form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.shifts.breaks.update', $shift) }}">
+                                    @csrf @method('PATCH')
+                                    <div class="flex items-center justify-between border-b px-5 py-4">
+                                        <div><p class="text-[10px] font-black uppercase tracking-widest text-amber-600">{{ $shift->name }}</p><h3 class="font-black">Manage breaks</h3></div>
+                                        <button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button>
+                                    </div>
+                                    <div class="p-5">
+                                        @include('teaching_learning.routine-configuration._break-fields', ['breaks' => $configuredBreaks])
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2 border-t px-5 py-4">
+                                        <p class="text-[9px] font-semibold text-gray-400">Saving regenerates the period timeline for every assignment using this slot.</p>
+                                        <div class="flex gap-2"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Save breaks</button></div>
+                                    </div>
+                                </form>
+                            </dialog>
+                        @endunless
 
                         <details class="mt-3 rounded-xl border border-gray-200 bg-gray-50/50">
                             <summary class="flex cursor-pointer list-none items-center justify-between px-3 py-2.5">

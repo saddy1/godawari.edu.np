@@ -13,7 +13,7 @@
         ->all();
 @endphp
 <style>
-    .nepali-date-picker-panel { position:fixed; z-index:100; width:min(21rem,calc(100vw - 2rem)); padding:12px; border:1px solid #e5e7eb; border-radius:14px; background:#fff; box-shadow:0 18px 45px rgba(15,23,42,.18); }
+    .nepali-date-picker-panel { position:fixed; inset:auto; z-index:2147483647; width:min(21rem,calc(100vw - 2rem)); height:auto; margin:0; padding:12px; border:1px solid #e5e7eb; border-radius:14px; background:#fff; box-shadow:0 18px 45px rgba(15,23,42,.28); }
     .nepali-date-picker-head { display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem; }
     .nepali-date-picker-head select { min-width:0; flex:1; height:2.4rem; border:1px solid #e5e7eb; border-radius:.55rem; background:#fff; color:#1f2937; font-size:.875rem; font-weight:800; padding:0 .5rem; outline:none; }
     .nepali-date-picker-head select:focus { border-color:var(--theme-primary,#1a5632); }
@@ -35,6 +35,7 @@
 <script>
     window.nepaliDatePickerConfig = {
         today: @js($sharedTodayBs),
+        todayAd: @js($sharedTodayAd->format('Y-m-d')),
         todayDow: @js((int) $sharedTodayAd->dayOfWeek),
         calendar: @js($sharedBsCalendar),
         months: @js($sharedBsMonths),

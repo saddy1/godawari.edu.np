@@ -10,12 +10,13 @@ class RoutineShift extends Model
 {
     protected $fillable = [
         'academic_year_id', 'organization_id', 'name', 'starts_at', 'ends_at',
-        'period_minutes', 'break_after_period', 'break_minutes', 'working_days',
+        'period_minutes', 'break_after_period', 'break_minutes', 'breaks', 'working_days',
         'is_active', 'is_locked',
     ];
 
     protected $casts = [
         'working_days' => 'array',
+        'breaks' => 'array',
         'is_active' => 'boolean',
         'is_locked' => 'boolean',
     ];

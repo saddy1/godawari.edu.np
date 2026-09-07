@@ -38,8 +38,8 @@
                 <div class="border-t border-gray-100 pt-5">
                     <p class="{{$section}}"><svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Schedule &amp; status</p>
                     <div class="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <div><label class="{{$label}}">Starts</label><input type="date" name="starts_on" value="{{$examination->starts_on?->format('Y-m-d')}}" class="{{$input}}"></div>
-                        <div><label class="{{$label}}">Ends</label><input type="date" name="ends_on" value="{{$examination->ends_on?->format('Y-m-d')}}" class="{{$input}}"></div>
+                        <div><label class="{{$label}}">Starts (BS)</label><x-nepali-date-input name="starts_on" :value="$examination->starts_on" :class="$input" /></div>
+                        <div><label class="{{$label}}">Ends (BS)</label><x-nepali-date-input name="ends_on" :value="$examination->ends_on" :class="$input" /></div>
                         <div><label class="{{$label}}">Daily start</label><input type="time" name="starts_at" value="{{substr((string)$examination->starts_at,0,5)}}" class="{{$input}}"></div>
                         <div><label class="{{$label}}">Status</label><select name="status" class="{{$input}}">@foreach(['draft'=>'Draft — setup','ongoing'=>'Ongoing — marks open','completed'=>'Completed — locked','published'=>'Published — final'] as $value=>$text)<option value="{{$value}}" @selected($examination->status===$value)>{{$text}}</option>@endforeach</select></div>
                     </div>
