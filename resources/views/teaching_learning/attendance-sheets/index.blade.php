@@ -43,27 +43,48 @@
     </section>
 
     @php
-        $previewSheet = $sheets->first();
+        $previewPages = collect();
+        foreach ($sheets as $sheet) {
+            $chunks = $sheet['students']->chunk($rowsPerPage);
+            if ($chunks->isEmpty()) $chunks = collect([collect()]);
+            foreach ($chunks as $chunkIndex => $chunk) {
+                $previewPages->push([
+                    ...$sheet,
+                    'students' => $chunk,
+                    'start_number' => $chunkIndex * $rowsPerPage,
+                    'section_page' => $chunkIndex + 1,
+                    'section_pages' => $chunks->count(),
+                ]);
+            }
+        }
+        $previewPageNumber = min(max(1, request()->integer('preview_page', 1)), max(1, $previewPages->count()));
+        $previewSheet = $previewPages->get($previewPageNumber - 1);
         $previewStudents = $previewSheet['students'] ?? collect();
         $previewAttendance = $previewSheet['attendance'] ?? collect();
-        $scopeTitle = $section
-            ? $department->name.' · '.$section->name
+        $scopeTitle = $previewSheet
+            ? $previewSheet['department']->name.' · '.$previewSheet['section']->name
             : ($department ? $department->name.' · All sections' : 'All faculties / classes · All sections');
     @endphp
     @if($organization && $previewSheet)
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <header class="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-[9px] font-black uppercase tracking-widest text-[#1a5632]">{{$organization->name}}</p><h2 class="text-base font-black">{{$scopeTitle}}</h2><p class="text-[10px] font-semibold text-gray-400">{{$monthLabel}} {{$bsYear}} BS · {{$academicYear?->name}} · {{$sheets->count()}} sections · {{$students->count()}} students</p></div><span class="rounded-lg {{$content==='recorded'?'bg-blue-50 text-blue-700':'bg-gray-100 text-gray-600'}} px-3 py-2 text-[9px] font-black uppercase">{{$content==='recorded'?'Online attendance':'Blank register'}}</span></header>
+            <header class="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-[9px] font-black uppercase tracking-widest text-[#1a5632]">{{$organization->name}}</p><h2 class="text-base font-black">{{$scopeTitle}}</h2><p class="text-[10px] font-semibold text-gray-400">{{$monthLabel}} {{$bsYear}} BS · {{$academicYear?->name}} · {{$sheets->count()}} sections · {{$students->count()}} students</p></div><div class="flex flex-wrap items-center gap-2"><span class="rounded-lg {{$content==='recorded'?'bg-blue-50 text-blue-700':'bg-gray-100 text-gray-600'}} px-3 py-2 text-[9px] font-black uppercase">{{$content==='recorded'?'Online attendance':'Blank register'}}</span><span class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[9px] font-black text-emerald-800">Print page {{$previewPageNumber}} / {{$previewPages->count()}}</span></div></header>
             @if($previewStudents->isEmpty())
                 <div class="p-10 text-center"><p class="text-sm font-black text-gray-600">No students found in the first selected section</p><p class="mt-1 text-xs text-gray-400">The print job still creates a separate page for every selected section.</p></div>
             @else
-                @if($sheets->count()>1)<div class="border-b border-blue-100 bg-blue-50 px-4 py-2 text-[10px] font-bold text-blue-700">Preview: {{$previewSheet['department']->name}} · {{$previewSheet['section']->name}}. Printing includes all {{$sheets->count()}} selected sections, each starting on a new page.</div>@endif
+                <div class="flex items-center justify-between gap-3 border-b border-blue-100 bg-blue-50 px-4 py-2 text-[10px] font-bold text-blue-700">
+                    <span>{{$previewSheet['department']->name}} · {{$previewSheet['section']->name}} · section page {{$previewSheet['section_page']}} / {{$previewSheet['section_pages']}} · {{$previewStudents->count()}} students</span>
+                    <span class="flex shrink-0 items-center gap-1">
+                        @if($previewPageNumber>1)<a href="{{request()->fullUrlWithQuery(['preview_page'=>$previewPageNumber-1])}}" class="rounded-lg border border-blue-200 bg-white px-3 py-1.5 font-black">← Previous</a>@endif
+                        @if($previewPageNumber<$previewPages->count())<a href="{{request()->fullUrlWithQuery(['preview_page'=>$previewPageNumber+1])}}" class="rounded-lg border border-blue-200 bg-white px-3 py-1.5 font-black">Next →</a>@endif
+                    </span>
+                </div>
                 <div class="max-h-[34rem] overflow-auto">
                     <table class="min-w-[1180px] w-full border-collapse text-[9px]">
                         <thead class="sticky top-0 z-10 bg-emerald-50"><tr><th class="sticky left-0 z-20 w-10 border bg-emerald-50 p-2">SN</th><th class="sticky left-10 z-20 min-w-28 border bg-emerald-50 p-2 text-left">Code</th><th class="sticky left-[9.5rem] z-20 min-w-52 border bg-emerald-50 p-2 text-left">Student</th>@foreach($days as $day)<th class="w-7 border p-1">{{$day['number']}}</th>@endforeach</tr></thead>
-                        <tbody>@foreach($previewStudents->take(15) as $student)<tr class="odd:bg-white even:bg-gray-50/60"><td class="sticky left-0 border bg-inherit p-2 text-center font-bold">{{$loop->iteration}}</td><td class="sticky left-10 border bg-inherit p-2 text-[10px] font-black text-gray-800">{{$student->roll_number?:'—'}}</td><td class="sticky left-[9.5rem] border bg-inherit p-2 text-[11px] font-black text-gray-900">{{$student->full_name}}</td>@foreach($days as $day)<td class="h-8 border text-center font-black">{{$day['ad'] ? ($previewAttendance[$student->id.'|'.$day['ad']] ?? '') : ''}}</td>@endforeach</tr>@endforeach</tbody>
+                        <tbody>@foreach($previewStudents as $student)<tr class="odd:bg-white even:bg-gray-50/60"><td class="sticky left-0 border bg-inherit p-2 text-center font-bold">{{$previewSheet['start_number']+$loop->iteration}}</td><td class="sticky left-10 border bg-inherit p-2 text-[10px] font-black text-gray-800">{{$student->roll_number?:'—'}}</td><td class="sticky left-[9.5rem] border bg-inherit p-2 text-[11px] font-black text-gray-900">{{$student->full_name}}</td>@foreach($days as $day)<td class="h-8 border text-center font-black">{{$day['ad'] ? ($previewAttendance[$student->id.'|'.$day['ad']] ?? '') : ''}}</td>@endforeach</tr>@endforeach</tbody>
                     </table>
                 </div>
-                @if($previewStudents->count()>15)<div class="border-t bg-gray-50 px-4 py-2 text-center text-[10px] font-bold text-gray-500">Preview shows 15 of {{$previewStudents->count()}} students in {{$previewSheet['section']->name}}. The print sheet includes everyone.</div>@endif
+                <div class="border-t bg-gray-50 px-4 py-2 text-center text-[10px] font-bold text-gray-500">Showing all {{$previewStudents->count()}} students included on print page {{$previewPageNumber}}.</div>
             @endif
         </section>
     @else
