@@ -32,7 +32,7 @@
                 <div><label class="{{$label}}">Students</label><select name="gender" class="{{$input}}"><option value="">All students</option><option value="male" @selected($gender==='male')>Male only</option><option value="female" @selected($gender==='female')>Female only</option><option value="other" @selected($gender==='other')>Other only</option></select></div>
                 <div><label class="{{$label}}">Sort by</label><select name="sort" class="{{$input}}"><option value="roll" @selected($sort==='roll')>Student code</option><option value="name" @selected($sort==='name')>Student name</option></select></div>
                 <div class="lg:col-span-2"><label class="{{$label}}">Sheet content</label><select name="content" class="{{$input}}"><option value="blank" @selected($content==='blank')>Blank manual register</option><option value="recorded" @selected($content==='recorded')>Fill online attendance</option></select></div>
-                <div><label class="{{$label}}">Rows / page</label><select name="rows_per_page" class="{{$input}}">@foreach([30,35,40,45,50] as $rows)<option value="{{$rows}}" @selected($rowsPerPage===$rows)>{{$rows}}</option>@endforeach</select></div>
+                <div><label class="{{$label}}">Rows / page <span class="normal-case tracking-normal text-gray-400">(max 55)</span></label><input type="number" name="rows_per_page" value="{{$rowsPerPage}}" min="10" max="55" step="1" inputmode="numeric" required class="{{$input}}"></div>
             </div>
 
             <div class="flex flex-col justify-between gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center">

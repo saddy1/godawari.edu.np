@@ -56,8 +56,8 @@ class MonthlyAttendanceSheetController extends Controller
         $gender = in_array($request->query('gender'), ['male', 'female', 'other'], true) ? $request->query('gender') : '';
         $sort = in_array($request->query('sort'), ['roll', 'name'], true) ? $request->query('sort') : 'roll';
         $content = $request->query('content') === 'recorded' ? 'recorded' : 'blank';
-        $rowsPerPage = in_array($request->integer('rows_per_page'), [30, 35, 40, 45, 50], true)
-            ? $request->integer('rows_per_page') : 50;
+        $requestedRows = $request->integer('rows_per_page');
+        $rowsPerPage = $requestedRows > 0 ? max(10, min(55, $requestedRows)) : 50;
 
         $daysInMonth = (int) $calendarYear[$bsMonth];
         $days = collect(range(1, $daysInMonth))->map(function (int $day) use ($calendar, $bsYear, $bsMonth) {
