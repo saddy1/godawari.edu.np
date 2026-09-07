@@ -271,8 +271,24 @@ class RoutineConfigurationController extends Controller
         if ($overlaps) throw ValidationException::withMessages(['starts_at' => 'This time overlaps another period.']);
 
         $data['is_break'] = $request->boolean('is_break');
-        $routinePeriod->update($data);
+        DB::transaction(function () use ($routinePeriod, $data) {
+            $routinePeriod->update($data);
+            $this->normalizePeriodPositions($routinePeriod->shift);
+        });
         return back()->with('success', 'Period updated.');
+    }
+
+    private function normalizePeriodPositions(RoutineShift $shift): void
+    {
+        $periods = $shift->periods()->reorder()
+            ->orderBy('starts_at')->orderBy('ends_at')->orderBy('id')->get();
+
+        // Move every position out of the unique-key range first, then assign
+        // the definitive chronological sequence without collisions.
+        $shift->periods()->increment('position', 100);
+        foreach ($periods->values() as $index => $period) {
+            $period->update(['position' => $index + 1]);
+        }
     }
 
     private function validateShift(Request $request, ?RoutineShift $shift = null): array

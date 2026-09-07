@@ -33,7 +33,10 @@ class RoutineShift extends Model
 
     public function periods()
     {
-        return $this->hasMany(RoutinePeriod::class)->orderBy('position');
+        return $this->hasMany(RoutinePeriod::class)
+            ->orderBy('starts_at')
+            ->orderBy('ends_at')
+            ->orderBy('position');
     }
 
     public function assignments()
