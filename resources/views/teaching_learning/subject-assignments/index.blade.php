@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $input = 'w-full rounded-xl border-gray-200 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:ring-[#1a5632]';
+    $input = 'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:border-gray-100 disabled:bg-gray-50 disabled:text-gray-400';
     $label = 'mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500';
     $fixedOfferings = $offerings->where('is_elective', false);
     $electiveOfferings = $offerings->where('is_elective', true);

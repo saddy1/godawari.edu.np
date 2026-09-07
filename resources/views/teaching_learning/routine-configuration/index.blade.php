@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $input = 'w-full rounded-lg border-gray-200 px-3 py-2 text-sm font-semibold focus:border-[#1a5632] focus:ring-[#1a5632]';
+    $input = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15';
     $label = 'mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500';
     $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     $displayTime = fn ($time) => \Carbon\CarbonImmutable::createFromFormat('!H:i', substr((string) $time, 0, 5))->format('g:i A');
@@ -76,9 +76,9 @@
                     </header>
 
                     <div class="p-3">
-                        <div class="flex gap-2 overflow-x-auto pb-1">
+                        <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8">
                             @foreach($shift->periods as $period)
-                                <button type="button" @unless($shift->is_locked) onclick="document.getElementById('edit-period-{{ $period->id }}').showModal()" @endunless class="min-w-36 rounded-lg border px-3 py-2 text-left {{ $period->is_break ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-gray-50' }}"><p class="text-[10px] font-black {{ $period->is_break ? 'text-amber-700' : 'text-gray-700' }}">{{ $period->name }}</p><p class="mt-0.5 whitespace-nowrap text-[10px] font-semibold text-gray-400">{{ $displayTime($period->starts_at) }}–{{ $displayTime($period->ends_at) }}</p></button>
+                                <button type="button" @unless($shift->is_locked) onclick="document.getElementById('edit-period-{{ $period->id }}').showModal()" @endunless class="min-w-0 rounded-lg border px-2.5 py-2 text-left {{ $period->is_break ? 'border-amber-300 bg-amber-50 ring-1 ring-amber-100' : 'border-gray-200 bg-gray-50' }}"><p class="truncate text-[10px] font-black {{ $period->is_break ? 'text-amber-700' : 'text-gray-700' }}">{{ $period->is_break ? '☕ ' : '' }}{{ $period->name }}</p><p class="mt-0.5 whitespace-nowrap text-[9px] font-semibold text-gray-400">{{ $displayTime($period->starts_at) }}–{{ $displayTime($period->ends_at) }}</p></button>
                                 <dialog id="edit-period-{{ $period->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.periods.update',$period) }}">@csrf @method('PATCH')<div class="flex items-center justify-between border-b px-5 py-4"><h3 class="font-black">Edit period</h3><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="space-y-3 p-5"><div><label class="{{ $label }}">Name</label><input name="name" value="{{ $period->name }}" required class="{{ $input }}"></div><div class="grid grid-cols-2 gap-3"><div><label class="{{ $label }}">Starts</label><input type="time" name="starts_at" value="{{ substr($period->starts_at,0,5) }}" required class="{{ $input }}"></div><div><label class="{{ $label }}">Ends</label><input type="time" name="ends_at" value="{{ substr($period->ends_at,0,5) }}" required class="{{ $input }}"></div></div><label class="flex items-center gap-2 rounded-lg border p-3 text-xs font-bold"><input type="checkbox" name="is_break" value="1" @checked($period->is_break) class="rounded text-amber-600"> Break / non-teaching slot</label></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Save period</button></div></form></dialog>
                             @endforeach
                         </div>

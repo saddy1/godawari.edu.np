@@ -149,11 +149,13 @@ function bsDateInput(initVal) {
             // also promoted to the top layer and therefore remains clickable
             // above academic-year and examination dialogs.
             panel.setAttribute('popover', 'manual');
-            document.body.appendChild(panel);
+            // Keep the popover inside the active modal's DOM subtree. Browsers
+            // make everything outside a showModal() dialog inert, even when it
+            // is painted in the top layer, which otherwise swallows date clicks.
+            const activeDialog = input.closest('dialog[open]');
+            (activeDialog || document.body).appendChild(panel);
             if (typeof panel.showPopover === 'function') {
-                panel.showPopover();
-            } else {
-                (input.closest('dialog[open]') || document.body).appendChild(panel);
+                try { panel.showPopover(); } catch (error) { /* positioned fallback remains inside the dialog */ }
             }
             const selected = normalized(input.value);
             const today = normalized(config.today);

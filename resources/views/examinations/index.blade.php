@@ -1,7 +1,7 @@
 @extends('examinations.layouts.app')
 @section('title','Examinations')
 @section('content')
-@php $input='w-full rounded-xl border-gray-200 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:ring-[#1a5632]';$label='mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500'; @endphp
+@php $input='w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-800 outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15';$label='mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500'; @endphp
 <div class="space-y-4" x-data="examCreator(@js($organizations))">
     <section class="flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-[#0b2415] to-[#1a5632] p-5 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div><p class="text-[10px] font-black uppercase tracking-[.2em] text-amber-300">Assessment control</p><h1 class="mt-1 text-2xl font-black">Examinations</h1><p class="mt-1 text-xs font-semibold text-white/65">Choose who takes the exam, configure each unique subject once, then collect marks.</p></div>

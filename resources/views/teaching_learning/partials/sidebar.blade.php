@@ -62,13 +62,13 @@
                 <span class="rounded bg-amber-400/20 px-1.5 py-0.5 text-[8px] font-black text-amber-300">NEW</span>
             </a>
             @endcan
+            <a href="{{ route('admin.teaching-learning.attendance-sheets.index') }}"
+               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.teaching-learning.attendance-sheets.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m4-5H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2zM8 3v3m8-3v3"/></svg>
+                <span class="flex-1 truncate">Attendance Sheets</span>
+                <span class="rounded bg-emerald-400/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-300">PRINT</span>
+            </a>
         @endif
-
-        <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/20 uppercase tracking-widest">Coming soon</p>
-        <div class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium text-white/25 cursor-not-allowed">
-            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span class="flex-1 truncate">Class Attendance</span>
-        </div>
     </nav>
 
     @include('backend.partials.sidebar-user-footer')

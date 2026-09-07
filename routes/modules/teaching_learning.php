@@ -5,6 +5,7 @@ use App\Http\Controllers\TeachingLearning\RoutineConfigurationController;
 use App\Http\Controllers\TeachingLearning\RoutineBuilderController;
 use App\Http\Controllers\TeachingLearning\SubjectAssignmentController;
 use App\Http\Controllers\TeachingLearning\TeacherWorkspaceController;
+use App\Http\Controllers\TeachingLearning\MonthlyAttendanceSheetController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin/teaching-learning')
@@ -20,6 +21,8 @@ Route::prefix('admin/teaching-learning')
         Route::get('/subject-assignments', [SubjectAssignmentController::class, 'index'])->middleware('permission:teaching-learning.subjects.view')->name('subject-assignments.index');
         Route::post('/subject-assignments/sync-fixed', [SubjectAssignmentController::class, 'syncFixed'])->middleware('permission:teaching-learning.subjects.create')->name('subject-assignments.sync-fixed');
         Route::put('/subject-assignments/electives', [SubjectAssignmentController::class, 'updateElective'])->middleware('permission:teaching-learning.subjects.create')->name('subject-assignments.electives');
+        Route::get('/attendance-sheets', [MonthlyAttendanceSheetController::class, 'index'])->middleware('permission:teaching-learning.subjects.view')->name('attendance-sheets.index');
+        Route::get('/attendance-sheets/print', [MonthlyAttendanceSheetController::class, 'print'])->middleware('permission:teaching-learning.subjects.view')->name('attendance-sheets.print');
 
         Route::prefix('routine-builder')->name('routine-builder.')->group(function () {
             Route::get('/', [RoutineBuilderController::class, 'index'])->middleware('permission:teaching-learning.routine.view')->name('index');

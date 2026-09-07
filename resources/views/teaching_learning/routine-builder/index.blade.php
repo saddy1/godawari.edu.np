@@ -1,7 +1,7 @@
 @extends('teaching_learning.layouts.app')
 @section('title','Routine Builder')
 @section('content')
-@php $input='w-full rounded-lg border-gray-200 px-3 py-2 text-xs font-semibold focus:border-[#1a5632] focus:ring-[#1a5632]';$label='mb-1 block text-[9px] font-black uppercase tracking-wider text-gray-500'; @endphp
+@php $input='w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15';$label='mb-1 block text-[9px] font-black uppercase tracking-wider text-gray-500'; @endphp
 <div class="space-y-4" x-data="planCreator(@js($organizations),@js($shifts))">
     <section class="flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-[#0b2415] to-[#1a5632] p-5 text-white sm:flex-row sm:items-center sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-widest text-amber-300">Collision-safe scheduling</p><h1 class="mt-1 text-2xl font-black">Routine Builder</h1><p class="mt-1 text-xs font-semibold text-white/65">Build compact section routines with teacher initials, rooms and parallel 50/50 practical groups.</p></div><div class="flex gap-2"><a href="{{route('admin.teaching-learning.routine-configuration.index')}}" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-black">Time slots</a><button @click="createOpen=!createOpen" class="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-[#1a5632]" x-text="createOpen?'Close':'+ New routine'"></button></div></section>
     @if($errors->any())<div class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">@foreach($errors->all() as $error)<p>• {{$error}}</p>@endforeach</div>@endif
