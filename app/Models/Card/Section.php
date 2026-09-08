@@ -23,4 +23,18 @@ class Section extends Model
                 $query->whereNull('group_name')->orWhere('group_name', $this->group_name);
             });
     }
+
+    // Students link via section_id where backfilled, otherwise by the legacy
+    // organization/stream/section text triplet — not a true Eloquent relation.
+    public function studentsQuery()
+    {
+        $department = $this->department;
+
+        return Student::where('section_id', $this->id)
+            ->orWhere(function ($query) use ($department) {
+                $query->where('organization', $department->organization->slug)
+                    ->where('stream', $department->name)
+                    ->where('section', $this->name);
+            });
+    }
 }

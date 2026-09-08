@@ -27,4 +27,10 @@ class Organization extends Model
     public function logoAsset()      { return $this->belongsTo(OrgAsset::class, 'logo_asset_id'); }
     public function signatureAsset() { return $this->belongsTo(OrgAsset::class, 'signature_asset_id'); }
     public function stampAsset()     { return $this->belongsTo(OrgAsset::class, 'stamp_asset_id'); }
+
+    // Students link by organization slug, not a foreign key — not a true Eloquent relation.
+    public function studentsQuery()
+    {
+        return Student::where('organization', $this->slug);
+    }
 }

@@ -13,6 +13,7 @@ use App\Models\Card\MemberType;
 use App\Models\Card\Student;
 use App\Models\Card\SubjectOffering;
 use App\Services\SubjectEnrollmentService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\File;
@@ -93,8 +94,15 @@ class SettingsController extends Controller
 
     public function destroyOrganization(Organization $organization)
     {
+        $studentCount = $organization->studentsQuery()->count();
+        if ($studentCount > 0) {
+            return back()->with('error', "Cannot delete: {$studentCount} " . \Str::plural('student', $studentCount) . " still belong to this organization.");
+        }
+
         Cache::forget("card_org_{$organization->slug}");
-        $organization->delete();
+        if ($error = $this->deleteOrConflictMessage(fn () => $organization->delete(), 'organization')) {
+            return back()->with('error', $error);
+        }
         return redirect()->route('settings.index')->with('success', "Organization deleted.");
     }
 
@@ -149,8 +157,15 @@ class SettingsController extends Controller
 
     public function destroyDepartment(Department $department)
     {
+        $studentCount = $department->studentsQuery()->count();
+        if ($studentCount > 0) {
+            return back()->with('error', "Cannot delete: {$studentCount} " . \Str::plural('student', $studentCount) . " still belong to this department.");
+        }
+
         $orgId = $department->organization_id;
-        $department->delete();
+        if ($error = $this->deleteOrConflictMessage(fn () => $department->delete(), 'department')) {
+            return back()->with('error', $error);
+        }
         return redirect()->route('settings.index', ['tab' => 'departments', 'org' => $orgId])
             ->with('success', "Department deleted.");
     }
@@ -188,9 +203,16 @@ class SettingsController extends Controller
 
     public function destroySection(Section $section, SubjectEnrollmentService $subjectEnrollments)
     {
+        $studentCount = $section->studentsQuery()->count();
+        if ($studentCount > 0) {
+            return back()->with('error', "Cannot delete: {$studentCount} " . \Str::plural('student', $studentCount) . " still belong to this section.");
+        }
+
         $deptId = $section->department_id;
         $dept = $section->department()->with('organization')->firstOrFail();
-        $section->delete();
+        if ($error = $this->deleteOrConflictMessage(fn () => $section->delete(), 'section')) {
+            return back()->with('error', $error);
+        }
         $academicYear = $subjectEnrollments->currentWritableAcademicYear();
         if ($academicYear) {
             $subjectEnrollments->syncDepartment($dept, $academicYear);
@@ -339,6 +361,21 @@ class SettingsController extends Controller
         return response()->json(
             $department->activeSections()->get(['id', 'name'])
         );
+    }
+
+    // Returns null on success, or a friendly error message if the delete was
+    // blocked by a foreign key constraint from another module (e.g. examinations, routines).
+    private function deleteOrConflictMessage(callable $delete, string $label): ?string
+    {
+        try {
+            $delete();
+            return null;
+        } catch (QueryException $e) {
+            if ($e->getCode() === '23000') {
+                return "Cannot delete: this {$label} is still referenced by other records (e.g. examinations or routines). Remove those first.";
+            }
+            throw $e;
+        }
     }
 
     private function resizeImage(string $path, int $maxDim): void

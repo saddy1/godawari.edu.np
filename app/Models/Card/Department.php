@@ -23,4 +23,11 @@ class Department extends Model
     {
         return $this->sections()->where('is_active', true);
     }
+
+    // Students link by organization slug + department name, not a foreign key — not a true Eloquent relation.
+    public function studentsQuery()
+    {
+        return Student::where('organization', $this->organization->slug)
+            ->where('stream', $this->name);
+    }
 }

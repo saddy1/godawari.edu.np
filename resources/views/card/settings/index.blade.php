@@ -91,10 +91,11 @@
                     <span class="h-2.5 w-2.5 rounded-full {{ $org->is_active ? 'bg-emerald-500' : 'bg-gray-300' }}"></span>
                 </div>
                 <div class="mt-3 flex items-center gap-2 text-[10px] font-bold"><span class="rounded-md bg-gray-100 px-2 py-1 capitalize text-gray-600">{{ $org->type }}</span><span class="text-gray-400">{{ $org->departments_count }} {{ Str::plural('department', $org->departments_count) }}</span><span class="text-gray-400">{{ $org->member_types_count }} {{ Str::plural('type', $org->member_types_count) }}</span></div>
+                @php $orgStudentCount = $org->studentsQuery()->count(); @endphp
                 <div class="mt-3 flex gap-1.5 border-t border-gray-100 pt-3">
                     <a href="{{ route('settings.index', array_filter(['tab' => 'departments', 'org' => $org->id, 'from' => request('from')])) }}" class="flex-1 rounded-lg bg-primary/5 px-2 py-1.5 text-center text-[11px] font-bold text-primary">Departments</a>
                     <button type="button" onclick="document.getElementById('edit-org-{{ $org->id }}').showModal()" class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-bold text-gray-600">Edit</button>
-                    <form method="POST" action="{{ route('settings.organizations.destroy', $org) }}" onsubmit="return confirm('Delete this organization and all its departments and sections?')">@csrf @method('DELETE')<button class="rounded-lg border border-red-100 px-2.5 py-1.5 text-[11px] font-bold text-red-500">Delete</button></form>
+                    <form method="POST" action="{{ route('settings.organizations.destroy', $org) }}" onsubmit="return confirm('Delete this organization and all its departments and sections?')">@csrf @method('DELETE')<button @disabled($orgStudentCount > 0) title="{{ $orgStudentCount > 0 ? $orgStudentCount.' '.Str::plural('student', $orgStudentCount).' still belong to this organization' : 'Delete organization' }}" class="rounded-lg border border-red-100 px-2.5 py-1.5 text-[11px] font-bold text-red-500 disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300">Delete</button></form>
                 </div>
             </article>
 
@@ -222,6 +223,7 @@
                     @else
                         <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             @foreach($organizationDepartments as $dept)
+                                @php $deptStudentCount = $dept->studentsQuery()->count(); @endphp
                                 <article class="group rounded-xl border border-gray-200 bg-white p-3 transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0">
@@ -253,7 +255,7 @@
                                         </button>
                                         <form method="POST" action="{{ route('settings.departments.destroy', $dept) }}" onsubmit="return confirm('Delete this department?')">
                                             @csrf @method('DELETE')
-                                            <button type="submit" class="rounded-lg border border-red-100 px-2.5 py-1.5 text-[11px] font-semibold text-red-500 transition hover:bg-red-50">Delete</button>
+                                            <button type="submit" @disabled($deptStudentCount > 0) title="{{ $deptStudentCount > 0 ? $deptStudentCount.' '.Str::plural('student', $deptStudentCount).' still belong to this department' : 'Delete department' }}" class="rounded-lg border border-red-100 px-2.5 py-1.5 text-[11px] font-semibold text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300">Delete</button>
                                         </form>
                                     </div>
                                 </article>
@@ -437,10 +439,12 @@
 
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         @forelse($secs as $sec)
+            @php $secStudentCount = $sec->studentsQuery()->count(); @endphp
             <article class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
                 <div class="flex items-start justify-between"><div><h3 class="text-sm font-bold text-gray-900">Section {{ $sec->name }}</h3><p class="mt-0.5 text-[11px] text-gray-400">{{ $sec->department->name }} · {{ $sec->department->organization->name }}</p></div><span class="h-2.5 w-2.5 rounded-full {{ $sec->is_active ? 'bg-emerald-500' : 'bg-gray-300' }}"></span></div>
                 @if($sec->group_name)<span class="mt-2 inline-flex rounded-md bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-700">{{ $sec->group_name }}</span>@endif
-                <div class="mt-3 flex justify-end gap-1.5 border-t border-gray-100 pt-2.5"><button type="button" onclick="document.getElementById('edit-section-{{ $sec->id }}').showModal()" class="rounded-lg border px-3 py-1.5 text-[11px] font-bold text-gray-600">Edit</button><form method="POST" action="{{ route('settings.sections.destroy', $sec) }}" onsubmit="return confirm('Delete this section?')">@csrf @method('DELETE')<button class="rounded-lg border border-red-100 px-3 py-1.5 text-[11px] font-bold text-red-500">Delete</button></form></div>
+                <p class="mt-2 text-[10px] font-semibold text-gray-400">{{ $secStudentCount }} {{ Str::plural('student', $secStudentCount) }}</p>
+                <div class="mt-3 flex justify-end gap-1.5 border-t border-gray-100 pt-2.5"><button type="button" onclick="document.getElementById('edit-section-{{ $sec->id }}').showModal()" class="rounded-lg border px-3 py-1.5 text-[11px] font-bold text-gray-600">Edit</button><form method="POST" action="{{ route('settings.sections.destroy', $sec) }}" onsubmit="return confirm('Delete this section?')">@csrf @method('DELETE')<button @disabled($secStudentCount > 0) title="{{ $secStudentCount > 0 ? $secStudentCount.' '.Str::plural('student', $secStudentCount).' still belong to this section' : 'Delete section' }}" class="rounded-lg border border-red-100 px-3 py-1.5 text-[11px] font-bold text-red-500 disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300">Delete</button></form></div>
             </article>
             <dialog id="edit-section-{{ $sec->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('settings.sections.update', $sec) }}">@csrf @method('PATCH')<div class="flex items-center justify-between border-b px-5 py-4"><div><p class="text-[10px] font-bold uppercase tracking-widest text-primary">Edit section</p><h3 class="font-bold">{{ $sec->department->name }} · {{ $sec->name }}</h3></div><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="space-y-3 p-5"><div><label class="mb-1 block text-xs font-semibold text-gray-600">Section name</label><input name="name" value="{{ $sec->name }}" required class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm"></div><div><label class="mb-1 block text-xs font-semibold text-gray-600">Elective group</label><input name="group_name" value="{{ $sec->group_name }}" placeholder="Optional" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm"></div><label class="flex items-center gap-2 text-xs font-semibold text-gray-600"><input type="checkbox" name="is_active" value="1" @checked($sec->is_active) class="rounded text-primary"> Active</label></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600">Cancel</button><button class="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white">Save changes</button></div></form></dialog>
         @empty
