@@ -1,3 +1,4 @@
+@php $isPdf = true; @endphp
 <!DOCTYPE html>
 <html>
 <head>

@@ -10,7 +10,7 @@
 @endphp
 <div class="gs-sheet">
     <table class="gs-header"><tr>
-        <td class="gs-logo">@if($logoPath && is_file(public_path($logoPath)))<img src="{{ (is_file(public_path($logoPath)) ? 'data:'.mime_content_type(public_path($logoPath)).';base64,'.base64_encode(file_get_contents(public_path($logoPath))) : asset($logoPath)) }}" alt="{{ $orgRecord->type === 'school' ? 'School stamp' : 'Logo' }}">@endif</td>
+        <td class="gs-logo">@if($logoPath && is_file(public_path($logoPath)))<img src="{{ (($isPdf ?? false) && is_file(public_path($logoPath)) ? public_path($logoPath) : asset($logoPath)) }}" alt="{{ $orgRecord->type === 'school' ? 'School stamp' : 'Logo' }}">@endif</td>
         <td class="gs-title">
             <h1>{{ $orgRecord->name }}</h1>
             <p class="gs-address">{{ $siteSettings->localized('site_address', '') }}</p>
@@ -66,7 +66,7 @@
     </div>
 
     <div class="gs-sign-block">
-        @if($signaturePath)<img src="{{ (is_file(public_path($signaturePath)) ? 'data:'.mime_content_type(public_path($signaturePath)).';base64,'.base64_encode(file_get_contents(public_path($signaturePath))) : asset($signaturePath)) }}" alt="Signature" class="gs-sign-img">@else<span class="gs-sign-line"></span>@endif
+        @if($signaturePath)<img src="{{ (($isPdf ?? false) && is_file(public_path($signaturePath)) ? public_path($signaturePath) : asset($signaturePath)) }}" alt="Signature" class="gs-sign-img">@else<span class="gs-sign-line"></span>@endif
         PRINCIPAL
     </div>
 

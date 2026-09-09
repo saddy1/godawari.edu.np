@@ -31,7 +31,7 @@
 @endphp
 <div class="admit-card">
     <table class="ac-header"><tr>
-        <td class="ac-logo">@if($logoPath && is_file(public_path($logoPath)))<img src="{{ (is_file(public_path($logoPath)) ? 'data:'.mime_content_type(public_path($logoPath)).';base64,'.base64_encode(file_get_contents(public_path($logoPath))) : asset($logoPath)) }}" alt="{{ $orgRecord->type === 'school' ? 'School stamp' : 'Logo' }}">@endif</td>
+        <td class="ac-logo">@if($logoPath && is_file(public_path($logoPath)))<img src="{{ (($isPdf ?? false) && is_file(public_path($logoPath)) ? public_path($logoPath) : asset($logoPath)) }}" alt="{{ $orgRecord->type === 'school' ? 'School stamp' : 'Logo' }}">@endif</td>
         <td class="ac-title">
             <h1>{{ $orgRecord->name }}</h1>
             <p class="ac-address">{{ $siteSettings->localized('site_address', '') }}</p>
@@ -69,7 +69,7 @@
         <td class="ac-sign"><span class="ac-sign-line"></span>Signature of Student</td>
         <td class="ac-sign"><span class="ac-sign-line"></span>Co-ordinator</td>
         <td class="ac-sign">
-            @if($signaturePath)<img src="{{ (is_file(public_path($signaturePath)) ? 'data:'.mime_content_type(public_path($signaturePath)).';base64,'.base64_encode(file_get_contents(public_path($signaturePath))) : asset($signaturePath)) }}" alt="Signature" class="ac-sign-img">@endif
+            @if($signaturePath)<img src="{{ (($isPdf ?? false) && is_file(public_path($signaturePath)) ? public_path($signaturePath) : asset($signaturePath)) }}" alt="Signature" class="ac-sign-img">@endif
             <span class="ac-sign-line"></span>Principal
         </td>
     </tr></table>
