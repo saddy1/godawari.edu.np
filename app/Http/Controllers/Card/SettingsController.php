@@ -120,6 +120,7 @@ class SettingsController extends Controller
             'is_active'          => 'boolean',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
+        $data['school_class'] = $this->validateSchoolClass($request, Organization::findOrFail($data['organization_id']));
         Department::create($data);
         return back()->with('success', "Department '{$data['name']}' added.");
     }
@@ -135,6 +136,7 @@ class SettingsController extends Controller
             'is_active'          => 'boolean',
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $data['school_class'] = $this->validateSchoolClass($request, $department->organization);
         $originalDepartmentName = $department->name;
         $department->update($data);
 
@@ -153,6 +155,19 @@ class SettingsController extends Controller
         SubjectOffering::where('department_id', $department->id)->update($offeringLevelReset);
 
         return back()->with('success', "Department updated.");
+    }
+
+    private function validateSchoolClass(Request $request, Organization $organization): ?int
+    {
+        $data = $request->validate([
+            'school_class' => $organization->type === 'school'
+                ? ['nullable', 'integer', Rule::in([11, 12])]
+                : ['prohibited'],
+        ]);
+
+        return $organization->type === 'school' && filled($data['school_class'] ?? null)
+            ? (int) $data['school_class']
+            : null;
     }
 
     public function destroyDepartment(Department $department)

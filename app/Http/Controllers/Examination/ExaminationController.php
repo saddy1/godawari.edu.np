@@ -101,8 +101,10 @@ class ExaminationController extends Controller
             'starts_at' => ['nullable', 'date_format:H:i'],
             'theory_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
             'practical_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
+            'practical_enabled' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+        $data['practical_enabled'] = $request->boolean('practical_enabled', true);
         $organization = Organization::findOrFail($data['organization_id']);
         $organizationDepartments = Department::where('organization_id', $organization->id)->where('is_active', true)->get();
         $departments = $data['scope_type'] === 'organization'
@@ -196,9 +198,11 @@ class ExaminationController extends Controller
             'starts_at' => ['nullable', 'date_format:H:i'],
             'theory_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
             'practical_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
+            'practical_enabled' => ['nullable', 'boolean'],
             'status' => ['required', 'in:draft,ongoing,completed,published'], 'notes' => ['nullable', 'string', 'max:2000'],
             'section_ids' => ['required', 'array', 'min:1'], 'section_ids.*' => ['integer', 'exists:sections,id'],
         ]);
+        $data['practical_enabled'] = $request->boolean('practical_enabled');
         $departmentIds = $examination->departments()->pluck('departments.id');
         if ($departmentIds->isEmpty()) $departmentIds = collect([$examination->department_id]);
         $sectionIds = $examination->organization->type === 'school'
@@ -269,6 +273,39 @@ class ExaminationController extends Controller
                 ->whereDoesntHave('marks')->delete();
         });
         return back()->with('success', 'Exam subjects and theory/practical FM/PM saved. Teacher access follows Routine Builder assignments.');
+    }
+
+    public function subjectDates(Examination $examination)
+    {
+        $examination->load(['organization', 'subjects.offering.subject', 'subjects.offering.department']);
+
+        return view('examinations.subject-dates', compact('examination'));
+    }
+
+    public function saveSubjectDates(Request $request, Examination $examination)
+    {
+        abort_if($examination->is_locked, 422, 'Completed/published exams are locked.');
+        $data = $request->validate([
+            'dates' => ['required', 'array', 'min:1'],
+            'dates.*.exam_date' => ['nullable', 'date_format:Y-m-d'],
+            'dates.*.practical_exam_date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+        $subjects = $examination->subjects()->with('offering.subject')->get()->groupBy('offering.subject_id');
+        foreach (array_keys($data['dates']) as $subjectId) {
+            abort_unless($subjects->has($subjectId), 422, 'Subject is not configured for this exam.');
+        }
+        DB::transaction(function () use ($data, $subjects, $examination) {
+            foreach ($data['dates'] as $subjectId => $dates) {
+                $sets = $subjects->get($subjectId);
+                $values = [];
+                if (array_key_exists('exam_date', $dates)) $values['exam_date'] = $dates['exam_date'];
+                if (array_key_exists('practical_exam_date', $dates) && $examination->practical_enabled && $sets->first()->offering->subject->has_practical) {
+                    $values['practical_exam_date'] = $dates['practical_exam_date'];
+                }
+                if ($values) ExaminationSubject::whereIn('id', $sets->pluck('id'))->update($values);
+            }
+        });
+        return back()->with('success', 'Subject dates saved across all classes in this exam.');
     }
 
     public function destroy(Examination $examination)

@@ -138,6 +138,8 @@
         'name' => $department->name,
         'organization' => $department->organization->name,
         'academic_system' => $department->academic_system,
+        'organization_type' => $department->organization->type,
+        'school_class' => $department->school_class ?? '',
         'university' => $department->university ?? '',
         'university_college' => $department->university_college ?? '',
         'university_logo' => $department->university_logo ?? '',
@@ -210,7 +212,11 @@
                             </div>
                         </div>
                         <span class="w-fit rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-                            {{ $organizationDepartments->count() }} {{ Str::plural('class / department', $organizationDepartments->count()) }}
+                            @if($organization->type === 'school')
+                                {{ $organizationDepartments->pluck('school_class')->filter()->unique()->count() }} classes · {{ $organizationDepartments->count() }} streams
+                            @else
+                                {{ $organizationDepartments->count() }} {{ Str::plural('department', $organizationDepartments->count()) }}
+                            @endif
                         </span>
                     </header>
 
@@ -221,8 +227,12 @@
                             <p class="mt-1 text-xs text-gray-400">Use the add form to create the first one.</p>
                         </div>
                     @else
+                        @foreach(($organization->type === 'school' ? $organizationDepartments->groupBy(fn($dept) => $dept->school_class ?? 'unassigned')->sortKeys() : collect(['departments' => $organizationDepartments])) as $classLevel => $classDepartments)
+                        @if($organization->type === 'school')
+                            <h4 class="border-b border-gray-100 bg-primary/5 px-4 py-3 text-sm font-bold text-primary">{{ $classLevel === 'unassigned' ? 'Class not assigned' : 'Class '.$classLevel }}</h4>
+                        @endif
                         <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            @foreach($organizationDepartments as $dept)
+                            @foreach($classDepartments as $dept)
                                 @php $deptStudentCount = $dept->studentsQuery()->count(); @endphp
                                 <article class="group rounded-xl border border-gray-200 bg-white p-3 transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
                                     <div class="flex items-start justify-between gap-3">
@@ -261,6 +271,7 @@
                                 </article>
                             @endforeach
                         </div>
+                        @endforeach
                     @endif
                 </section>
             @empty
@@ -305,6 +316,15 @@
                         <option value="none">Class-based (no semester/year)</option>
                     </select>
                     <p class="mt-1.5 text-[11px] leading-4 text-gray-400">Use Year for BBS and Class-based for school classes.</p>
+                </div>
+
+                <div x-show="organizationTypes[organizationId] === 'school'" x-cloak>
+                    <label class="mb-1.5 block text-xs font-semibold text-gray-600">School class</label>
+                    <select name="school_class" :disabled="!(organizationTypes[organizationId] === 'school')" class="w-full rounded-xl border-gray-200 px-3 py-2.5 text-sm focus:border-primary focus:ring-primary">
+                        <option value="">Select class</option>
+                        <option value="11" @selected(old('school_class') == 11)>Class 11</option>
+                        <option value="12" @selected(old('school_class') == 12)>Class 12</option>
+                    </select>
                 </div>
 
                 <details class="rounded-xl border border-gray-200 bg-gray-50/60">
@@ -358,6 +378,15 @@
                         <option value="none">Class-based (no semester/year)</option>
                     </select>
                 </div>
+                <div x-show="editing.organization_type === 'school'" x-cloak>
+                    <label class="mb-1.5 block text-xs font-semibold text-gray-600">School class</label>
+                    <select name="school_class" x-model="editing.school_class" :disabled="!(editing.organization_type === 'school')" class="w-full rounded-xl border-gray-200 px-3 py-2.5 text-sm focus:border-primary focus:ring-primary">
+                        <option value="">Select class</option>
+                        <option value="11" @selected(old('school_class') == 11)>Class 11</option>
+                        <option value="12" @selected(old('school_class') == 12)>Class 12</option>
+                    </select>
+                </div>
+
                 <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
                     <div class="mb-3">
                         <p class="text-xs font-bold text-gray-700">Card header</p>
