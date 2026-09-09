@@ -273,9 +273,11 @@ class ExaminationController extends Controller
 
     public function destroy(Examination $examination)
     {
-        abort_if($examination->subjects()->whereHas('marks')->exists(), 422, 'Remove entered marks before deleting this exam.');
+        if ($examination->subjects()->whereHas('marks')->exists()) {
+            return back()->with('error', 'Remove entered marks before deleting this exam.');
+        }
         $examination->delete();
-        return redirect()->route('admin.examinations.index')->with('success', 'Draft exam deleted.');
+        return redirect()->route('admin.examinations.index')->with('success', 'Exam deleted.');
     }
 
     private function authorizeExamView(Examination $exam, ExamTeacherAssignmentService $teacherAssignments): void
