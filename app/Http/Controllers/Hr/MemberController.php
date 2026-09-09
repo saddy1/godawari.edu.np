@@ -119,7 +119,12 @@ class MemberController extends Controller
 
         // Filter options for the UI
         $streams = Student::query()->whereNotNull('stream')->where('stream', '!=', '')->distinct()->orderBy('stream')->pluck('stream');
-        $sections = Student::query()->whereNotNull('section')->where('section', '!=', '')->distinct()->orderBy('section')->pluck('section');
+        $sections = CardSection::query()
+            ->when($request->filled('stream'), fn ($q) => $q->whereHas('department', fn ($d) => $d->where('name', $request->stream)))
+            ->orderBy('name')
+            ->pluck('name')
+            ->unique()
+            ->values();
         $districts = Student::query()->whereNotNull('permanent_district')->where('permanent_district', '!=', '')->distinct()->orderBy('permanent_district')->pluck('permanent_district');
         $municipalities = Student::query()->whereNotNull('permanent_municipality')->where('permanent_municipality', '!=', '')->distinct()->orderBy('permanent_municipality')->pluck('permanent_municipality');
 
@@ -1955,5 +1960,17 @@ class MemberController extends Controller
             ->pluck('permanent_municipality');
 
         return response()->json($municipalities->values());
+    }
+
+    public function getSectionsByStream($stream)
+    {
+        $sections = CardSection::query()
+            ->whereHas('department', fn ($d) => $d->where('name', $stream))
+            ->orderBy('name')
+            ->pluck('name')
+            ->unique()
+            ->values();
+
+        return response()->json($sections);
     }
 }

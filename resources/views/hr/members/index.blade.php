@@ -68,14 +68,14 @@
                     @endforeach
                 </select>
 
-                <select name="stream" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                <select name="stream" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15" @change="loadSections($el.value)">
                     <option value="">All classes</option>
                     @foreach($streams ?? [] as $stream)
                         <option value="{{ $stream }}" @selected(request('stream') === $stream)>{{ $stream }}</option>
                     @endforeach
                 </select>
 
-                <select name="section" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                <select name="section" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15" x-ref="section">
                     <option value="">All sections</option>
                     @foreach($sections ?? [] as $section)
                         <option value="{{ $section }}" @selected(request('section') === $section)>{{ $section }}</option>
@@ -129,6 +129,24 @@
                             this.$refs.municipality.innerHTML = options;
                         })
                         .catch(err => console.error('Error loading municipalities:', err));
+                },
+                loadSections(stream) {
+                    if (!stream) {
+                        this.$refs.section.innerHTML = '<option value="">All sections</option>';
+                        return;
+                    }
+
+                    fetch(`/api/hr/sections-by-stream/${encodeURIComponent(stream)}`)
+                        .then(res => res.json())
+                        .then(sections => {
+                            let options = '<option value="">All sections</option>';
+                            sections.forEach(s => {
+                                const selected = '{{ request("section") }}' === s ? ' selected' : '';
+                                options += `<option value="${s}"${selected}>${s}</option>`;
+                            });
+                            this.$refs.section.innerHTML = options;
+                        })
+                        .catch(err => console.error('Error loading sections:', err));
                 }
             };
         }

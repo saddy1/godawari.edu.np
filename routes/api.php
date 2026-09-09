@@ -21,6 +21,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::get('/hr/municipalities-by-district/{district}', [MemberController::class, 'getMunicipalitiesByDistrict']);
+Route::get('/hr/sections-by-stream/{stream}', [MemberController::class, 'getSectionsByStream']);
 
 Route::post('/hajiri/attendance/sync', [DeviceController::class, 'sync_api'])
     ->middleware('throttle:10,1')
