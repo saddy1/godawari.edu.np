@@ -25,4 +25,11 @@ class RoutineLessonGroup extends Model
         return $teachers->map(fn ($teacher) => collect(preg_split('/\s+/', trim((string) $teacher->name)))
             ->filter()->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->take(3)->implode(''))->implode('+');
     }
+
+    public function getTeacherNamesAttribute(): string
+    {
+        $teachers = $this->relationLoaded('teachers') && $this->teachers->isNotEmpty() ? $this->teachers : collect([$this->teacher])->filter();
+
+        return $teachers->pluck('name')->implode(', ');
+    }
 }

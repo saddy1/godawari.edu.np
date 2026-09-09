@@ -142,6 +142,7 @@ class RoutineBuilderController extends Controller
                 'subject_offering_id' => (string) $lesson->groups->first()?->subject_offering_id,
                 'notes' => $lesson->notes,
                 'groups' => $lesson->groups->map(fn ($group) => [
+                    'subject_offering_id' => $group->subject_offering_id ? (string) $group->subject_offering_id : '',
                     'teacher_ids' => $group->teachers->pluck('id')->map(fn ($id) => (string) $id)->values(),
                     'routine_room_id' => $group->routine_room_id ? (string) $group->routine_room_id : '',
                     'group_label' => $group->group_label,
@@ -251,9 +252,10 @@ class RoutineBuilderController extends Controller
         }
         $data = $request->validate([
             'mode' => ['required', Rule::in(['single', 'practical_split'])],
-            'subject_offering_id' => ['required', 'integer', 'exists:subject_offerings,id'],
+            'subject_offering_id' => [Rule::requiredIf(fn () => $request->input('mode') === 'single'), 'nullable', 'integer', 'exists:subject_offerings,id'],
             'notes' => ['nullable', 'string', 'max:500'],
             'groups' => ['required', 'array', 'min:1', 'max:2'],
+            'groups.*.subject_offering_id' => [Rule::requiredIf(fn () => $request->input('mode') === 'practical_split'), 'nullable', 'integer', 'exists:subject_offerings,id'],
             'groups.*.teacher_ids' => ['required', 'array', 'min:1'],
             'groups.*.teacher_ids.*' => ['required', 'integer', 'distinct', 'exists:users,id'],
             'groups.*.routine_room_id' => ['nullable', 'integer', 'exists:routine_rooms,id'],
@@ -273,26 +275,17 @@ class RoutineBuilderController extends Controller
         if ($data['mode'] === 'single' && $groups->count() !== 1) throw ValidationException::withMessages(['groups' => 'A theory class requires one whole-class group.']);
         if ($data['mode'] === 'practical_split' && $groups->count() !== 2) throw ValidationException::withMessages(['groups' => 'A 50/50 practical requires exactly two groups.']);
         $section = $routinePlan->sections->firstWhere('id', (int) $base['section_id']);
-        $offering = SubjectOffering::with('subject')->where('department_id', $routinePlan->department_id)
-            ->whereKey($data['subject_offering_id'])
-            ->when($routinePlan->semester, fn ($query) => $query->where(fn ($query) => $query->whereNull('semester')->orWhere('semester', $routinePlan->semester)))
-            ->when($routinePlan->year_level, fn ($query) => $query->where(fn ($query) => $query->whereNull('year_level')->orWhere('year_level', $routinePlan->year_level)))
-            ->where(fn ($query) => $query->whereNull('group_name')->orWhere('group_name', $section->group_name))
-            ->first();
-        if (! $offering) throw ValidationException::withMessages(['subject_offering_id' => 'This subject is not allocated to the selected faculty and section.']);
-        if ($offering->is_elective && ! StudentSubjectEnrollment::query()
-            ->where('subject_offering_id', $offering->id)
-            ->where('academic_year', $routinePlan->academicYear->name)
-            ->where('assignment_source', 'manual')
-            ->whereHas('student', fn ($query) => $query
-                ->where('section_id', $section->id)
-                ->orWhere(fn ($query) => $query->whereNull('section_id')->where('section', $section->name)))
-            ->exists()) {
-            throw ValidationException::withMessages([
-                'subject_offering_id' => 'Assign this elective to students in the selected section before adding it to the routine.',
-            ]);
+
+        // Theory has one shared subject; a practical split lets each group carry its own
+        // subject (e.g. Group A → Physics lab, Group B → Chemistry lab), so resolve per group.
+        $offerings = $data['mode'] === 'single'
+            ? [$this->resolveOffering($routinePlan, $section, (int) $data['subject_offering_id'])]
+            : $groups->map(fn ($group) => $this->resolveOffering($routinePlan, $section, (int) $group['subject_offering_id']))->values()->all();
+        if ($data['mode'] === 'practical_split') {
+            foreach ($offerings as $offering) {
+                if (! $offering->subject->has_practical) throw ValidationException::withMessages(['groups' => 'Every practical group must use a subject that has a practical component.']);
+            }
         }
-        if ($data['mode'] === 'practical_split' && ! $offering->subject->has_practical) throw ValidationException::withMessages(['mode' => 'This subject does not have a practical class.']);
         $roomIds = $groups->pluck('routine_room_id')->filter();
         if ($data['mode'] === 'practical_split' && $roomIds->count() !== 2) {
             throw ValidationException::withMessages(['groups' => 'Choose a laboratory for both practical groups.']);
@@ -301,7 +294,7 @@ class RoutineBuilderController extends Controller
             throw ValidationException::withMessages(['groups' => 'A selected room does not belong to this organization.']);
         }
         $groups = $groups->values()->map(fn ($group, $index) => [
-            'subject_offering_id' => (int) $offering->id,
+            'subject_offering_id' => (int) $offerings[$index]->id,
             'teacher_id' => (int) collect($group['teacher_ids'])->first(),
             'teacher_ids' => collect($group['teacher_ids'])->map(fn ($id) => (int) $id)->unique()->values()->all(),
             'routine_room_id' => filled($group['routine_room_id'] ?? null) ? (int) $group['routine_room_id'] : null,
@@ -380,6 +373,31 @@ class RoutineBuilderController extends Controller
     {
         $plan->loadMissing('academicYear');
         if ($plan->is_locked) throw ValidationException::withMessages(['lock' => 'This routine is published or its academic year is locked. Return it to draft/unlock before editing.']);
+    }
+
+    private function resolveOffering(RoutinePlan $routinePlan, Section $section, int $subjectOfferingId): SubjectOffering
+    {
+        $offering = SubjectOffering::with('subject')->where('department_id', $routinePlan->department_id)
+            ->whereKey($subjectOfferingId)
+            ->when($routinePlan->semester, fn ($query) => $query->where(fn ($query) => $query->whereNull('semester')->orWhere('semester', $routinePlan->semester)))
+            ->when($routinePlan->year_level, fn ($query) => $query->where(fn ($query) => $query->whereNull('year_level')->orWhere('year_level', $routinePlan->year_level)))
+            ->where(fn ($query) => $query->whereNull('group_name')->orWhere('group_name', $section->group_name))
+            ->first();
+        if (! $offering) throw ValidationException::withMessages(['subject_offering_id' => 'This subject is not allocated to the selected faculty and section.']);
+        if ($offering->is_elective && ! StudentSubjectEnrollment::query()
+            ->where('subject_offering_id', $offering->id)
+            ->where('academic_year', $routinePlan->academicYear->name)
+            ->where('assignment_source', 'manual')
+            ->whereHas('student', fn ($query) => $query
+                ->where('section_id', $section->id)
+                ->orWhere(fn ($query) => $query->whereNull('section_id')->where('section', $section->name)))
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'subject_offering_id' => 'Assign this elective to students in the selected section before adding it to the routine.',
+            ]);
+        }
+
+        return $offering;
     }
 
     private function initials(string $name): string
