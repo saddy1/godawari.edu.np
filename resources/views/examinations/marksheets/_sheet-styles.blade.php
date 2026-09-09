@@ -29,9 +29,9 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; background: #e5e7eb; color
 .gs-extra-box { border: 0.75pt solid #333; min-height: 8mm; width: 100%; border-collapse: collapse; }
 .gs-extra-box td { border: 0.75pt solid #333; padding: 1.3mm 2mm; font-size: .85em; }
 
-.gs-footer { width: 100%; margin-top: 5mm; font-size: .88em; }
+.gs-footer { width: 100%; margin-top: 5mm; font-size: .88em; display: flex; justify-content: space-between; align-items: flex-end; gap: 6mm; }
 .gs-footer .left { line-height: 2; }
-.gs-sign-block { position: absolute; right: 8mm; bottom: 22mm; text-align: center; }
+.gs-sign-block { text-align: center; white-space: nowrap; }
 .gs-sign-img { display: block; max-height: 9mm; max-width: 32mm; margin: 0 auto 1mm; }
 .gs-sign-line { display: block; border-top: 0.75pt solid #333; width: 34mm; margin: 0 auto 1mm; height: 6mm; }
 
@@ -57,8 +57,18 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; background: #e5e7eb; color
 .gs-extra-box td { height: 9mm; }
 .gs-footer { margin-top: 12mm; }
 .gs-footer .left { line-height: 3; }
-.gs-sign-block { right: 10mm; bottom: 82mm; font-size: 8pt; }
+.gs-sign-block { font-size: 8pt; }
 .gs-note { left: 0; right: 0; bottom: 0; padding: 6mm 7mm; min-height: 39mm; border-top: .75pt solid #333; font-size: 7.5pt; line-height: 1.5; }
 .gs-sheet { box-sizing: content-box; width: 174mm; height: 254mm; }
 .page-sheet { padding: 10mm; box-sizing: border-box; overflow: hidden; }
 .gs-sheet { margin: 0; height: 252mm; }
+
+.gs-student-heading { margin-top: 4mm; font-size: 8pt; font-weight: bold; letter-spacing: .08em; }
+.gs-student-details { table-layout: fixed; margin: 2mm 0 5mm; border-top: .75pt solid #333; }
+.gs-student-details td { padding: 2mm 1mm; border-bottom: .5pt solid #ddd; font-size: 8pt; }
+.gs-student-details .gs-field-label { width: 19%; color: #444; }
+.gs-student-details .gs-field-value { font-weight: bold; }
+
+.gs-intro { font-size: 8pt; line-height: 1.65; margin: 3mm 0; }
+.gs-intro strong { font-weight: bold; }
+.gs-exam-statement { margin-top: 2mm; margin-bottom: 3mm; }

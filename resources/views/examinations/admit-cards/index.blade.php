@@ -41,29 +41,36 @@
                 </select>
                 <button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Print filtered →</button>
             </form>
+            <form method="GET" action="{{ route('admin.examinations.admit-cards.export', $examination) }}" class="flex items-center gap-2">
+                <input type="hidden" name="q" :value="query">
+                <input type="hidden" name="school_class" :value="schoolClass">
+                <input type="hidden" name="faculty" :value="faculty">
+                <input type="hidden" name="section" :value="section">
+                <button class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-black text-gray-700 hover:border-[#1a5632]/40 hover:text-[#1a5632]">Export Excel ↓</button>
+            </form>
         </header>
-        <div class="border-t">
-            <form method="GET" @submit.prevent="search()" class="flex flex-wrap gap-3 p-4">
-                <input aria-label="Search students" name="q" x-model="query" @input.debounce.300ms="search()" placeholder="Search name, roll, symbol no., stream or section" class="{{$input}} sm:!w-96">
+        <div class="border-t p-4">
+            <form method="GET" @submit.prevent="search()" class="flex flex-wrap items-end gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                <label class="flex flex-col text-xs font-semibold text-gray-600">Student search<input name="q" x-model="query" @input.debounce.300ms="search()" placeholder="Name, roll, symbol no., stream or section" class="mt-1 w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-[#1a5632] focus:ring-[#1a5632] sm:w-72"></label>
                 @if($examination->organization->type === 'school')
-                <select aria-label="Filter class" name="school_class" x-model="schoolClass" @change="faculty = ''; section = ''; search()" class="rounded-xl border-gray-200 text-sm">
+                <label class="flex flex-col text-xs font-semibold text-gray-600">Class<select name="school_class" x-model="schoolClass" @change="faculty = ''; section = ''; search()" class="mt-1 w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
                     <option value="">All classes</option><option value="11">Class 11</option><option value="12">Class 12</option>
-                </select>
+                </select></label>
                 @endif
-                <select aria-label="Filter faculty" name="faculty" x-model="faculty" @change="section = ''; search()" class="rounded-xl border-gray-200 text-sm">
+                <label class="flex flex-col text-xs font-semibold text-gray-600">Faculty<select name="faculty" x-model="faculty" @change="section = ''; search()" class="mt-1 w-44 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
                     <option value="">All faculties</option>
                     <template x-for="name in faculties" :key="name"><option :value="name" x-text="name"></option></template>
-                </select>
-                <select aria-label="Filter section" name="section" x-model="section" @change="search()" class="rounded-xl border-gray-200 text-sm">
+                </select></label>
+                <label class="flex flex-col text-xs font-semibold text-gray-600">Section<select name="section" x-model="section" @change="search()" class="mt-1 w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
                     <option value="">All sections</option>
                     <template x-for="name in sections" :key="name"><option :value="name" x-text="name"></option></template>
-                </select>
-                <button class="rounded-xl border px-4 py-2 text-xs font-bold">Search</button>
-                <button type="button" @click="query = ''; schoolClass = ''; faculty = ''; section = ''; search()" class="rounded-xl border px-4 py-2 text-xs font-bold">Clear filters</button>
+                </select></label>
+                <button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-bold text-white">Search</button>
+                <button type="button" @click="query = ''; schoolClass = ''; faculty = ''; section = ''; search()" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-bold">Clear filters</button>
                 <span x-show="loading" x-cloak role="status" class="self-center text-xs text-gray-500">Searching…</span>
                 <span x-show="error" x-cloak x-text="error" role="alert" class="self-center text-xs text-red-600"></span>
             </form>
-            <div x-ref="results" @click="paginate($event)" :aria-busy="loading">
+            <div x-ref="results" @click="paginate($event)" :aria-busy="loading" class="mt-4">
                 @include('examinations.admit-cards._roster')
             </div>
         </div>
@@ -93,7 +100,9 @@ document.addEventListener('alpine:init', () => {
             target.searchParams.set('section', this.section);
             this.loading = true; this.error = '';
             try {
-                const response = await fetch(target, { headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, signal: controller.signal });
+                const searchTarget = new URL(@js(route('admin.examinations.admit-cards.search', $examination)), window.location.origin);
+                searchTarget.search = target.search;
+                const response = await fetch(searchTarget, { cache: 'no-store', headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, signal: controller.signal });
                 if (!response.ok) throw new Error('Search failed');
                 const data = await response.json();
                 if (controller.signal.aborted) return;
@@ -107,7 +116,7 @@ document.addEventListener('alpine:init', () => {
         },
         paginate(event) {
             const link = event.target.closest('a');
-            if (!link || !new URL(link.href).searchParams.has('page')) return;
+            if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !new URL(link.href).searchParams.has('page')) return;
             event.preventDefault(); this.search(link.href);
         }
     }));

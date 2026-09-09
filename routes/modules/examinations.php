@@ -17,12 +17,15 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::delete('/{examination}', [ExaminationController::class, 'destroy'])->middleware('permission:examinations.manage')->name('destroy');
 
     Route::get('/{examination}/admit-cards', [AdmitCardController::class, 'index'])->middleware('permission:examinations.manage')->name('admit-cards.index');
+    Route::get('/{examination}/admit-cards/search', [AdmitCardController::class, 'index'])->middleware('permission:examinations.manage')->name('admit-cards.search');
     Route::post('/{examination}/admit-cards/assign', [AdmitCardController::class, 'assignSymbolNumbers'])->middleware('permission:examinations.manage')->name('admit-cards.assign');
     Route::get('/{examination}/admit-cards/print', [AdmitCardController::class, 'print'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.print');
     Route::get('/{examination}/admit-cards/download', [AdmitCardController::class, 'downloadAll'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.download');
+    Route::get('/{examination}/admit-cards/export', [AdmitCardController::class, 'exportExcel'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.export');
     Route::get('/{examination}/admit-cards/{student}/print', [AdmitCardController::class, 'printOne'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.print-one');
     Route::get('/{examination}/admit-cards/{student}/download', [AdmitCardController::class, 'downloadOne'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.download-one');
 
+    Route::get('/{examination}/marksheets', [MarksheetController::class, 'index'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.index');
     Route::get('/{examination}/marksheets/print', [MarksheetController::class, 'print'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.print');
     Route::get('/{examination}/marksheets/download', [MarksheetController::class, 'downloadAll'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.download');
     Route::get('/{examination}/marksheets/{student}/download', [MarksheetController::class, 'downloadOne'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.download-one');

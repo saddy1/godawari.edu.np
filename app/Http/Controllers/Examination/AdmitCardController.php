@@ -14,6 +14,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class AdmitCardController extends Controller
 {
@@ -32,10 +37,69 @@ class AdmitCardController extends Controller
         $students = $this->filterStudents($request, $students, $symbolNumbers);
         $students = new LengthAwarePaginator($students->forPage($request->integer('page', 1), 30), $students->count(), 30, $request->integer('page', 1), ['path' => $request->url(), 'query' => $request->query()]);
         $data = compact('examination', 'students', 'symbolNumbers', 'totalStudents', 'filterOptions');
-        if ($request->ajax()) {
-            return response()->json(['html' => view('examinations.admit-cards._roster', $data)->render()]);
+        if ($request->routeIs('admin.examinations.admit-cards.search')) {
+            return response()->json(['html' => view('examinations.admit-cards._roster', $data)->render()])
+                ->header('Cache-Control', 'private, no-store, max-age=0');
         }
-        return view('examinations.admit-cards.index', $data);
+        return response()->view('examinations.admit-cards.index', $data)
+            ->header('Cache-Control', 'private, no-store, max-age=0');
+    }
+
+    public function exportExcel(Request $request, Examination $examination, ExamRosterService $roster)
+    {
+        $students = $this->studentsWithClass($examination, $roster);
+        $symbolNumbers = ExaminationSymbolNumber::where('examination_id', $examination->id)->pluck('symbol_no', 'student_id');
+        $students = $this->filterStudents($request, $students, $symbolNumbers);
+
+        $spreadsheet = new Spreadsheet;
+        $this->writeRosterSheet($spreadsheet->getActiveSheet(), 'All', $students, $symbolNumbers);
+
+        if ($examination->organization->type === 'school') {
+            foreach ($students->pluck('school_class')->filter()->unique()->sort() as $class) {
+                $classStudents = $students->filter(fn ($student) => $student->school_class === $class)->values();
+                $this->writeRosterSheet($spreadsheet->createSheet(), "Class {$class}", $classStudents, $symbolNumbers);
+            }
+        }
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = str($examination->name)->slug('_').'_admit_card_roster.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, $filename, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
+    private function writeRosterSheet($sheet, string $title, Collection $students, Collection $symbolNumbers): void
+    {
+        $sheet->setTitle($title);
+
+        $sheet->fromArray(['Symbol No.', 'Name', 'Class', 'Section', 'Remarks'], null, 'A1');
+        $sheet->getStyle('A1:E1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1A5632']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:E1');
+
+        $row = 2;
+        foreach ($students as $student) {
+            $sheet->setCellValue("A{$row}", $symbolNumbers->get($student->id) ?? '');
+            $sheet->setCellValue("B{$row}", $student->full_name);
+            $sheet->setCellValue("C{$row}", $student->stream ?? '');
+            $sheet->setCellValue("D{$row}", $student->academicSection?->name ?? $student->section ?? '');
+            $sheet->setCellValue("E{$row}", '');
+            $row++;
+        }
+        if ($row > 2) {
+            $sheet->getStyle('A2:E'.($row - 1))->applyFromArray([
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+            ]);
+        }
+        foreach (['A' => 14, 'B' => 30, 'C' => 24, 'D' => 14, 'E' => 32] as $column => $width) {
+            $sheet->getColumnDimension($column)->setWidth($width);
+        }
     }
 
     private function filterStudents(Request $request, Collection $students, Collection $symbolNumbers): Collection

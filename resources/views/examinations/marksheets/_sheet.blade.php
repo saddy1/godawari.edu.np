@@ -19,13 +19,14 @@
         <td class="gs-logo"></td>
     </tr></table>
 
-    <table class="gs-info">
-        <tr><td colspan="3">THE FOLLOWING ARE THE GRADE(S) OBTAINED BY: <b class="gs-dotted">{{ Str::upper($student->full_name) }}</b></td></tr>
-        <tr><td colspan="3">DATE OF BIRTH: <b class="gs-dotted">{{ $dobLabel }}</b></td></tr>
-        <tr><td>REGISTRATION NO: <b>{{ $student->registration_no ?: '—' }}</b></td><td>SYMBOL NO: <b>{{ $symbol_no }}</b></td><td>GRADE: <b>{{ $gradeLevel }}</b></td></tr>
-        <tr><td>IN THE <b>{{ Str::upper($examination->name) }}</b></td><td colspan="2">EXAMINATION CONDUCTED IN <b>{{ $academicYearName }} B.S.</b></td></tr>
-        <tr><td colspan="3">ARE GIVEN BELOW.</td></tr>
+    <p class="gs-intro">THE FOLLOWING ARE THE GRADE(S) OBTAINED BY: <strong>{{ Str::upper($student->full_name) }}</strong></p>
+    <table class="gs-info gs-student-details">
+        <tr><td class="gs-field-label">Date of birth</td><td colspan="3" class="gs-field-value">{{ $dobLabel }}</td></tr>
+        <tr><td class="gs-field-label">Registration no.</td><td class="gs-field-value">{{ $student->registration_no ?: '—' }}</td><td class="gs-field-label">Symbol no.</td><td class="gs-field-value">{{ $symbol_no }}</td></tr>
+        <tr><td class="gs-field-label">Class / faculty</td><td class="gs-field-value">{{ $department->name ?? $student->stream ?? '—' }}</td><td class="gs-field-label">Academic year</td><td class="gs-field-value">{{ $academicYearName }} B.S.</td></tr>
     </table>
+
+    <p class="gs-intro gs-exam-statement">IN THE <strong>{{ Str::upper($examination->name) }}</strong> EXAMINATION CONDUCTED IN <strong>{{ $academicYearName }} B.S.</strong>, THE GRADES OBTAINED ARE GIVEN BELOW.</p>
 
     <table class="gs-table">
         <thead><tr><th>Subject Code</th><th>Subjects</th><th>Credit Hour</th><th>Grade Point</th><th>Grade</th><th>Remarks</th></tr></thead>
@@ -34,7 +35,7 @@
             <tr>
                 <td class="num">{{ $row['code'] }}</td>
                 <td>{{ Str::upper($row['name']) }} ({{ $row['label'] }})</td>
-                <td class="num">{{ $row['credit_hour'] ?: '—' }}</td>
+                <td class="num">{{ $row['credit_hour'] ? number_format($row['credit_hour'], 2) : '—' }}</td>
                 <td class="num">{{ $row['point'] !== null ? number_format($row['point'], 2) : '—' }}</td>
                 <td class="num">{{ $row['grade'] ?? '—' }}</td>
                 <td>{{ $row['remarks'] ?? '' }}</td>
@@ -46,28 +47,17 @@
         <tfoot><tr><td colspan="6" class="gs-gpa">GRADE POINT AVERAGE (GPA): {{ $gpa !== null ? number_format($gpa, 2) : '—' }}</td></tr></tfoot>
     </table>
 
-    <div class="gs-extra">
-        <p>EXTRA CREDIT SUBJECTS</p>
-        <table class="gs-extra-box"><tr>
-            @if($extraSubjects->isNotEmpty())
-                @foreach($extraSubjects as $row)<td>{{ Str::upper($row['name']) }}<br>{{ $row['grade'] ?? '—' }} ({{ $row['point'] !== null ? number_format($row['point'], 2) : '—' }})</td>@endforeach
-            @else
-                <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
-            @endif
-        </tr></table>
-    </div>
-
     <div class="gs-footer">
         <div class="left">
             PREPARED BY: <span class="gs-dotted">&nbsp;</span><br>
             CHECKED BY: <span class="gs-dotted">&nbsp;</span><br>
             DATE OF ISSUE: {{ now()->format('d F, Y') }}
         </div>
-    </div>
 
-    <div class="gs-sign-block">
-        @if($signaturePath)<img src="{{ (($isPdf ?? false) && is_file(public_path($signaturePath)) ? public_path($signaturePath) : asset($signaturePath)) }}" alt="Signature" class="gs-sign-img">@else<span class="gs-sign-line"></span>@endif
-        PRINCIPAL
+        <div class="gs-sign-block">
+            @if($signaturePath)<img src="{{ (($isPdf ?? false) && is_file(public_path($signaturePath)) ? public_path($signaturePath) : asset($signaturePath)) }}" alt="Signature" class="gs-sign-img">@else<span class="gs-sign-line"></span>@endif
+            PRINCIPAL
+        </div>
     </div>
 
     <p class="gs-note">
