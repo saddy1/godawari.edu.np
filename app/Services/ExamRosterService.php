@@ -32,8 +32,7 @@ class ExamRosterService
 
         return Student::query()->with('academicSection.department')->whereIn('id', $studentIds)
             ->orderBy('stream')->orderBy('section')
-            ->orderByRaw('roll_number IS NULL')->orderBy('roll_number')
-            ->orderBy('first_name')->orderBy('id')->get();
+            ->orderBy('first_name')->orderBy('middle_name')->orderBy('last_name')->orderBy('id')->get();
     }
 
     // The exam's configured subjects that apply to one student, via that

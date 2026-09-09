@@ -14,7 +14,7 @@
 
     @if($symbolNumbers->isEmpty())
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <header class="border-b px-4 py-3"><h2 class="text-sm font-black">Assign symbol numbers</h2><p class="text-[10px] font-semibold text-gray-400">@if($examination->organization->type === 'school')Class 11 starts at 110001. Class 12 uses the 12 prefix and continues the same sequence (for example, 110150 → 120151). @endif Assigns numbers to the full exam roster, including students hidden by search.</p></header>
+        <header class="border-b px-4 py-3"><h2 class="text-sm font-black">Assign symbol numbers</h2><p class="text-[10px] font-semibold text-gray-400">Students are numbered alphabetically by name within each faculty/section. @if($examination->organization->type === 'school')Class 11 starts at 110001. Class 12 uses the 12 prefix and continues the same sequence (for example, 110150 → 120151). @endif Assigns numbers to the full exam roster, including students hidden by search.</p></header>
         <form method="POST" action="{{ route('admin.examinations.admit-cards.assign', $examination) }}" onsubmit="return confirm('This will assign symbol numbers for all '+{{ $totalStudents }}+' students in the full exam roster. Continue?')" class="flex flex-wrap items-end gap-3 p-4">
             @csrf
             @if($examination->organization->type !== 'school')
@@ -23,7 +23,18 @@
             <button class="rounded-xl bg-[#1a5632] px-5 py-2.5 text-xs font-black text-white">Assign symbol numbers</button>
         </form>
     </section>
-
+    @else
+    <section class="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 shadow-sm">
+        <header class="border-b border-amber-200 px-4 py-3"><h2 class="text-sm font-black text-amber-900">Regenerate symbol numbers</h2><p class="text-[10px] font-semibold text-amber-700">Symbol numbers are already assigned. Regenerating replaces every number using the current roster, sorted alphabetically by name within each faculty/section — any admit cards or marksheets already printed with the old numbers become invalid.</p></header>
+        <form method="POST" action="{{ route('admin.examinations.admit-cards.assign', $examination) }}" onsubmit="return confirm('This deletes every existing symbol number for this exam and reassigns fresh ones for all '+{{ $totalStudents }}+' students. Previously printed admit cards / marksheets will no longer match. Continue?')" class="flex flex-wrap items-end gap-3 p-4">
+            @csrf
+            <input type="hidden" name="regenerate" value="1">
+            @if($examination->organization->type !== 'school')
+                <div class="w-40"><label class="{{$label}}">Start number</label><input type="number" name="start_number" min="1" required value="{{ old('start_number', 1) }}" class="{{$input}}"></div>
+            @endif
+            <button class="rounded-xl bg-amber-600 px-5 py-2.5 text-xs font-black text-white hover:bg-amber-700">Regenerate symbol numbers</button>
+        </form>
+    </section>
     @endif
 
     <section x-data="admitRosterSearch" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">

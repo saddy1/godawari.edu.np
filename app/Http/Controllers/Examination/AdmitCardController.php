@@ -125,10 +125,15 @@ class AdmitCardController extends Controller
         $data = $examination->organization->type === 'school'
             ? ['start_number' => 1]
             : $request->validate(['start_number' => ['required', 'integer', 'min:1', 'max:1000000000']]);
-        $count = DB::transaction(function () use ($roster, $examination, $data, $symbols) {
+        $regenerate = $request->boolean('regenerate');
+        $count = DB::transaction(function () use ($roster, $examination, $data, $symbols, $regenerate) {
             Examination::whereKey($examination->id)->lockForUpdate()->firstOrFail();
-            if (ExaminationSymbolNumber::where('examination_id', $examination->id)->exists()) {
+            $exists = ExaminationSymbolNumber::where('examination_id', $examination->id)->exists();
+            if ($exists && ! $regenerate) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['symbol_numbers' => 'Symbol numbers have already been assigned for this exam.']);
+            }
+            if ($exists) {
+                ExaminationSymbolNumber::where('examination_id', $examination->id)->delete();
             }
             $students = $this->studentsWithClass($examination, $roster);
             abort_if($students->isEmpty(), 422, 'No students are enrolled for this exam yet.');
@@ -138,7 +143,7 @@ class AdmitCardController extends Controller
             }
             return $students->count();
         });
-        return back()->with('success', 'Symbol numbers assigned to '.$count.' student(s).');
+        return back()->with('success', ($regenerate ? 'Symbol numbers regenerated for ' : 'Symbol numbers assigned to ').$count.' student(s).');
     }
 
     private function studentsWithClass(Examination $examination, ExamRosterService $roster): Collection
