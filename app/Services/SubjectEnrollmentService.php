@@ -6,6 +6,8 @@ use App\Models\Card\Department;
 use App\Models\Card\Student;
 use App\Models\Card\StudentSubjectEnrollment;
 use App\Models\Card\SubjectOffering;
+use App\Models\Examination\Examination;
+use App\Models\Examination\ExaminationSubject;
 use App\Models\TeachingLearning\AcademicYear;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -130,6 +132,56 @@ class SubjectEnrollmentService
         }
 
         return $offerings->count();
+    }
+
+    // When a student gets manually enrolled in an elective offering for a department that
+    // wasn't previously eligible (e.g. this is the first student in "Account" for "11 Hotel
+    // Management"), any exam that already has "Account" configured for OTHER departments
+    // won't have picked up this department's offering — because at the time subjects were
+    // saved, it had no enrolled students and so wasn't part of the exam's subject list yet.
+    // This auto-completes that exam's subject list for the newly-eligible offering, copying
+    // FM/PM/dates from an existing sibling offering of the same subject in that exam, so
+    // admit cards / marksheets / mark entry pick it up without a manual re-save.
+    public function syncElectiveIntoExams(SubjectOffering $offering, AcademicYear $academicYear): int
+    {
+        if (! $offering->is_elective) return 0;
+
+        $hasManualEnrollment = StudentSubjectEnrollment::where('subject_offering_id', $offering->id)
+            ->where('academic_year', $academicYear->name)
+            ->where('assignment_source', 'manual')
+            ->exists();
+        if (! $hasManualEnrollment) return 0;
+
+        $exams = Examination::where('academic_year_id', $academicYear->id)
+            ->whereNotIn('status', ['completed', 'published'])
+            ->whereHas('departments', fn ($query) => $query->where('departments.id', $offering->department_id))
+            ->whereHas('subjects.offering', fn ($query) => $query->where('subject_id', $offering->subject_id))
+            ->whereDoesntHave('subjects', fn ($query) => $query->where('subject_offering_id', $offering->id))
+            ->with(['subjects' => fn ($query) => $query->whereHas('offering', fn ($query) => $query->where('subject_id', $offering->subject_id))])
+            ->get();
+
+        $created = 0;
+        foreach ($exams as $exam) {
+            $template = $exam->subjects->first();
+            if (! $template) continue;
+            ExaminationSubject::create([
+                'examination_id' => $exam->id,
+                'subject_offering_id' => $offering->id,
+                'theory_full_marks' => $template->theory_full_marks,
+                'theory_pass_marks' => $template->theory_pass_marks,
+                'practical_full_marks' => $template->practical_full_marks,
+                'practical_pass_marks' => $template->practical_pass_marks,
+                'exam_date' => $template->exam_date,
+                'starts_at' => $template->starts_at,
+                'duration_minutes' => $template->duration_minutes,
+                'practical_exam_date' => $template->practical_exam_date,
+                'practical_starts_at' => $template->practical_starts_at,
+                'practical_duration_minutes' => $template->practical_duration_minutes,
+            ]);
+            $created++;
+        }
+
+        return $created;
     }
 
     public function studentMatchesOffering(Student $student, SubjectOffering $offering): bool

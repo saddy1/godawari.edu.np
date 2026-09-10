@@ -205,6 +205,10 @@ class SubjectAssignmentController extends Controller
             }
         });
 
+        if (in_array($data['mode'], ['assign', 'replace'], true)) {
+            $enrollments->syncElectiveIntoExams($offering, $year);
+        }
+
         return back()->with('success', match ($data['mode']) {
             'assign' => "Elective assigned to {$students->count()} student(s).",
             'remove' => "Elective removed from {$students->count()} student(s).",
@@ -281,6 +285,10 @@ class SubjectAssignmentController extends Controller
                 $changed++;
             }
         });
+
+        foreach ($offerings as $offering) {
+            $enrollments->syncElectiveIntoExams($offering, $year);
+        }
 
         return back()->with('success', "Elective choices saved for {$changed} student(s).");
     }
