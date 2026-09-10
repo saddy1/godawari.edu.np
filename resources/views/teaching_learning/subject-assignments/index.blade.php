@@ -92,6 +92,46 @@
             </section>
         </div>
 
+        @if($electiveOfferings->isNotEmpty())
+        <section class="overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-sm">
+            <header class="border-b border-purple-100 px-4 py-3"><h2 class="text-sm font-black text-gray-900">Per-student elective allocation</h2><p class="text-[10px] font-semibold text-gray-400">Tick as many electives as apply to each student — e.g. one student takes A + C while another takes A + B. Unticking removes that elective for that student only.</p></header>
+            <form method="POST" action="{{ route('admin.teaching-learning.subject-assignments.electives.per-student') }}" class="p-4">
+                @csrf @method('PUT')
+                <input type="hidden" name="academic_year_id" value="{{ $selectedYear?->id }}">
+                <input type="hidden" name="department_id" value="{{ $selectedDepartment->id }}">
+                @foreach($electiveOfferings as $offering)<input type="hidden" name="offering_ids[]" value="{{ $offering->id }}">@endforeach
+                @foreach($students as $student)<input type="hidden" name="student_ids[]" value="{{ $student->id }}">@endforeach
+                <div class="max-h-[32rem] overflow-auto rounded-xl border border-gray-200">
+                    <table class="w-full min-w-max border-collapse text-left text-xs">
+                        <thead><tr class="bg-purple-50">
+                            <th class="sticky left-0 top-0 z-20 border-b border-r bg-purple-50 px-3 py-2 text-[10px] font-black uppercase text-purple-700">Student</th>
+                            @foreach($electiveOfferings as $offering)
+                                <th class="sticky top-0 z-10 border-b border-r bg-purple-50 px-2 py-2 text-center align-bottom" title="{{ $offering->subject->name }}{{ $offering->elective_group ? ' · '.$offering->elective_group : '' }}">
+                                    <span class="block text-[10px] font-black uppercase text-purple-700">{{ $offering->subject->code }}</span>
+                                    <span class="mt-0.5 block max-w-[6.5rem] truncate text-[9px] font-semibold normal-case text-purple-500">{{ $offering->subject->name }}</span>
+                                </th>
+                            @endforeach
+                        </tr></thead>
+                        <tbody>
+                        @forelse($students as $student)
+                            @php $studentOfferingIds = $enrollmentMap->get($student->id, collect()); @endphp
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="sticky left-0 z-10 border-r bg-white px-3 py-2"><p class="truncate text-xs font-black text-gray-900">{{ $student->full_name }}</p><span class="text-[10px] font-bold text-gray-400">{{ $student->roll_number ?: 'No roll' }}</span></td>
+                                @foreach($electiveOfferings as $offering)
+                                    <td class="border-r px-2 py-2 text-center"><input type="checkbox" name="assignments[{{ $student->id }}][]" value="{{ $offering->id }}" @checked($studentOfferingIds->contains($offering->id)) style="appearance:auto;-webkit-appearance:auto;" class="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-purple-600 focus:ring-purple-600"></td>
+                                @endforeach
+                            </tr>
+                        @empty
+                            <tr><td colspan="{{ $electiveOfferings->count() + 1 }}" class="p-6 text-center text-xs font-semibold text-gray-400">No students match this department, level, and section.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-3 flex justify-end"><button @disabled(!$selectedYear || $selectedYear->is_locked) class="rounded-lg bg-purple-600 px-4 py-2.5 text-xs font-black text-white disabled:opacity-40">Save elective choices</button></div>
+            </form>
+        </section>
+        @endif
+
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <header class="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div><p class="text-[10px] font-black uppercase tracking-wider text-purple-600">Saved selections</p><h2 class="text-sm font-black text-gray-900">Current elective assignments</h2><p class="text-[10px] font-semibold text-gray-400">Section → elective subject → student names for {{ $selectedYear?->name }}.</p></div>

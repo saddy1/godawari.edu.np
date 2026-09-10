@@ -21,6 +21,7 @@ Route::prefix('admin/teaching-learning')
         Route::get('/subject-assignments', [SubjectAssignmentController::class, 'index'])->middleware('permission:teaching-learning.subjects.view')->name('subject-assignments.index');
         Route::post('/subject-assignments/sync-fixed', [SubjectAssignmentController::class, 'syncFixed'])->middleware('permission:teaching-learning.subjects.create')->name('subject-assignments.sync-fixed');
         Route::put('/subject-assignments/electives', [SubjectAssignmentController::class, 'updateElective'])->middleware('permission:teaching-learning.subjects.create')->name('subject-assignments.electives');
+        Route::put('/subject-assignments/electives/per-student', [SubjectAssignmentController::class, 'updateElectivesPerStudent'])->middleware('permission:teaching-learning.subjects.create')->name('subject-assignments.electives.per-student');
         Route::get('/attendance-sheets', [MonthlyAttendanceSheetController::class, 'index'])->middleware('permission:teaching-learning.subjects.view')->name('attendance-sheets.index');
         Route::get('/attendance-sheets/print', [MonthlyAttendanceSheetController::class, 'print'])->middleware('permission:teaching-learning.subjects.view')->name('attendance-sheets.print');
 

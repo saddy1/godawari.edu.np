@@ -32,7 +32,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; background: #e5e7eb; color
 .gs-footer { width: 100%; margin-top: 5mm; font-size: .88em; display: flex; justify-content: space-between; align-items: flex-end; gap: 6mm; }
 .gs-footer .left { line-height: 2; }
 .gs-sign-block { text-align: center; white-space: nowrap; }
-.gs-sign-img { display: block; max-height: 9mm; max-width: 32mm; margin: 0 auto 1mm; }
+.gs-sign-img { display: block; max-height: 15mm; max-width: 32mm; margin: 0 auto 1mm; }
 .gs-sign-line { display: block; border-top: 0.75pt solid #333; width: 34mm; margin: 0 auto 1mm; height: 6mm; }
 
 .gs-note { position: absolute; left: 8mm; right: 8mm; bottom: 6mm; font-size: .72em; color: #333; line-height: 1.5; }

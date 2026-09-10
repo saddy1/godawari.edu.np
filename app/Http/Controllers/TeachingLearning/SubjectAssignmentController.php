@@ -211,4 +211,77 @@ class SubjectAssignmentController extends Controller
             default => "Elective assignment updated for the section. {$students->count()} student(s) selected.",
         });
     }
+
+    // Student x elective checkbox grid: each student can be ticked for any number of the
+    // electives shown (e.g. must take 2 of 3 — student X takes A+C, student Y takes A+B).
+    // Unlike updateElective(), this never enforces "one offering per elective_group" —
+    // holding several electives from the grid at once is the whole point here.
+    public function updateElectivesPerStudent(Request $request, SubjectEnrollmentService $enrollments)
+    {
+        $data = $request->validate([
+            'academic_year_id' => ['required', 'integer', 'exists:academic_years,id'],
+            'department_id' => ['required', 'integer', 'exists:departments,id'],
+            'offering_ids' => ['required', 'array', 'min:1'],
+            'offering_ids.*' => ['integer', 'exists:subject_offerings,id'],
+            'student_ids' => ['required', 'array', 'min:1'],
+            'student_ids.*' => ['integer', 'exists:students,id'],
+            'assignments' => ['nullable', 'array'],
+            'assignments.*' => ['array'],
+            'assignments.*.*' => ['integer'],
+        ]);
+        $year = AcademicYear::findOrFail($data['academic_year_id']);
+        if ($year->is_locked) throw ValidationException::withMessages(['academic_year_id' => 'Unlock the academic year before changing elective assignments.']);
+        $department = Department::findOrFail($data['department_id']);
+
+        $offeringIds = collect($data['offering_ids'])->map(fn ($id) => (int) $id)->unique()->values();
+        $offerings = SubjectOffering::with('subject')->whereIn('id', $offeringIds)
+            ->where('department_id', $department->id)->where('is_elective', true)->get()->keyBy('id');
+        if ($offerings->count() !== $offeringIds->count()) {
+            throw ValidationException::withMessages(['offering_ids' => 'One or more electives are not part of this department.']);
+        }
+
+        $studentIds = collect($data['student_ids'])->map(fn ($id) => (int) $id)->unique()->values();
+        $students = Student::query()
+            ->tap(fn ($query) => auth()->user()->applyStudentScope($query))
+            ->whereIn('id', $studentIds)->get()->keyBy('id');
+        if ($students->count() !== $studentIds->count()) {
+            throw ValidationException::withMessages(['student_ids' => 'One or more selected students are outside your access scope.']);
+        }
+
+        $choices = collect($data['assignments'] ?? [])->mapWithKeys(fn ($ids, $studentId) => [
+            (int) $studentId => collect($ids)->map(fn ($id) => (int) $id)->unique()->values(),
+        ]);
+        foreach ($students as $student) {
+            foreach ($choices->get($student->id, collect()) as $offeringId) {
+                $offering = $offerings->get($offeringId);
+                if (! $offering) throw ValidationException::withMessages(['assignments' => 'One or more ticked electives are not part of this grid.']);
+                if (! $enrollments->studentMatchesOffering($student, $offering)) {
+                    throw ValidationException::withMessages(['assignments' => "{$student->full_name} does not match {$offering->subject->name}'s department, semester/year, and class group."]);
+                }
+            }
+        }
+
+        $changed = 0;
+        DB::transaction(function () use ($year, $students, $offerings, $choices, &$changed) {
+            foreach ($students as $student) {
+                $chosen = $choices->get($student->id, collect());
+                StudentSubjectEnrollment::where('student_id', $student->id)
+                    ->where('academic_year', $year->name)
+                    ->where('assignment_source', 'manual')
+                    ->whereIn('subject_offering_id', $offerings->keys())
+                    ->whereNotIn('subject_offering_id', $chosen)
+                    ->delete();
+                foreach ($chosen as $offeringId) {
+                    $offering = $offerings->get($offeringId);
+                    StudentSubjectEnrollment::updateOrCreate(
+                        ['student_id' => $student->id, 'subject_id' => $offering->subject_id, 'academic_year' => $year->name],
+                        ['subject_offering_id' => $offering->id, 'assignment_source' => 'manual']
+                    );
+                }
+                $changed++;
+            }
+        });
+
+        return back()->with('success', "Elective choices saved for {$changed} student(s).");
+    }
 }

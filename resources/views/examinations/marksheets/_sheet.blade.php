@@ -22,8 +22,8 @@
     <p class="gs-intro">THE FOLLOWING ARE THE GRADE(S) OBTAINED BY: <strong>{{ Str::upper($student->full_name) }}</strong></p>
     <table class="gs-info gs-student-details">
         <tr><td class="gs-field-label">Date of birth</td><td colspan="3" class="gs-field-value">{{ $dobLabel }}</td></tr>
-        <tr><td class="gs-field-label">Registration no.</td><td class="gs-field-value">{{ $student->registration_no ?: '—' }}</td><td class="gs-field-label">Symbol no.</td><td class="gs-field-value">{{ $symbol_no }}</td></tr>
-        <tr><td class="gs-field-label">Class / faculty</td><td class="gs-field-value">{{ $department->name ?? $student->stream ?? '—' }}</td><td class="gs-field-label">Academic year</td><td class="gs-field-value">{{ $academicYearName }} B.S.</td></tr>
+        <tr><td class="gs-field-label">Registration no.</td><td class="gs-field-value">{{ $student->registration_no ?: ' ' }}</td><td class="gs-field-label">Symbol no.</td><td class="gs-field-value">{{ $symbol_no }}</td></tr>
+        <tr><td class="gs-field-label">Class / faculty</td><td class="gs-field-value">{{ $department->name ?? $student->stream ?? ' ' }}</td><td class="gs-field-label">Academic year</td><td class="gs-field-value">{{ $academicYearName }} B.S.</td></tr>
     </table>
 
     <p class="gs-intro gs-exam-statement">IN THE <strong>{{ Str::upper($examination->name) }}</strong> EXAMINATION CONDUCTED IN <strong>{{ $academicYearName }} B.S.</strong>, THE GRADES OBTAINED ARE GIVEN BELOW.</p>
@@ -49,7 +49,7 @@
 
     <div class="gs-footer">
         <div class="left">
-            PREPARED BY: <span class="gs-dotted">&nbsp;</span><br>
+            PREPARED BY:  <span style=" font: bold; font-size: larger;">&nbsp; 0688</span><br>
             CHECKED BY: <span class="gs-dotted">&nbsp;</span><br>
             DATE OF ISSUE: {{ now()->format('d F, Y') }}
         </div>

@@ -29,8 +29,8 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; background: #e5e7eb; color
 
 .ac-footer { width: 100%; border-collapse: collapse; margin-top: 16mm; }
 .ac-footer td { text-align: center; font-size: .8em; font-weight: 600; padding-top: 1mm; width: 33%; vertical-align: bottom; position: relative; }
-.ac-sign-line { display: block; border-top: 0.75pt solid #333; width: 80%; margin: 0 auto 1mm; height: 0; }
-.ac-sign-img { position: absolute; bottom: 5mm; left: 25%; max-height: 8mm; max-width: 50%; }
+.ac-sign-line { display: block; border-top: 0.75pt solid #333; width: 80%; margin: 0 auto 5mm; height: 0; }
+.ac-sign-img { position: absolute; bottom: 5mm; left: 25%; max-height: 15mm; max-width: 50%; }
 
 .ac-photo { position: absolute; top: 3mm; right: 4mm; width: 20mm; height: 24mm; border: 0.75pt solid #333; background: #fff; overflow: hidden; }
 .ac-photo img { width: 100%; height: 100%; object-fit: cover; }
