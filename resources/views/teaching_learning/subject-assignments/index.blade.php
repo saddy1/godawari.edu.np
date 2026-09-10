@@ -15,6 +15,7 @@
             ->pluck('id')->map(fn ($id) => (string) $id)->values();
         return $ids->isEmpty() ? [] : [$section->name => $ids];
     });
+    $studentsByName = $students->sortBy(fn ($student) => mb_strtolower(trim($student->first_name.' '.$student->middle_name.' '.$student->last_name)))->values();
 @endphp
 
 <div class="space-y-4" x-data="subjectAssignmentsPage()">
@@ -113,7 +114,7 @@
                             @endforeach
                         </tr></thead>
                         <tbody>
-                        @forelse($students as $student)
+                        @forelse($studentsByName as $student)
                             @php $studentOfferingIds = $enrollmentMap->get($student->id, collect()); @endphp
                             <tr class="border-b hover:bg-gray-50">
                                 <td class="sticky left-0 z-10 border-r bg-white px-3 py-2"><p class="truncate text-xs font-black text-gray-900">{{ $student->full_name }}</p><span class="text-[10px] font-bold text-gray-400">{{ $student->roll_number ?: 'No roll' }}</span></td>
