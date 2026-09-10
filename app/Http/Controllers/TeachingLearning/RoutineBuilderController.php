@@ -76,8 +76,17 @@ class RoutineBuilderController extends Controller
 
     public function show(Request $request, RoutinePlan $routinePlan)
     {
-        $routinePlan->load(['academicYear', 'organization', 'department.sections', 'shift.periods', 'sections', 'lessons.period', 'lessons.endPeriod', 'lessons.groups.offering.subject', 'lessons.groups.teacher', 'lessons.groups.teachers', 'lessons.groups.room', 'lessons.groups.students']);
+        // Only the current day's practical-split groups need their full student roster
+        // (for the "group rosters" panel) — every other group just needs a count, and
+        // loading full rosters for every group across the whole week (all days) is what
+        // was exhausting memory on plans with many sections/lessons.
+        $routinePlan->load(['academicYear', 'organization', 'department.sections', 'shift.periods', 'sections', 'lessons.period', 'lessons.endPeriod', 'lessons.groups.offering.subject', 'lessons.groups.teacher', 'lessons.groups.teachers', 'lessons.groups.room', 'lessons.groups' => fn ($query) => $query->withCount('students')]);
         $day = in_array($request->day, $routinePlan->shift->working_days ?? [], true) ? $request->day : ($routinePlan->shift->working_days[0] ?? 'Sunday');
+        $daySplitGroups = $routinePlan->lessons->where('day_of_week', $day)->where('mode', 'practical_split')
+            ->flatMap(fn ($lesson) => $lesson->groups);
+        // Wrap (not hydrate — must be the SAME model instances still referenced inside
+        // $routinePlan->lessons) so ->load() populates the relation on those objects.
+        (new \Illuminate\Database\Eloquent\Collection($daySplitGroups->all()))->load('students');
         $offerings = SubjectOffering::with('subject')->where('department_id', $routinePlan->department_id)
             ->when($routinePlan->semester, fn ($query) => $query->where(fn ($query) => $query->whereNull('semester')->orWhere('semester', $routinePlan->semester)))
             ->when($routinePlan->year_level, fn ($query) => $query->where(fn ($query) => $query->whereNull('year_level')->orWhere('year_level', $routinePlan->year_level)))
@@ -146,7 +155,7 @@ class RoutineBuilderController extends Controller
                     'teacher_ids' => $group->teachers->pluck('id')->map(fn ($id) => (string) $id)->values(),
                     'routine_room_id' => $group->routine_room_id ? (string) $group->routine_room_id : '',
                     'group_label' => $group->group_label,
-                    'student_count' => $group->students->count(),
+                    'student_count' => $group->students_count,
                 ])->values(),
             ];
             $coveredPeriods = $routinePlan->shift->periods->filter(fn ($period) => ! $period->is_break && $period->position >= $start->position && $period->position <= $end->position);
