@@ -256,8 +256,8 @@ class RoutineBuilderController extends Controller
             'notes' => ['nullable', 'string', 'max:500'],
             'groups' => ['required', 'array', 'min:1', 'max:2'],
             'groups.*.subject_offering_id' => [Rule::requiredIf(fn () => $request->input('mode') === 'practical_split'), 'nullable', 'integer', 'exists:subject_offerings,id'],
-            'groups.*.teacher_ids' => ['required', 'array', 'min:1'],
-            'groups.*.teacher_ids.*' => ['required', 'integer', 'distinct', 'exists:users,id'],
+            'groups.*.teacher_ids' => ['nullable', 'array'],
+            'groups.*.teacher_ids.*' => ['integer', 'distinct', 'exists:users,id'],
             'groups.*.routine_room_id' => ['nullable', 'integer', 'exists:routine_rooms,id'],
             'groups.*.group_label' => ['nullable', 'string', 'max:30'],
         ]);
@@ -295,8 +295,8 @@ class RoutineBuilderController extends Controller
         }
         $groups = $groups->values()->map(fn ($group, $index) => [
             'subject_offering_id' => (int) $offerings[$index]->id,
-            'teacher_id' => (int) collect($group['teacher_ids'])->first(),
-            'teacher_ids' => collect($group['teacher_ids'])->map(fn ($id) => (int) $id)->unique()->values()->all(),
+            'teacher_id' => filled($group['teacher_ids'] ?? null) ? (int) collect($group['teacher_ids'])->first() : null,
+            'teacher_ids' => collect($group['teacher_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values()->all(),
             'routine_room_id' => filled($group['routine_room_id'] ?? null) ? (int) $group['routine_room_id'] : null,
             'position' => $index + 1,
             'group_label' => $data['mode'] === 'practical_split' ? (($group['group_label'] ?? null) ?: 'Group '.chr(65 + $index)) : null,
