@@ -93,12 +93,6 @@
     ];
 @endphp
 
-<style>
-    .erp-module-switcher { scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent; scroll-behavior:smooth; overscroll-behavior-inline:contain; }
-    .erp-module-switcher::-webkit-scrollbar { height:4px; }
-    .erp-module-switcher::-webkit-scrollbar-track { background:transparent; }
-    .erp-module-switcher::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
-</style>
 <header class="sticky top-0 z-30 shrink-0 border-b border-gray-200 bg-slate-50 shadow-sm" style="background:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary,#1a5632) 8%,white),color-mix(in srgb,var(--theme-secondary,#e2a024) 7%,white));">
     <div class="flex min-h-14 min-w-0 items-center justify-between gap-2 px-2.5 py-2 sm:px-4">
 
@@ -116,7 +110,7 @@
                 @php $activeModule = $visibleModuleLinks->firstWhere('key', $currentModule) ?? $visibleModuleLinks->first(); @endphp
                 @if($activeModule)<a href="{{$activeModule['url']}}" class="hidden shrink-0 min-w-0 items-center gap-2 rounded-xl bg-[#1a5632] px-3 py-2 text-white shadow-sm sm:flex"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg></span><span class="min-w-0"><span class="block truncate text-xs font-black">{{$activeModule['label']}}</span><span class="hidden truncate text-[9px] font-semibold text-white/60 md:block">{{$activeModule['sub']}}</span></span></a>@endif
                 @if($visibleModuleLinks->count()>1)
-                <div class="flex min-w-0 flex-1 flex-nowrap items-center gap-1">
+                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                     @foreach($categorizedModuleLinks as $category=>$modules)
                     @php $categoryBadge = $modules->sum(fn($m) => $moduleBadges[$m['key']] ?? 0); $categoryActive = $modules->contains('key', $currentModule); @endphp
                     <div class="relative shrink-0" :class="activeCategory===@js($category)?'z-50':'z-0'">
@@ -139,15 +133,6 @@
 
         {{-- Notifications only; settings and account controls live in each sidebar. --}}
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-
-            {{-- Install app (shown once the browser signals it's installable) --}}
-            <button type="button" data-pwa-install title="Install app"
-                    class="js-hidden inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/>
-                </svg>
-                <span class="hidden sm:inline text-xs font-extrabold">Install</span>
-            </button>
 
             {{-- System Settings (super-admin only) --}}
             @if($showSystemSettings)

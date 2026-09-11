@@ -37,6 +37,18 @@
         </button>
     </div>
 
+    {{-- Install app prompt (hidden until the browser signals it's installable) --}}
+    <button type="button" data-pwa-install title="Install app"
+            class="js-hidden mx-2 mt-3 flex shrink-0 items-center gap-2.5 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2.5 text-left transition-colors hover:border-emerald-400/35 hover:bg-emerald-400/15">
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-400/15 text-emerald-300">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+        </span>
+        <span class="min-w-0 flex-1">
+            <span class="block text-xs font-extrabold text-white">Install App</span>
+            <span class="block text-[10px] font-semibold text-white/40">Add to home screen</span>
+        </span>
+    </button>
+
     {{-- Nav --}}
     <nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 custom-scrollbar">
 
