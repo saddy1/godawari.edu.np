@@ -67,10 +67,6 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $user = Auth::user();
 
-        if ($user->isAdmin()) {
-            return redirect()->intended('admin/dashboard');
-        }
-
         if ($user->isStudent()) {
             return redirect()->intended(route('learning.dashboard'));
         }
@@ -102,6 +98,14 @@ class AuthController extends Controller
         // Staff employee with a biometric device — send to the Hajiri portal
         if ($user->device_id) {
             return redirect()->route('hajiri.home');
+        }
+
+        // Admin-only accounts (no teacher/student/staff role of their own) land on
+        // the admin dashboard. Checked last so a teacher/student/staff account that
+        // has ALSO been given admin access still lands on their own dashboard by
+        // default — they can reach the admin dashboard via the "Admin access" button.
+        if ($user->isAdmin()) {
+            return redirect()->intended('admin/dashboard');
         }
 
         // Not a staff member — applicants use the applicant login form

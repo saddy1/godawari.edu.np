@@ -26,10 +26,6 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        if ($user?->isTeacher() && ModuleService::enabled('teaching_learning')) {
-            return redirect()->route('admin.teacher.workspace');
-        }
-
         if (! $user?->canAccess(['dashboard.admin', 'dashboard.view', 'dashboard.financial'])) {
             $landingUrl = $this->firstAccessibleModuleUrl($user);
 
