@@ -1,0 +1,20 @@
+{
+  "id": "/student/card/dashboard",
+  "name": "Student Portal",
+  "short_name": "Student",
+  "start_url": "/student/card/dashboard?source=pwa",
+  "scope": "/student/card/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#1a5632",
+  "categories": ["education"],
+  "description": "Student account portal for attendance, ID card and profile.",
+  "icons": [
+    { "src": "/icons/student/icon-any-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/student/icon-any-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/student/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/student/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -2,12 +2,15 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Student Portal') - {{ $siteSettings->localized('site_name', 'School') }}</title>
 
     <link rel="icon" type="image/x-icon" href="{{ $siteSettings->faviconUrl() }}">
     <link rel="shortcut icon" href="{{ $siteSettings->faviconUrl() }}">
+
+    @include('partials.pwa-meta', ['manifest' => 'student-manifest.webmanifest', 'appleIcon' => 'icons/student/apple-touch-icon.png', 'icon192' => 'icons/student/icon-any-192.png', 'themeColor' => $siteSettings->get('primary_color', '#1a5632'), 'appTitle' => 'Student Portal'])
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     @php
@@ -38,6 +41,8 @@
         .text-primary { color: var(--sp-primary) !important; }
         .hover\:bg-primary-light:hover { background-color: var(--sp-primary-light) !important; }
         [x-cloak] { display: none !important; }
+
+        @include('partials.pwa-styles')
     </style>
     @stack('styles')
 </head>
@@ -171,6 +176,8 @@
                     <p class="truncate text-xs font-semibold text-gray-400 lg:hidden">{{ $portalStudent?->stream ?? '' }}{{ $portalStudent?->section ? ' · Section '.$portalStudent->section : '' }}</p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" data-pwa-install title="Install app"
+                            class="js-hidden hidden rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50 sm:inline-flex">Install</button>
                     <a href="{{ url('/') }}" class="hidden rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-extrabold text-gray-600 hover:bg-gray-50 sm:inline-flex">Website</a>
                     <form method="POST" action="{{ route('student.logout') }}">
                         @csrf
@@ -229,5 +236,7 @@
 </div>
 @stack('scripts')
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+@include('partials.pwa-install-script', ['sw' => 'student-sw.js', 'storageKey' => 'student-ios-install-dismissed', 'appLabel' => 'the student portal'])
 </body>
 </html>

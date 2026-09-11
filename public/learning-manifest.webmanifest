@@ -1,0 +1,20 @@
+{
+  "id": "/learning",
+  "name": "E-Learning",
+  "short_name": "Learning",
+  "start_url": "/learning?source=pwa",
+  "scope": "/learning/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#1a5632",
+  "categories": ["education"],
+  "description": "Courses, lessons and quizzes.",
+  "icons": [
+    { "src": "/icons/learning/icon-any-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/learning/icon-any-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/learning/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/learning/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

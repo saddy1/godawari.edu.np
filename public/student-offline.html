@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a5632">
+<title>You're offline | Student Portal</title>
+<style>
+  :root{color-scheme:light}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:1.5rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(160deg,#0b2415,#102b1c 60%,#1a5632);color:#fff;text-align:center}
+  .card{max-width:22rem}
+  .icon{width:4.5rem;height:4.5rem;margin:0 auto 1.25rem;border-radius:1.25rem;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center}
+  img{width:2.5rem;height:2.5rem;opacity:.9}
+  h1{font-size:1.25rem;font-weight:900;margin:0 0 .5rem}
+  p{margin:0 0 1.5rem;font-size:.875rem;font-weight:500;color:rgba(255,255,255,.65);line-height:1.5}
+  button{appearance:none;border:0;border-radius:.75rem;background:#fff;color:#0b2415;font-weight:900;font-size:.8125rem;padding:.75rem 1.5rem;cursor:pointer}
+  button:active{opacity:.85}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon"><img src="/icons/student/icon-any-192.png" alt=""></div>
+    <h1>You're offline</h1>
+    <p>This page needs an internet connection. Check your network and try again — anything you already had open should still work once you're back online.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+  </div>
+</body>
+</html>

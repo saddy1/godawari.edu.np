@@ -140,6 +140,15 @@
         {{-- Notifications only; settings and account controls live in each sidebar. --}}
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
+            {{-- Install app (shown once the browser signals it's installable) --}}
+            <button type="button" data-pwa-install title="Install app"
+                    class="js-hidden inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/>
+                </svg>
+                <span class="hidden sm:inline text-xs font-extrabold">Install</span>
+            </button>
+
             {{-- System Settings (super-admin only) --}}
             @if($showSystemSettings)
             <div class="relative" x-data="{ settingsOpen: false }" @click.outside="settingsOpen = false">

@@ -2,10 +2,13 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'E-Learning') | {{ $siteSettings->localized('site_name', 'School') }}</title>
     <link rel="icon" type="image/x-icon" href="{{ $siteSettings->faviconUrl() }}">
+
+    @include('partials.pwa-meta', ['manifest' => 'learning-manifest.webmanifest', 'appleIcon' => 'icons/learning/apple-touch-icon.png', 'icon192' => 'icons/learning/icon-any-192.png', 'themeColor' => $siteSettings->get('primary_color', '#1a5632'), 'appTitle' => 'E-Learning'])
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     {{-- KaTeX for LaTeX math rendering --}}
@@ -243,6 +246,8 @@
                 margin: 0 0 1rem;
             }
         }
+
+        @include('partials.pwa-styles')
     </style>
     @stack('styles')
 </head>
@@ -337,6 +342,12 @@
                         {{ auth()->user()->student_code ?? auth()->user()->class_grade ?? 'Student' }}
                     </p>
                 </div>
+                <button type="button" data-pwa-install title="Install app"
+                        class="js-hidden shrink-0 p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/>
+                    </svg>
+                </button>
                 <form method="POST" action="{{ route('logout') }}" class="shrink-0">
                     @csrf
                     <button type="submit" title="Logout"
@@ -394,5 +405,7 @@
 </div>
 @include('partials.page-wheel-scroll')
 @stack('scripts')
+
+@include('partials.pwa-install-script', ['sw' => 'learning-sw.js', 'storageKey' => 'learning-ios-install-dismissed', 'appLabel' => 'E-Learning'])
 </body>
 </html>

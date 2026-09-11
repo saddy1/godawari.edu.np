@@ -3,7 +3,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'Admin Dashboard') | {{ $siteSettings->localized('site_name', 'School') }}</title>
@@ -11,7 +11,8 @@
     {{-- Dynamic Favicon --}}
     <link rel="icon" type="image/x-icon" href="{{ $siteSettings->faviconUrl() }}">
     <link rel="shortcut icon" href="{{ $siteSettings->faviconUrl() }}">
-    <link rel="apple-touch-icon" href="{{ $siteSettings->faviconUrl() }}">
+
+    @include('partials.pwa-meta', ['manifest' => 'admin-manifest.webmanifest', 'appleIcon' => 'icons/admin/apple-touch-icon.png', 'icon192' => 'icons/admin/icon-any-192.png', 'themeColor' => $siteSettings->get('primary_color', '#1a5632'), 'appTitle' => 'Admin'])
 
     {{-- Fonts & Tailwind --}}
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -91,6 +92,8 @@
         /* Selection */
         ::selection      { background-color: var(--theme-primary); color: #fff; }
         ::-moz-selection { background-color: var(--theme-primary); color: #fff; }
+
+        @include('partials.pwa-styles')
     </style>
 </head>
 <body class="font-sans antialiased text-gray-900 bg-gray-50">
@@ -122,5 +125,7 @@
     <x-media-manager />
     @stack('modals')
     @stack('scripts')
+
+    @include('partials.pwa-install-script', ['sw' => 'admin-sw.js', 'storageKey' => 'admin-ios-install-dismissed', 'appLabel' => 'the admin app'])
 </body>
 </html>

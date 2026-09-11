@@ -2,11 +2,8 @@
 <html lang="{{str_replace('_','-',app()->getLocale())}}">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="csrf-token" content="{{csrf_token()}}">
-    <meta name="theme-color" content="#0b2415"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Teacher">
-    <link rel="manifest" href="{{asset('teacher-manifest.webmanifest')}}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{asset('icons/teacher/apple-touch-icon.png')}}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{asset('icons/teacher/icon-any-192.png')}}">
     <title>@yield('title','Teacher') | {{$siteSettings->localized('site_name','School')}}</title>
+    @include('partials.pwa-meta', ['manifest' => 'teacher-manifest.webmanifest', 'appleIcon' => 'icons/teacher/apple-touch-icon.png', 'icon192' => 'icons/teacher/icon-any-192.png', 'themeColor' => '#0b2415', 'appTitle' => 'Teacher'])
     @php
         $fallbackCss = null;
         $viteManifestPath = public_path('build/manifest.json');
@@ -24,7 +21,7 @@
     @php $primary=$siteSettings->get('primary_color','#1a5632');$dark=$siteSettings->get('dark_color','#0b2415'); @endphp
     <style>
         :root{--teacher-primary:{{$primary}};--teacher-dark:{{$dark}};--theme-primary:{{$primary}};--theme-dark:{{$dark}};--theme-secondary:#e2a024}
-        .js-hidden{display:none!important}.safe-bottom{padding-bottom:max(.75rem,env(safe-area-inset-bottom))}.safe-top{padding-top:env(safe-area-inset-top)}
+        @include('partials.pwa-styles')
         @media(max-width:1023px){html,body{overflow-x:hidden}.teacher-mobile-nav{display:grid!important;position:fixed!important;visibility:visible!important;opacity:1!important;left:0!important;right:0!important;bottom:0!important;z-index:9999!important;width:100%!important;min-height:4.25rem!important;background:rgba(255,255,255,.97)!important;transform:translateZ(0);pointer-events:auto!important}.teacher-mobile-sheet{display:block;visibility:visible}.teacher-mobile-sheet.js-hidden{display:none!important}}
         @media(min-width:1024px){.teacher-mobile-nav,.teacher-mobile-sheet,[data-mobile-sheet-backdrop]{display:none!important}}
     </style>
@@ -130,35 +127,7 @@ document.addEventListener('DOMContentLoaded',function(){
 @if(request()->routeIs('hajiri.*'))
 jQuery.loadScript=function(url,callback){jQuery.ajax({url:url,dataType:'script',success:callback,async:true})};jQuery(function(){jQuery.loadScript(@json(asset('/erp/hajiri/admin/plugins/nepali-date-picker/nepali-date-picker.min.js')),function(){jQuery('.date-picker').nepaliDatePicker()})});
 @endif
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register(@json(asset('teacher-sw.js'))).catch(()=>{}));
-
-(function(){
-    const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
-    if(isStandalone)return;
-
-    const installBtn=document.querySelector('[data-pwa-install]');
-    let deferredPrompt=null;
-    window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredPrompt=event;installBtn?.classList.remove('js-hidden')});
-    installBtn?.addEventListener('click',async()=>{
-        if(!deferredPrompt)return;
-        installBtn.classList.add('js-hidden');
-        deferredPrompt.prompt();
-        await deferredPrompt.userChoice;
-        deferredPrompt=null;
-    });
-    window.addEventListener('appinstalled',()=>installBtn?.classList.add('js-hidden'));
-
-    const isIos=/iphone|ipad|ipod/i.test(navigator.userAgent);
-    const dismissedAt=Number(localStorage.getItem('teacher-ios-install-dismissed')||0);
-    const shouldPromptIos=isIos&&window.matchMedia('(max-width:1023px)').matches&&Date.now()-dismissedAt>14*24*60*60*1000;
-    if(shouldPromptIos){
-        const banner=document.createElement('div');
-        banner.className='fixed inset-x-2 z-[10000] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl lg:hidden';
-        banner.style.bottom='calc(4.25rem + env(safe-area-inset-bottom) + .5rem)';
-        banner.innerHTML='<div class="flex items-start gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-base">⬆️</span><div class="min-w-0 flex-1"><p class="text-xs font-black text-slate-900">Install this app</p><p class="mt-0.5 text-[11px] font-semibold text-slate-500">Tap Share, then "Add to Home Screen" for one-tap access.</p></div><button type="button" class="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-sm font-black text-slate-500" aria-label="Dismiss">×</button></div>';
-        banner.querySelector('button').addEventListener('click',()=>{localStorage.setItem('teacher-ios-install-dismissed',String(Date.now()));banner.remove()});
-        document.body.appendChild(banner);
-    }
-})();
 </script>
+
+@include('partials.pwa-install-script', ['sw' => 'teacher-sw.js', 'storageKey' => 'teacher-ios-install-dismissed', 'appLabel' => 'this app', 'bannerBottom' => '4.75rem'])
 </body></html>
