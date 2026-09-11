@@ -79,6 +79,15 @@
         </a>
         @endif
 
+        @if(auth()->user()?->isAdmin() && \App\Services\ModuleService::enabled('teaching_learning'))
+        <a href="{{ route('admin.teacher.workspace') }}" target="_blank" rel="noopener"
+           class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
+                  {{ $active('admin/teacher/workspace*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0121 12c0 2.5-.7 4.834-1.912 6.822M12 14l-6.16-3.422A12.083 12.083 0 003 12c0 2.5.7 4.834 1.912 6.822M12 14v7"/></svg>
+            <span class="flex-1 truncate">Teacher/Staff Portal</span>
+        </a>
+        @endif
+
         {{-- ── Content ── --}}
         <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Content</p>
 

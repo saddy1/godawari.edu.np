@@ -23,7 +23,7 @@ class TeacherWorkspaceController extends Controller
     public function index(Request $request, ExamTeacherAssignmentService $examAssignments)
     {
         $user = $request->user();
-        abort_unless($user->isTeacher() || $user->canAccess([
+        abort_unless($user->isAdmin() || $user->isTeacher() || $user->canAccess([
             'examinations.manage', 'examinations.marks.enter', 'teaching-learning.routine.manage',
         ]), 403);
 
