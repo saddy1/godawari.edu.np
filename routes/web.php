@@ -28,6 +28,7 @@ use App\Http\Controllers\Backend\PayrollController;
 use App\Http\Controllers\Backend\StoreController;
 use App\Http\Controllers\CmsPageController;
 use App\Http\Controllers\Backend\AdminUserController;
+use App\Http\Controllers\Backend\FounderDashboardController;
 use App\Http\Controllers\VacancyController;
 use App\Http\Controllers\Backend\VacancyController as BackendVacancyController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -283,6 +284,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
 
     // Staff roles and module access — super-admin only
     Route::middleware('super_admin')->group(function () {
+        Route::get('/founder-dashboard', [FounderDashboardController::class, 'index'])->name('admin.founder.dashboard');
         Route::get('/users', [AdminUserController::class, 'index'])->middleware('permission:users.view')->name('admin.users.index');
         Route::get('/users/hr-members/search', [AdminUserController::class, 'searchHrMembers'])->middleware('permission:users.create')->name('admin.users.hr-members.search');
         Route::post('/users', [AdminUserController::class, 'store'])->middleware('permission:users.create')->name('admin.users.store');
