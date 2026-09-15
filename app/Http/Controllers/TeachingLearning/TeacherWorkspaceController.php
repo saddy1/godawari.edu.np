@@ -133,15 +133,15 @@ class TeacherWorkspaceController extends Controller
         return $groups;
     }
 
+    // Always scoped to literal teacher assignment — being an admin/super-admin
+    // does not imply "my classes today" should include every class in the school.
     private function teacherGroups(RoutineLesson $lesson, User $user): Collection
     {
-        if ($user->canAccess('teaching-learning.routine.manage')) return $lesson->groups;
         return $lesson->groups->filter(fn ($group) => (int) $group->teacher_id === (int) $user->id || $group->teachers->contains('id', $user->id))->values();
     }
 
     private function teacherGroupQuery($groups, User $user)
     {
-        if ($user->canAccess('teaching-learning.routine.manage')) return $groups;
         return $groups->where(fn ($teachers) => $teachers->where('teacher_id', $user->id)
             ->orWhereHas('teachers', fn ($query) => $query->whereKey($user->id)));
     }
