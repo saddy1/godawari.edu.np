@@ -235,6 +235,39 @@ class AdminPermissionMatrix
                             'delete' => 'teaching-learning.subjects.delete',
                         ],
                     ],
+                    'routine' => [
+                        'label' => 'Routine Builder',
+                        'permissions' => [
+                            'view' => 'teaching-learning.routine.view',
+                            'manage' => 'teaching-learning.routine.manage',
+                            'publish' => 'teaching-learning.routine.publish',
+                        ],
+                    ],
+                ],
+            ],
+            'examinations' => [
+                'label' => 'Examinations',
+                'components' => [
+                    'configuration' => [
+                        'label' => 'Exam Configuration',
+                        'permissions' => [
+                            'view' => 'examinations.view',
+                            'manage' => 'examinations.manage',
+                        ],
+                    ],
+                    'marks' => [
+                        'label' => 'Marks Entry & Verification',
+                        'permissions' => [
+                            'enter' => 'examinations.marks.enter',
+                            'verify' => 'examinations.marks.verify',
+                        ],
+                    ],
+                    'reports' => [
+                        'label' => 'Analytics & Reports',
+                        'permissions' => [
+                            'view' => 'examinations.reports',
+                        ],
+                    ],
                 ],
             ],
             'id-card' => [

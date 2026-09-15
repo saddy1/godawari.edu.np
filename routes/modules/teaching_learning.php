@@ -59,5 +59,4 @@ Route::prefix('admin/teacher')->name('admin.teacher.')->middleware(['auth', 'mod
     Route::get('/workspace', [TeacherWorkspaceController::class, 'index'])->name('workspace');
     Route::get('/attendance/{routineLesson}', [TeacherWorkspaceController::class, 'attendance'])->name('attendance');
     Route::put('/attendance/{routineLesson}', [TeacherWorkspaceController::class, 'saveAttendance'])->name('attendance.save');
-    Route::post('/attendance/{routineLesson}/finish', [TeacherWorkspaceController::class, 'finishAttendance'])->name('attendance.finish');
 });
