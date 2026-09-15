@@ -7,6 +7,17 @@ class AdminPermissionMatrix
     public static function modules(): array
     {
         return [
+            'founder' => [
+                'label' => 'Founder Dashboard',
+                'components' => [
+                    'overview' => [
+                        'label' => 'Executive Oversight (read-only)',
+                        'permissions' => [
+                            'view' => 'founder.view',
+                        ],
+                    ],
+                ],
+            ],
             'website' => [
                 'label' => 'Website',
                 'components' => [

@@ -100,6 +100,7 @@ class RolePermissionSeeder extends Seeder
             'dashboard.view' => 'View dashboard',
             'dashboard.admin' => 'View admin dashboard',
             'dashboard.financial' => 'View financial dashboard',
+            'founder.view' => 'View founder dashboard (read-only executive oversight)',
 
             // HR
             'hr.members.view' => 'View HR members',

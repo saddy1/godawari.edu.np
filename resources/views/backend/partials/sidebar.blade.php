@@ -82,7 +82,7 @@
         </a>
         @endif
 
-        @if(auth()->user()?->isSuperAdmin() && \App\Services\ModuleService::enabled('teaching_learning'))
+        @if(auth()->user()?->canAccess('founder.view') && \App\Services\ModuleService::enabled('teaching_learning'))
         <a href="{{ route('admin.founder.dashboard') }}"
            class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
                   {{ $active('admin/founder-dashboard*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">

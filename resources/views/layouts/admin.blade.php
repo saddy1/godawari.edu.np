@@ -93,6 +93,8 @@
         ::selection      { background-color: var(--theme-primary); color: #fff; }
         ::-moz-selection { background-color: var(--theme-primary); color: #fff; }
 
+        [x-cloak] { display: none !important; }
+
         @include('partials.pwa-styles')
     </style>
 </head>
@@ -102,7 +104,7 @@
     <div x-data="{ sidebarOpen: false }" class="flex h-dvh overflow-hidden">
         
         {{-- Sidebar Component --}}
-        @if(request()->routeIs('admin.founder.*') && auth()->user()?->isSuperAdmin())
+        @if(request()->routeIs('admin.founder.*') && auth()->user()?->canAccess('founder.view'))
             @include('backend.partials.founder-sidebar')
         @else
             @include('backend.partials.sidebar')

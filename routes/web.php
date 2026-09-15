@@ -140,6 +140,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/forgot-password', [PasswordResetController::class, 'request'])->name('password.request');
     Route::post('/forgot-password', [PasswordResetController::class, 'email'])->name('password.email');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'reset'])->name('password.reset');
+    Route::post('/reset-password/code', [PasswordResetController::class, 'sendCode'])->middleware('throttle:5,1')->name('password.code');
     Route::post('/reset-password', [PasswordResetController::class, 'update'])->name('password.update');
 });
 Route::post('/applicant/logout', [ApplicantLoginController::class, 'logout'])
@@ -283,11 +284,14 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     });
 
     // Staff roles and module access — super-admin only
-    Route::middleware('super_admin')->group(function () {
+    Route::middleware('permission:founder.view')->group(function () {
         Route::get('/founder-dashboard', [FounderDashboardController::class, 'index'])->name('admin.founder.dashboard');
         Route::get('/founder-dashboard/pending', [FounderDashboardController::class, 'pendingApprovals'])->name('admin.founder.pending');
         Route::get('/founder-dashboard/attendance', [FounderDashboardController::class, 'classAttendance'])->name('admin.founder.attendance');
         Route::get('/founder-dashboard/analysis', [FounderDashboardController::class, 'analysis'])->name('admin.founder.analysis');
+    });
+
+    Route::middleware('super_admin')->group(function () {
         Route::get('/users', [AdminUserController::class, 'index'])->middleware('permission:users.view')->name('admin.users.index');
         Route::get('/users/hr-members/search', [AdminUserController::class, 'searchHrMembers'])->middleware('permission:users.create')->name('admin.users.hr-members.search');
         Route::post('/users', [AdminUserController::class, 'store'])->middleware('permission:users.create')->name('admin.users.store');

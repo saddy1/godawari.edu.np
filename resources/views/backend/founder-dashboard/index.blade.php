@@ -19,6 +19,8 @@
 
 @section('content')
 
+<div x-data="{ absentModalOpen: false, presentModalOpen: false, allClassesModalOpen: false, takenModalOpen: false, notTakenModalOpen: false }">
+
     {{-- Range selector --}}
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -36,29 +38,214 @@
 
     {{-- KPI strip --}}
     <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-6">
-        <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <button type="button" @click="allClassesModalOpen = true"
+                class="rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50">
             <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Classes Scheduled Today</p>
             <p class="mt-1 text-2xl font-black text-gray-900">{{ $kpis['scheduled'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
+            @if($kpis['scheduled'] > 0)<p class="mt-1 text-[10px] font-bold text-gray-500 underline">View list →</p>@endif
+        </button>
+        <button type="button" @click="takenModalOpen = true"
+                class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-left shadow-sm transition-colors hover:bg-emerald-100">
             <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Classes Taken</p>
             <p class="mt-1 text-2xl font-black text-emerald-800">{{ $kpis['taken'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm">
+            @if($kpis['taken'] > 0)<p class="mt-1 text-[10px] font-bold text-emerald-700 underline">View list →</p>@endif
+        </button>
+        <button type="button" @click="notTakenModalOpen = true"
+                class="rounded-2xl border border-red-100 bg-red-50 p-4 text-left shadow-sm transition-colors hover:bg-red-100">
             <p class="text-[10px] font-bold uppercase tracking-wider text-red-700">Classes NOT Taken</p>
             <p class="mt-1 text-2xl font-black text-red-700">{{ $kpis['not_taken'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            @if($kpis['not_taken'] > 0)<p class="mt-1 text-[10px] font-bold text-red-600 underline">View list →</p>@endif
+        </button>
+        <button type="button" @click="allClassesModalOpen = true"
+                class="rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50">
             <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Attendance Compliance</p>
             <p class="mt-1 text-2xl font-black text-gray-900">{{ $kpis['compliance'] }}%</p>
-        </div>
-        <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p class="mt-1 text-[10px] font-bold text-gray-500 underline">View list →</p>
+        </button>
+        <button type="button" @click="presentModalOpen = true"
+                class="rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50">
             <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Students Present</p>
             <p class="mt-1 text-2xl font-black text-gray-900">{{ $kpis['students_present'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+            @if($kpis['students_present'] > 0)<p class="mt-1 text-[10px] font-bold text-gray-500 underline">View list →</p>@endif
+        </button>
+        <button type="button" @click="absentModalOpen = true"
+                class="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left shadow-sm transition-colors hover:bg-amber-100">
             <p class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Students Absent Today</p>
             <p class="mt-1 text-2xl font-black text-amber-700">{{ $kpis['students_absent'] }}</p>
+            @if($kpis['students_absent'] > 0)
+                <p class="mt-1 text-[10px] font-bold text-amber-600 underline">View list →</p>
+            @endif
+        </button>
+    </div>
+
+    {{-- All classes / compliance modal --}}
+    <div x-show="allClassesModalOpen" x-cloak
+         class="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 pt-10 backdrop-blur-sm sm:pt-16"
+         x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click.self="allClassesModalOpen = false" @keydown.escape.window="allClassesModalOpen = false">
+        <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-4">
+                <div>
+                    <p class="text-sm font-black text-gray-900">All Classes Today</p>
+                    <p class="text-[11px] font-semibold text-gray-400">{{ $kpis['scheduled'] }} scheduled · {{ $kpis['compliance'] }}% compliance so far · {{ now()->format('l, j M Y') }}</p>
+                </div>
+                <button type="button" @click="allClassesModalOpen = false" class="grid h-8 w-8 place-items-center rounded-lg bg-gray-100 text-lg font-black text-gray-500 hover:bg-gray-200">×</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto p-4">
+                @forelse($allClassesDetail as $row)
+                    @php $badge = match($row->status) { 'taken' => ['Taken', 'bg-emerald-100 text-emerald-700'], 'pending' => ['Pending', 'bg-amber-100 text-amber-800'], 'not_taken' => ['Not Taken', 'bg-red-100 text-red-700'], default => ['Upcoming', 'bg-gray-100 text-gray-500'] }; @endphp
+                    <div class="mb-2 flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5 last:mb-0">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs font-extrabold text-gray-900">{{ $row->section_label }} <span class="font-semibold text-gray-400">· {{ $row->period_label }}</span></p>
+                            <p class="truncate text-[10px] font-semibold text-gray-500">{{ $row->subject_names }} · {{ $row->teacher_names }}</p>
+                        </div>
+                        <span class="shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black {{ $badge[1] }}">{{ $badge[0] }}</span>
+                    </div>
+                @empty
+                    <p class="py-8 text-center text-xs font-bold text-gray-400">No classes scheduled today.</p>
+                @endforelse
+            </div>
+        </div>
+    </div>
+
+    {{-- Classes taken modal --}}
+    <div x-show="takenModalOpen" x-cloak
+         class="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 pt-10 backdrop-blur-sm sm:pt-16"
+         x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click.self="takenModalOpen = false" @keydown.escape.window="takenModalOpen = false">
+        <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-4">
+                <div>
+                    <p class="text-sm font-black text-gray-900">Classes Taken</p>
+                    <p class="text-[11px] font-semibold text-gray-400">{{ $kpis['taken'] }} of {{ $kpis['scheduled'] }} · {{ now()->format('l, j M Y') }}</p>
+                </div>
+                <button type="button" @click="takenModalOpen = false" class="grid h-8 w-8 place-items-center rounded-lg bg-gray-100 text-lg font-black text-gray-500 hover:bg-gray-200">×</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto p-4">
+                @forelse($takenClassesDetail as $row)
+                    <div class="mb-2 flex items-center gap-3 rounded-xl border-l-4 border-l-emerald-400 bg-gray-50 px-3 py-2.5 last:mb-0">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs font-extrabold text-gray-900">{{ $row->section_label }} <span class="font-semibold text-gray-400">· {{ $row->period_label }}</span></p>
+                            <p class="truncate text-[10px] font-semibold text-gray-500">{{ $row->subject_names }} · {{ $row->teacher_names }}</p>
+                        </div>
+                        <span class="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[9px] font-black text-emerald-700">Taken</span>
+                    </div>
+                @empty
+                    <p class="py-8 text-center text-xs font-bold text-gray-400">No classes have submitted attendance yet.</p>
+                @endforelse
+            </div>
+        </div>
+    </div>
+
+    {{-- Classes not taken modal --}}
+    <div x-show="notTakenModalOpen" x-cloak
+         class="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 pt-10 backdrop-blur-sm sm:pt-16"
+         x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click.self="notTakenModalOpen = false" @keydown.escape.window="notTakenModalOpen = false">
+        <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-4">
+                <div>
+                    <p class="text-sm font-black text-gray-900">Classes NOT Taken</p>
+                    <p class="text-[11px] font-semibold text-gray-400">{{ $kpis['not_taken'] }} class{{ $kpis['not_taken'] === 1 ? '' : 'es' }} overdue · {{ now()->format('l, j M Y') }}</p>
+                </div>
+                <button type="button" @click="notTakenModalOpen = false" class="grid h-8 w-8 place-items-center rounded-lg bg-gray-100 text-lg font-black text-gray-500 hover:bg-gray-200">×</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto p-4">
+                @forelse($notTakenClassesDetail as $row)
+                    <div class="mb-2 flex items-center gap-3 rounded-xl border-l-4 border-l-red-500 bg-gray-50 px-3 py-2.5 last:mb-0">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs font-extrabold text-gray-900">{{ $row->section_label }} <span class="font-semibold text-gray-400">· {{ $row->period_label }}</span></p>
+                            <p class="truncate text-[10px] font-semibold text-gray-500">{{ $row->subject_names }} · {{ $row->teacher_names }}</p>
+                        </div>
+                        <span class="shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black {{ $row->status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700' }}">{{ $row->status === 'pending' ? 'Pending' : 'Not Taken' }}</span>
+                    </div>
+                @empty
+                    <p class="py-8 text-center text-xs font-bold text-gray-400">All started classes have marked attendance ✓</p>
+                @endforelse
+            </div>
+        </div>
+    </div>
+
+    {{-- Present students modal --}}
+    <div x-show="presentModalOpen" x-cloak
+         class="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 pt-10 backdrop-blur-sm sm:pt-16"
+         x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click.self="presentModalOpen = false" @keydown.escape.window="presentModalOpen = false">
+        <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-4">
+                <div>
+                    <p class="text-sm font-black text-gray-900">Students Present Today</p>
+                    <p class="text-[11px] font-semibold text-gray-400">{{ $kpis['students_present'] }} student{{ $kpis['students_present'] === 1 ? '' : 's' }} · {{ now()->format('l, j M Y') }}</p>
+                </div>
+                <button type="button" @click="presentModalOpen = false" class="grid h-8 w-8 place-items-center rounded-lg bg-gray-100 text-lg font-black text-gray-500 hover:bg-gray-200">×</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto p-4">
+                @forelse($presentStudentsToday as $group)
+                    <div class="mb-4 last:mb-0">
+                        <p class="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-400">{{ $group->label }} <span class="opacity-60">({{ $group->students->count() }})</span></p>
+                        <div class="space-y-2">
+                            @foreach($group->students as $student)
+                                <a href="{{ route('students.show', $student) }}" target="_blank" rel="noopener"
+                                   class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 transition-colors hover:bg-gray-100">
+                                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gray-200 text-[10px] font-black text-gray-600">{{ $initials($student->full_name ?? 'S') }}</span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-xs font-extrabold text-gray-900">{{ $student->full_name ?? 'Student' }} <span class="font-semibold text-gray-400">· {{ $student->roll_number ?? '—' }}</span></p>
+                                        <p class="truncate text-[10px] font-semibold text-gray-500">{{ $student->address_en ?: trim(collect([$student->permanent_tole, $student->permanent_municipality, $student->permanent_district])->filter()->implode(', ')) ?: 'No address on file' }}</p>
+                                        <p class="truncate text-[10px] font-semibold text-gray-400">{{ $phoneFor($student) ?: 'No contact on file' }}</p>
+                                    </div>
+                                    <svg class="h-4 w-4 shrink-0 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-8 text-center text-xs font-bold text-gray-400">No students present today.</p>
+                @endforelse
+            </div>
+        </div>
+    </div>
+
+    {{-- Absent students modal --}}
+    <div x-show="absentModalOpen" x-cloak
+         class="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 pt-10 backdrop-blur-sm sm:pt-16"
+         x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click.self="absentModalOpen = false" @keydown.escape.window="absentModalOpen = false">
+        <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-4">
+                <div>
+                    <p class="text-sm font-black text-gray-900">Students Absent Today</p>
+                    <p class="text-[11px] font-semibold text-gray-400">{{ $kpis['students_absent'] }} student{{ $kpis['students_absent'] === 1 ? '' : 's' }} · {{ now()->format('l, j M Y') }}</p>
+                </div>
+                <button type="button" @click="absentModalOpen = false" class="grid h-8 w-8 place-items-center rounded-lg bg-gray-100 text-lg font-black text-gray-500 hover:bg-gray-200">×</button>
+            </div>
+            <div class="max-h-[70vh] overflow-y-auto p-4">
+                @forelse($absentStudentsToday as $group)
+                    <div class="mb-4 last:mb-0">
+                        <p class="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-400">{{ $group->label }} <span class="opacity-60">({{ $group->students->count() }})</span></p>
+                        <div class="space-y-2">
+                            @foreach($group->students as $student)
+                                <a href="{{ route('students.show', $student) }}" target="_blank" rel="noopener"
+                                   class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 transition-colors hover:bg-gray-100">
+                                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gray-200 text-[10px] font-black text-gray-600">{{ $initials($student->full_name ?? 'S') }}</span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-xs font-extrabold text-gray-900">{{ $student->full_name ?? 'Student' }} <span class="font-semibold text-gray-400">· {{ $student->roll_number ?? '—' }}</span></p>
+                                        <p class="truncate text-[10px] font-semibold text-gray-500">{{ $student->address_en ?: trim(collect([$student->permanent_tole, $student->permanent_municipality, $student->permanent_district])->filter()->implode(', ')) ?: 'No address on file' }}</p>
+                                        <p class="truncate text-[10px] font-semibold text-gray-400">{{ $phoneFor($student) ?: 'No contact on file' }}</p>
+                                    </div>
+                                    <svg class="h-4 w-4 shrink-0 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-8 text-center text-xs font-bold text-gray-400">No students absent today ✓</p>
+                @endforelse
+            </div>
         </div>
     </div>
 
@@ -275,6 +462,8 @@
             </div>
         </div>
     </div>
+
+</div>
 
 @endsection
 

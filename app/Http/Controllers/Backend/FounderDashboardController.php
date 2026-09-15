@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Admission;
 use App\Models\Card\CardRequest;
-use App\Models\Card\Section;
+use App\Models\Card\Organization;
+use App\Models\Card\SubjectOffering;
 use App\Models\ContactMessage;
 use App\Models\Examination\ExaminationMarkSubmission;
 use App\Models\Hajiri\LeaveRequest;
@@ -15,6 +16,7 @@ use App\Models\StoreRequisition;
 use App\Models\TeachingLearning\RoutineAttendanceSession;
 use App\Models\TeachingLearning\RoutineLesson;
 use App\Models\TeachingLearning\RoutineStudentAttendance;
+use App\Models\User;
 use App\Models\VacancyApplication;
 use App\Models\Work\WorkTaskSubmission;
 use Carbon\Carbon;
@@ -72,13 +74,33 @@ class FounderDashboardController extends Controller
         $streaks = $this->absenceStreaks($today);
         $trend = $this->trend($today, $chartDays);
         $heatmap = $this->heatmap($today, min($chartDays, 7));
-        $topAbsenteeClasses = collect($todayStatuses)
-            ->where('status', 'absent')
+
+        $groupStudentsBySection = fn (Collection $rows) => $rows
+            ->filter(fn ($row) => $row->student)
             ->groupBy('section_label')
-            ->map(fn ($rows, $label) => (object) ['label' => $label, 'count' => $rows->count()])
+            ->map(fn ($group, $label) => (object) [
+                'label' => $label ?: 'Unassigned',
+                'students' => $group->pluck('student')->sortBy('full_name')->values(),
+            ])
+            ->sortBy('label')
+            ->values();
+
+        $absentStudentsToday = $groupStudentsBySection(collect($todayStatuses)->where('status', 'absent'));
+        $presentStudentsToday = $groupStudentsBySection(collect($todayStatuses)->where('status', 'present'));
+        $topAbsenteeClasses = $absentStudentsToday
+            ->map(fn ($group) => (object) ['label' => $group->label, 'count' => $group->students->count()])
             ->sortByDesc('count')
             ->take(10)
             ->values();
+
+        $formatLessonRow = fn ($row) => (object) [
+            'period_label' => 'P'.$row->lesson->period->position.' · '.$row->lesson->period->name,
+            'section_label' => $this->sectionLabel($row->lesson->section),
+            'subject_names' => $row->lesson->groups->flatMap(fn ($group) => $group->offering ? [$group->offering->subject] : [])
+                ->filter()->unique('id')->pluck('name')->implode(', ') ?: '—',
+            'teacher_names' => $row->lesson->groups->flatMap->teachers->unique('id')->pluck('name')->implode(', ') ?: 'Unassigned',
+            'status' => $row->status,
+        ];
 
         return view('backend.founder-dashboard.index', [
             'range' => $range,
@@ -89,6 +111,11 @@ class FounderDashboardController extends Controller
             'trend' => $trend,
             'heatmap' => $heatmap,
             'topAbsenteeClasses' => $topAbsenteeClasses,
+            'absentStudentsToday' => $absentStudentsToday,
+            'presentStudentsToday' => $presentStudentsToday,
+            'allClassesDetail' => $lessonRows->map($formatLessonRow)->values(),
+            'takenClassesDetail' => $lessonRows->where('taken', true)->map($formatLessonRow)->values(),
+            'notTakenClassesDetail' => $notTakenRows->map($formatLessonRow)->values(),
         ]);
     }
 
@@ -101,57 +128,170 @@ class FounderDashboardController extends Controller
 
     public function classAttendance(Request $request)
     {
-        $date = $request->filled('date') ? Carbon::parse($request->get('date')) : Carbon::today();
-        $sections = Section::with('department')->get()
-            ->sortBy(fn ($section) => $this->sectionLabel($section))
-            ->values();
+        $organizations = Organization::with(['departments' => fn ($query) => $query->where('is_active', true)
+            ->with(['sections' => fn ($sections) => $sections->where('is_active', true)->orderBy('name')])])
+            ->where('is_active', true)->orderBy('name')->get();
+        $organization = $organizations->firstWhere('id', $request->integer('organization_id'));
+        $department = $organization?->departments->firstWhere('id', $request->integer('department_id'));
+        $section = $department?->sections->firstWhere('id', $request->integer('section_id'));
 
-        $lessons = $this->lessonsForDate($date);
-        $sectionIdsWithLessons = $lessons->pluck('section_id')->unique();
-
-        $selectedSectionId = $request->integer('section') ?: $sectionIdsWithLessons->first();
-        $sectionLessons = $lessons->where('section_id', $selectedSectionId)->values();
-        $periods = $sectionLessons->pluck('period')->filter()->unique('position')->sortBy('position')->values();
-
-        $rows = collect();
-        if ($sectionLessons->isNotEmpty()) {
-            $records = RoutineStudentAttendance::query()
-                ->with(['student', 'session.lesson.period'])
-                ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $date)
-                    ->whereNotNull('submitted_at')
-                    ->whereIn('routine_lesson_id', $sectionLessons->pluck('id')))
-                ->get();
-
-            $rows = $records->groupBy('student_id')->map(function (Collection $studentRows) use ($periods) {
-                $counted = $studentRows->where('status', '!=', 'excused');
-                $absentCount = $counted->where('status', 'absent')->count();
-                $dayStatus = $counted->isNotEmpty() && $absentCount > $counted->count() / 2 ? 'absent' : 'present';
-                $byPosition = $studentRows->keyBy(fn ($row) => $row->session->lesson->period->position ?? null);
-
-                return (object) [
-                    'student' => $studentRows->first()->student,
-                    'day_status' => $dayStatus,
-                    'cells' => $periods->map(fn ($period) => (object) [
-                        'period' => $period,
-                        'status' => $byPosition->get($period->position)?->status,
-                    ]),
-                ];
-            })->sortBy(fn ($row) => $row->student->full_name ?? '')->values();
+        $sectionIds = null;
+        if ($section) {
+            $sectionIds = collect([$section->id]);
+        } elseif ($department) {
+            $sectionIds = $department->sections->pluck('id');
+        } elseif ($organization) {
+            $sectionIds = $organization->departments->flatMap->sections->pluck('id');
         }
 
-        return view('backend.founder-dashboard.attendance', [
-            'date' => $date,
-            'sections' => $sections,
-            'selectedSectionId' => $selectedSectionId,
-            'periods' => $periods,
+        $subjects = SubjectOffering::with('subject')
+            ->when($department, fn ($query) => $query->where('department_id', $department->id))
+            ->get()->pluck('subject')->filter()->unique('id')->sortBy('name')->values();
+        $subjectId = $request->integer('subject_id') ?: null;
+        if ($subjectId && ! $subjects->contains('id', $subjectId)) {
+            $subjectId = null;
+        }
+
+        $teachers = User::role('teacher')->orderBy('name')->get(['id', 'name']);
+        $teacherId = $request->integer('teacher_id') ?: null;
+
+        $studentQuery = trim((string) $request->get('q', ''));
+
+        $today = Carbon::today();
+        $from = $request->filled('from') ? Carbon::parse($request->get('from')) : $today->copy();
+        $to = $request->filled('to') ? Carbon::parse($request->get('to')) : $today->copy();
+        if ($to->lt($from)) {
+            [$from, $to] = [$to, $from];
+        }
+        if ($from->diffInDays($to) > 62) {
+            $to = $from->copy()->addDays(62);
+        }
+
+        $filters = compact('organizations', 'organization', 'department', 'section', 'subjects', 'subjectId', 'teachers', 'teacherId', 'studentQuery', 'from', 'to');
+
+        $matchesStudentQuery = function ($student) use ($studentQuery) {
+            if ($studentQuery === '') {
+                return true;
+            }
+            $needle = mb_strtolower($studentQuery);
+
+            return str_contains(mb_strtolower($student->full_name ?? ''), $needle)
+                || str_contains(mb_strtolower((string) ($student->roll_number ?? '')), $needle);
+        };
+
+        if ($from->isSameDay($to) && $sectionIds !== null && $sectionIds->count() === 1) {
+            $lessons = $this->filteredLessonsForDate($from, $sectionIds, $subjectId, $teacherId);
+            $periods = $lessons->pluck('period')->filter()->unique('position')->sortBy('position')->values();
+
+            $rows = collect();
+            if ($lessons->isNotEmpty()) {
+                $records = RoutineStudentAttendance::query()
+                    ->with(['student', 'session.lesson.period'])
+                    ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $from)
+                        ->whereNotNull('submitted_at')
+                        ->whereIn('routine_lesson_id', $lessons->pluck('id')))
+                    ->get();
+
+                $rows = $records->groupBy('student_id')->map(function (Collection $studentRows) use ($periods) {
+                    $counted = $studentRows->where('status', '!=', 'excused');
+                    $absentCount = $counted->where('status', 'absent')->count();
+                    $dayStatus = $counted->isNotEmpty() && $absentCount > $counted->count() / 2 ? 'absent' : 'present';
+                    $byPosition = $studentRows->keyBy(fn ($row) => $row->session->lesson->period->position ?? null);
+
+                    return (object) [
+                        'student' => $studentRows->first()->student,
+                        'day_status' => $dayStatus,
+                        'cells' => $periods->map(fn ($period) => (object) [
+                            'period' => $period,
+                            'status' => $byPosition->get($period->position)?->status,
+                        ]),
+                    ];
+                })->filter(fn ($row) => $matchesStudentQuery($row->student))
+                    ->sortBy(fn ($row) => $row->student->full_name ?? '')->values();
+            }
+
+            return view('backend.founder-dashboard.attendance', array_merge($filters, [
+                'mode' => 'daily',
+                'periods' => $periods,
+                'rows' => $rows,
+                'noLessonsToday' => $lessons->isEmpty(),
+                'summary' => [
+                    'total' => $rows->count(),
+                    'present' => $rows->where('day_status', 'present')->count(),
+                    'absent' => $rows->where('day_status', 'absent')->count(),
+                ],
+            ]));
+        }
+
+        $studentAgg = [];
+        $cursor = $from->copy();
+        while ($cursor->lte($to)) {
+            $lessons = $this->filteredLessonsForDate($cursor, $sectionIds, $subjectId, $teacherId);
+            if ($lessons->isNotEmpty()) {
+                $records = RoutineStudentAttendance::query()
+                    ->with(['student', 'session.lesson.section.department'])
+                    ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $cursor)
+                        ->whereNotNull('submitted_at')
+                        ->whereIn('routine_lesson_id', $lessons->pluck('id')))
+                    ->get();
+
+                foreach ($records->groupBy('student_id') as $studentId => $studentRows) {
+                    $counted = $studentRows->where('status', '!=', 'excused');
+                    if ($counted->isEmpty()) {
+                        continue;
+                    }
+                    $absentCount = $counted->where('status', 'absent')->count();
+                    $dayStatus = $absentCount > $counted->count() / 2 ? 'absent' : 'present';
+                    $first = $studentRows->first();
+
+                    $studentAgg[$studentId] ??= [
+                        'student' => $first->student,
+                        'section_label' => $this->sectionLabel($first->session->lesson->section ?? null),
+                        'scheduled' => 0, 'present' => 0, 'absent' => 0,
+                    ];
+                    $studentAgg[$studentId]['scheduled']++;
+                    $studentAgg[$studentId][$dayStatus]++;
+                }
+            }
+            $cursor->addDay();
+        }
+
+        $rows = collect($studentAgg)->map(fn ($row) => (object) [
+            'student' => $row['student'],
+            'section_label' => $row['section_label'],
+            'scheduled' => $row['scheduled'],
+            'present' => $row['present'],
+            'absent' => $row['absent'],
+            'rate' => $row['scheduled'] > 0 ? (int) round($row['present'] / $row['scheduled'] * 100) : 0,
+        ])->filter(fn ($row) => $matchesStudentQuery($row->student))
+            ->sortBy('rate')->values();
+
+        return view('backend.founder-dashboard.attendance', array_merge($filters, [
+            'mode' => 'range',
             'rows' => $rows,
-            'noLessonsToday' => $sectionLessons->isEmpty(),
             'summary' => [
-                'total' => $rows->count(),
-                'present' => $rows->where('day_status', 'present')->count(),
-                'absent' => $rows->where('day_status', 'absent')->count(),
+                'students' => $rows->count(),
+                'avg_rate' => $rows->count() > 0 ? (int) round($rows->avg('rate')) : 0,
             ],
-        ]);
+        ]));
+    }
+
+    private function filteredLessonsForDate(Carbon $date, ?Collection $sectionIds, ?int $subjectId, ?int $teacherId): Collection
+    {
+        $lessons = $this->lessonsForDate($date);
+        if ($sectionIds !== null) {
+            $lessons = $lessons->whereIn('section_id', $sectionIds->all());
+        }
+        if ($subjectId || $teacherId) {
+            $lessons = $lessons->filter(fn ($lesson) => $lesson->groups->contains(function ($group) use ($subjectId, $teacherId) {
+                $subjectOk = ! $subjectId || $group->offering?->subject_id === $subjectId;
+                $teacherOk = ! $teacherId || $group->teachers->contains('id', $teacherId);
+
+                return $subjectOk && $teacherOk;
+            }));
+        }
+
+        return $lessons->values();
     }
 
     public function analysis()
@@ -236,7 +376,7 @@ class FounderDashboardController extends Controller
     private function lessonsForDate(Carbon $date): Collection
     {
         return RoutineLesson::query()
-            ->with(['section.department', 'period', 'endPeriod', 'groups.teachers'])
+            ->with(['section.department', 'period', 'endPeriod', 'groups.teachers', 'groups.offering.subject'])
             ->where('day_of_week', $date->format('l'))
             ->whereHas('plan', fn ($query) => $query->where('status', 'published'))
             ->get()

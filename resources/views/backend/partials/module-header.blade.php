@@ -16,6 +16,7 @@
         default => 'website',
     };
     if (request()->is('my-payslips*')) $currentModule = 'billing';
+    $isFounderView = request()->routeIs('admin.founder.*');
     $user = auth()->user();
     $hasCustomPermissions = $user?->permissions()->exists() ?? false;
     $isNormalTeacher = $user?->isTeacher() && ! $user?->isAdmin() && ! $hasCustomPermissions;
@@ -263,8 +264,8 @@
                         @endif
 
                         @if($notifLeaveReqs > 0)
-                        <a href="{{ route('hajiri.leave-requests.index') }}" @click="notifOpen = false"
-                           class="flex items-center gap-3 px-4 py-3 hover:bg-amber-50 transition-colors group">
+                        <a href="{{ route('hajiri.leave-requests.index') }}" @click="{{ $isFounderView ? '$event.preventDefault()' : 'notifOpen = false' }}"
+                           class="flex items-center gap-3 px-4 py-3 transition-colors group {{ $isFounderView ? 'cursor-default' : 'hover:bg-amber-50' }}">
                             <div class="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
                                 <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -279,8 +280,8 @@
                         @endif
 
                         @if($notifStaffCards > 0)
-                        <a href="{{ route('hajiri.staff-card-request.admin') }}" @click="notifOpen = false"
-                           class="flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors group">
+                        <a href="{{ route('hajiri.staff-card-request.admin') }}" @click="{{ $isFounderView ? '$event.preventDefault()' : 'notifOpen = false' }}"
+                           class="flex items-center gap-3 px-4 py-3 transition-colors group {{ $isFounderView ? 'cursor-default' : 'hover:bg-green-50' }}">
                             <div class="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
                                 <svg class="w-4 h-4 text-[#1a5632]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
@@ -299,8 +300,8 @@
                         <div class="px-4 pt-3 pb-1">
                             <p class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Student Module</p>
                         </div>
-                        <a href="{{ route('admin.card-requests') }}" @click="notifOpen = false"
-                           class="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors group">
+                        <a href="{{ route('admin.card-requests') }}" @click="{{ $isFounderView ? '$event.preventDefault()' : 'notifOpen = false' }}"
+                           class="flex items-center gap-3 px-4 py-3 transition-colors group {{ $isFounderView ? 'cursor-default' : 'hover:bg-blue-50' }}">
                             <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
                                 <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 9a2 2 0 10-4 0v5a2 2 0 01-2 2h6m-6-4h4m8 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -319,8 +320,8 @@
                         <div class="px-4 pt-3 pb-1">
                             <p class="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">Website</p>
                         </div>
-                        <a href="{{ route('admin.contacts.index') }}" @click="notifOpen = false"
-                           class="flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition-colors group">
+                        <a href="{{ route('admin.contacts.index') }}" @click="{{ $isFounderView ? '$event.preventDefault()' : 'notifOpen = false' }}"
+                           class="flex items-center gap-3 px-4 py-3 transition-colors group {{ $isFounderView ? 'cursor-default' : 'hover:bg-purple-50' }}">
                             <div class="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
                                 <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
