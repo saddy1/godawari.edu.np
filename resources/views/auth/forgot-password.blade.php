@@ -17,7 +17,7 @@
             </div>
         </a>
         <h1 class="text-2xl font-bold text-[#0b2415]">Reset Password</h1>
-        <p class="text-gray-500 text-sm mt-1">Enter your account email to receive a reset link.</p>
+        <p class="text-gray-500 text-sm mt-1">Enter your account email to receive a verification code and reset link.</p>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
@@ -37,7 +37,7 @@
             </div>
 
             <button type="submit" class="w-full py-4 bg-[#1a5632] text-white font-bold rounded-xl hover:bg-[#0b2415] transition-all duration-300 text-base">
-                Send Reset Link
+                Send Code &amp; Reset Link
             </button>
         </form>
 

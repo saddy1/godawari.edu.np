@@ -28,21 +28,26 @@ class PasswordResetController extends Controller
         ]);
 
         try {
-            $status = Password::sendResetLink($request->only('email'), function ($user, $token) {
+            $status = Password::sendResetLink($request->only('email'), function ($user, $token) use ($request) {
+                $identity = ['email' => $user->getEmailForPasswordReset(), 'token' => $token];
+                $code = (string) random_int(100000, 999999);
                 $resetUrl = route('password.reset', ['token' => $token, 'email' => $user->getEmailForPasswordReset()]);
                 $expires = config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60);
-                Mail::send(['html' => 'emails.password-reset', 'text' => 'emails.password-reset-text'], compact('resetUrl', 'expires'), function ($message) use ($user) {
+                Mail::send(['html' => 'emails.password-reset', 'text' => 'emails.password-reset-text'], compact('resetUrl', 'expires', 'code'), function ($message) use ($user) {
                     $message->to($user->getEmailForPasswordReset())->subject('Reset your password');
                 });
+                Cache::put($this->codeKey($identity), Hash::make($code), now()->addMinutes(10));
+                $request->session()->forget('password_reset_identity');
+                $request->session()->put('password_reset_pending', $identity);
             });
         } catch (Throwable $exception) {
             return back()
                 ->withInput($request->only('email'))
-                ->withErrors(['email' => 'Password reset email could not be sent: ' . $exception->getMessage()]);
+                ->withErrors(['email' => 'Password reset email could not be sent. Please try again shortly.']);
         }
 
         return $status === Password::RESET_LINK_SENT
-            ? back()->with('status', __($status))
+            ? redirect()->route('password.code.form')->with('status', 'We sent you a verification code and a password reset link.')
             : back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
     }
 
@@ -75,39 +80,24 @@ class PasswordResetController extends Controller
         return 'password-reset-code:'.hash('sha256', $identity['email'].'|'.$identity['token']);
     }
 
-    public function sendCode(Request $request)
+    public function codeForm(Request $request)
     {
-        $identity = $this->identity($request);
-        $key = $this->codeKey($identity);
-        $limit = 'password-reset-send:'.hash('sha256', $identity['email']);
-        if (RateLimiter::tooManyAttempts($limit, 1)) {
-            return back()->withErrors(['code' => 'Please wait a minute before requesting another code.']);
+        $identity = $request->session()->get('password_reset_pending');
+        if (!$identity) {
+            return redirect()->route('password.request');
         }
-        RateLimiter::hit($limit, 60);
-        $code = (string) random_int(100000, 999999);
-        try {
-            Mail::send(['html' => 'emails.password-reset', 'text' => 'emails.password-reset-text'], ['code' => $code], function ($message) use ($identity) {
-                $message->to($identity['email'])->subject('Password reset verification code');
-            });
-        } catch (Throwable $exception) {
-            report($exception);
-            return back()->withErrors(['code' => 'The code could not be sent. Please try again shortly.']);
-        }
-        Cache::put($key, Hash::make($code), now()->addMinutes(10));
-        return back()->with('status', 'A verification code has been sent to your email. It expires in 10 minutes.');
+        return view('auth.reset-code', ['email' => $identity['email']]);
     }
 
-    public function update(Request $request)
+    public function verifyCode(Request $request)
     {
-        $identity = $this->identity($request);
-        $request->validate([
-            'token' => ['required'],
-            'code' => ['required', 'digits:6'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)],
-        ]);
-
+        $request->validate(['code' => ['required', 'digits:6']]);
+        $identity = $request->session()->get('password_reset_pending');
+        if (!$identity) {
+            return redirect()->route('password.request');
+        }
         $key = $this->codeKey($identity);
-        $attempts = $key.':attempts';
+        $attempts = 'password-reset-attempts:'.hash('sha256', $identity['email']);
         if (RateLimiter::tooManyAttempts($attempts, 5)) {
             return back()->withErrors(['code' => 'Too many attempts. Please wait 10 minutes before trying again.']);
         }
@@ -116,6 +106,25 @@ class PasswordResetController extends Controller
         if (!$hash || !Hash::check((string) $request->input('code'), $hash)) {
             return back()->withErrors(['code' => 'The verification code is incorrect or expired.']);
         }
+        $user = Password::getUser(['email' => $identity['email']]);
+        if (!$user || !Password::tokenExists($user, $identity['token'])) {
+            return redirect()->route('password.request')->withErrors(['email' => 'This reset request has expired. Please request a new one.']);
+        }
+        Cache::forget($key);
+        RateLimiter::clear($attempts);
+        $request->session()->forget('password_reset_pending');
+        $request->session()->put('password_reset_identity', $identity);
+        return redirect()->route('password.reset', $identity);
+    }
+
+    public function update(Request $request)
+    {
+        $identity = $this->identity($request);
+        $request->validate([
+            'token' => ['required'],
+            'password' => ['required', 'confirmed', PasswordRule::min(8)],
+        ]);
+
         $status = Password::reset(
             array_merge($request->only('password', 'password_confirmation'), $identity),
             function ($user, string $password) {
@@ -127,8 +136,8 @@ class PasswordResetController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
-            Cache::forget($key);
-            RateLimiter::clear($attempts);
+            Cache::forget($this->codeKey($identity));
+            $request->session()->forget('password_reset_pending');
             $request->session()->forget('password_reset_identity');
         }
 

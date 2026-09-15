@@ -189,7 +189,7 @@
                         <p class="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-400">{{ $group->label }} <span class="opacity-60">({{ $group->students->count() }})</span></p>
                         <div class="space-y-2">
                             @foreach($group->students as $student)
-                                <a href="{{ route('students.show', $student) }}" target="_blank" rel="noopener"
+                                <a href="{{ route('admin.founder.students.show', $student) }}"
                                    class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 transition-colors hover:bg-gray-100">
                                     <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gray-200 text-[10px] font-black text-gray-600">{{ $initials($student->full_name ?? 'S') }}</span>
                                     <div class="min-w-0 flex-1">
@@ -229,7 +229,7 @@
                         <p class="mb-2 text-[10px] font-black uppercase tracking-wide text-gray-400">{{ $group->label }} <span class="opacity-60">({{ $group->students->count() }})</span></p>
                         <div class="space-y-2">
                             @foreach($group->students as $student)
-                                <a href="{{ route('students.show', $student) }}" target="_blank" rel="noopener"
+                                <a href="{{ route('admin.founder.students.show', $student) }}"
                                    class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 transition-colors hover:bg-gray-100">
                                     <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gray-200 text-[10px] font-black text-gray-600">{{ $initials($student->full_name ?? 'S') }}</span>
                                     <div class="min-w-0 flex-1">

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Admission;
 use App\Models\Card\CardRequest;
 use App\Models\Card\Organization;
+use App\Models\Card\Student;
 use App\Models\Card\SubjectOffering;
 use App\Models\ContactMessage;
 use App\Models\Examination\ExaminationMarkSubmission;
@@ -19,6 +20,7 @@ use App\Models\TeachingLearning\RoutineStudentAttendance;
 use App\Models\User;
 use App\Models\VacancyApplication;
 use App\Models\Work\WorkTaskSubmission;
+use App\Services\AttendanceSessionCloser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -29,8 +31,12 @@ class FounderDashboardController extends Controller
     private const STREAK_LOOKBACK_DAYS = 21;
     private const STREAK_SCHOOL_DAYS = 12;
 
-    public function index(Request $request)
+    public function index(Request $request, AttendanceSessionCloser $sessionCloser)
     {
+        // Self-heals sessions left "pending" after their class period ended, in
+        // case the scheduled attendance:auto-close cron isn't running on this host.
+        $sessionCloser->closeStaleSessions();
+
         $range = in_array($request->get('range'), ['week', 'month'], true) ? $request->get('range') : 'today';
         $chartDays = $range === 'month' ? 30 : 7;
         $today = Carbon::today();
@@ -124,6 +130,45 @@ class FounderDashboardController extends Controller
         return view('backend.founder-dashboard.pending', [
             'items' => $this->pendingApprovalCategories(),
         ]);
+    }
+
+    public function students(Request $request)
+    {
+        $organizations = Organization::with(['departments' => fn ($query) => $query->where('is_active', true)
+            ->with(['sections' => fn ($sections) => $sections->where('is_active', true)->orderBy('name')])])
+            ->where('is_active', true)->orderBy('name')->get();
+        $organization = $organizations->firstWhere('id', $request->integer('organization_id'));
+        $department = $organization?->departments->firstWhere('id', $request->integer('department_id'));
+        $section = $department?->sections->firstWhere('id', $request->integer('section_id'));
+
+        $search = trim((string) $request->get('q', ''));
+
+        $query = match (true) {
+            $section !== null => $section->studentsQuery(),
+            $department !== null => $department->studentsQuery(),
+            $organization !== null => Student::where('organization', $organization->slug),
+            default => Student::query(),
+        };
+
+        $students = $query->where('member_type', 'student')
+            ->when($search !== '', fn ($q) => $q->where(function ($inner) use ($search) {
+                $inner->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('roll_number', 'like', "%{$search}%");
+            }))
+            ->orderBy('first_name')
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('backend.founder-dashboard.students.index', compact(
+            'organizations', 'organization', 'department', 'section', 'search', 'students'
+        ));
+    }
+
+    public function showStudent(Student $student)
+    {
+        return view('backend.founder-dashboard.students.show', compact('student'));
     }
 
     public function classAttendance(Request $request)

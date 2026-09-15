@@ -15,28 +15,17 @@
             <img src="{{ $siteSettings->logoUrl() }}" alt="Logo" class="w-full h-full object-contain">
         </div>
         <h1 class="text-2xl font-bold text-[#0b2415]">Set New Password</h1>
-        <p class="text-gray-500 text-sm mt-1">Request an email code, then enter it below to set your new password.</p>
+        <p class="text-gray-500 text-sm mt-1">Choose a new password for your account.</p>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
         @if(session('status'))<p role="status" class="mb-4 rounded-xl bg-green-50 p-3 text-sm text-green-700">{{ session('status') }}</p>@endif
-        <form method="POST" action="{{ route('password.code') }}" class="mb-5">
-            @csrf
-            <input type="hidden" name="token" value="{{ $token }}">
-            <p class="text-sm font-bold text-gray-700">Email Address</p>
-            <p class="mt-2 break-all rounded-xl bg-gray-50 p-3 text-sm">{{ $email }}</p>
-            <button type="submit" class="mt-3 rounded-xl border border-green-700 px-4 py-2 text-sm font-bold text-green-800">Send verification code</button>
-        </form>
+        <p class="mb-5 break-all text-sm text-gray-600">{{ $email }}</p>
+        @error('code')<p role="alert" class="mb-4 text-sm text-red-600">{{ $message }}</p>@enderror
+        @error('email')<p role="alert" class="mb-4 text-sm text-red-600">{{ $message }}</p>@enderror
         <form method="POST" action="{{ route('password.update') }}" class="space-y-5">
             @csrf
             <input type="hidden" name="token" value="{{ $token }}">
-
-            <div>
-                <label for="code" class="block text-sm font-bold text-gray-700 mb-2">Verification Code</label>
-                <input id="code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm">
-                @error('code')<p role="alert" class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
-                @error('email')<p role="alert" class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
-            </div>
 
             <div>
                 <label for="password" class="block text-sm font-bold text-gray-700 mb-2">New Password</label>

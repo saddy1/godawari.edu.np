@@ -22,7 +22,7 @@
     <tr><td style="padding:32px 28px;">
         <h1 style="margin:0 0 16px;font-size:27px;line-height:1.25;color:{{ $dark }};">{{ $heading }}</h1>
         @if($isCode)
-            <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">Enter the code below on the password reset page, then choose your new password.</p>
+            <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">Enter this code on the verification page to continue to your new password. Or use the reset link below.</p>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px;background-color:#f0f7f8;border:1px solid #d5e7e9;border-radius:12px;">
                 <p style="margin:0 0 12px;font-size:11px;font-weight:bold;letter-spacing:2px;color:{{ $primary }};">YOUR VERIFICATION CODE</p>
                 <p style="margin:0;font-family:Consolas,monospace;font-size:36px;font-weight:bold;letter-spacing:6px;color:{{ $dark }};">{{ $code }}</p>
@@ -32,13 +32,18 @@
         @else
             <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">We received a request to reset your account password. Use the button below to get started.</p>
             <table role="presentation" cellspacing="0" cellpadding="0"><tr><td align="center" bgcolor="{{ $primary }}" style="border-radius:10px;"><a href="{{ $resetUrl }}" style="display:inline-block;padding:16px 26px;border:1px solid {{ $primary }};border-radius:10px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;">Reset password &rarr;</a></td></tr></table>
-            <p style="margin:20px 0 0;font-size:13px;line-height:1.7;">This link expires in {{ $expires }} minutes. On the reset page, request an email verification code to complete your password change.</p>
+            <p style="margin:20px 0 0;font-size:13px;line-height:1.7;">This link expires in {{ $expires }} minutes. Open it to choose your new password directly.</p>
+        @endif
+        @if($isCode && isset($resetUrl))
+            <p style="margin:24px 0 14px;font-size:14px;line-height:1.7;">Prefer a link? Open the password form directly:</p>
+            <table role="presentation" cellspacing="0" cellpadding="0"><tr><td bgcolor="{{ $primary }}" style="border-radius:10px;"><a href="{{ $resetUrl }}" style="display:inline-block;padding:16px 26px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;">Change password &rarr;</a></td></tr></table>
+            <p style="margin:12px 0 0;font-size:12px;color:#64748b;">This link expires in {{ $expires }} minutes. No code is needed when using the link.</p>
         @endif
         <p style="margin:24px 0 0;padding-top:20px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.7;color:#64748b;">If you didn’t request a password reset, you can ignore this email. Your password will stay the same.</p>
-        @unless($isCode)
+        @if(isset($resetUrl))
             <p style="margin:20px 0 6px;font-size:12px;color:#64748b;">Button not working? Copy this link into your browser:</p>
             <a href="{{ $resetUrl }}" style="font-size:11px;line-height:1.6;color:{{ $primary }};word-break:break-all;overflow-wrap:anywhere;">{{ $resetUrl }}</a>
-        @endunless
+        @endif
     </td></tr>
     <tr><td align="center" style="padding:20px 24px;background-color:#f8fafc;border-top:1px solid #e2e8f0;">
         <p style="margin:0;font-size:12px;font-weight:bold;color:{{ $dark }};">{{ $school }}</p>

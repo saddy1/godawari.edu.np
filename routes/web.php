@@ -138,9 +138,10 @@ Route::middleware('guest')->group(function () {
     Route::get('/applicant/login', [ApplicantLoginController::class, 'showLoginForm'])->middleware('module.enabled:vacancy')->name('applicant.login');
     Route::post('/applicant/login', [ApplicantLoginController::class, 'login'])->middleware('module.enabled:vacancy')->name('applicant.login.submit');
     Route::get('/forgot-password', [PasswordResetController::class, 'request'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetController::class, 'email'])->name('password.email');
+    Route::post('/forgot-password', [PasswordResetController::class, 'email'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reset-password-code', [PasswordResetController::class, 'codeForm'])->name('password.code.form');
+    Route::post('/reset-password-code', [PasswordResetController::class, 'verifyCode'])->middleware('throttle:10,1')->name('password.code.verify');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'reset'])->name('password.reset');
-    Route::post('/reset-password/code', [PasswordResetController::class, 'sendCode'])->middleware('throttle:5,1')->name('password.code');
     Route::post('/reset-password', [PasswordResetController::class, 'update'])->name('password.update');
 });
 Route::post('/applicant/logout', [ApplicantLoginController::class, 'logout'])
@@ -289,6 +290,8 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
         Route::get('/founder-dashboard/pending', [FounderDashboardController::class, 'pendingApprovals'])->name('admin.founder.pending');
         Route::get('/founder-dashboard/attendance', [FounderDashboardController::class, 'classAttendance'])->name('admin.founder.attendance');
         Route::get('/founder-dashboard/analysis', [FounderDashboardController::class, 'analysis'])->name('admin.founder.analysis');
+        Route::get('/founder-dashboard/students', [FounderDashboardController::class, 'students'])->name('admin.founder.students.index');
+        Route::get('/founder-dashboard/students/{student}', [FounderDashboardController::class, 'showStudent'])->name('admin.founder.students.show');
     });
 
     Route::middleware('super_admin')->group(function () {
