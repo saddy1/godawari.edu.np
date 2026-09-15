@@ -102,7 +102,11 @@
     <div x-data="{ sidebarOpen: false }" class="flex h-dvh overflow-hidden">
         
         {{-- Sidebar Component --}}
-        @include('backend.partials.sidebar')
+        @if(request()->routeIs('admin.founder.*') && auth()->user()?->isSuperAdmin())
+            @include('backend.partials.founder-sidebar')
+        @else
+            @include('backend.partials.sidebar')
+        @endif
 
         {{-- Main Content Wrapper --}}
         <div class="relative flex flex-col flex-1 min-w-0 overflow-y-auto overflow-x-hidden" data-page-scroll-root>

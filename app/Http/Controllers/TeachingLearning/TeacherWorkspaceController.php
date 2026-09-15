@@ -80,7 +80,7 @@ class TeacherWorkspaceController extends Controller
     {
         $routineLesson->load(['plan.organization', 'plan.department', 'section', 'period', 'endPeriod', 'groups.offering.subject', 'groups.teachers', 'groups.students']);
         $groups = $this->authorizeAttendance($routineLesson, $request->user(), false);
-        $students = $groups->flatMap->students->unique('id')->sortBy(fn ($student) => sprintf('%010s-%s', $student->roll_number, $student->full_name))->values();
+        $students = $groups->flatMap->students->unique('id')->sortBy(fn ($student) => trim($student->full_name), SORT_NATURAL | SORT_FLAG_CASE)->values();
         $session = RoutineAttendanceSession::with('attendances')->where('routine_lesson_id', $routineLesson->id)
             ->whereDate('attendance_date', now()->toDateString())->first();
         $attendance = $session?->attendances?->keyBy('student_id') ?? collect();

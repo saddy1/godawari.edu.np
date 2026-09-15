@@ -285,6 +285,9 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     // Staff roles and module access — super-admin only
     Route::middleware('super_admin')->group(function () {
         Route::get('/founder-dashboard', [FounderDashboardController::class, 'index'])->name('admin.founder.dashboard');
+        Route::get('/founder-dashboard/pending', [FounderDashboardController::class, 'pendingApprovals'])->name('admin.founder.pending');
+        Route::get('/founder-dashboard/attendance', [FounderDashboardController::class, 'classAttendance'])->name('admin.founder.attendance');
+        Route::get('/founder-dashboard/analysis', [FounderDashboardController::class, 'analysis'])->name('admin.founder.analysis');
         Route::get('/users', [AdminUserController::class, 'index'])->middleware('permission:users.view')->name('admin.users.index');
         Route::get('/users/hr-members/search', [AdminUserController::class, 'searchHrMembers'])->middleware('permission:users.create')->name('admin.users.hr-members.search');
         Route::post('/users', [AdminUserController::class, 'store'])->middleware('permission:users.create')->name('admin.users.store');

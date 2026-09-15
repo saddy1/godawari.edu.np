@@ -3,9 +3,20 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admission;
+use App\Models\Card\CardRequest;
+use App\Models\Card\Section;
+use App\Models\ContactMessage;
+use App\Models\Examination\ExaminationMarkSubmission;
+use App\Models\Hajiri\LeaveRequest;
+use App\Models\Hajiri\StaffCardRequest;
+use App\Models\StorePurchaseOrder;
+use App\Models\StoreRequisition;
 use App\Models\TeachingLearning\RoutineAttendanceSession;
 use App\Models\TeachingLearning\RoutineLesson;
 use App\Models\TeachingLearning\RoutineStudentAttendance;
+use App\Models\VacancyApplication;
+use App\Models\Work\WorkTaskSubmission;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -78,6 +89,147 @@ class FounderDashboardController extends Controller
             'trend' => $trend,
             'heatmap' => $heatmap,
             'topAbsenteeClasses' => $topAbsenteeClasses,
+        ]);
+    }
+
+    public function pendingApprovals()
+    {
+        return view('backend.founder-dashboard.pending', [
+            'items' => $this->pendingApprovalCategories(),
+        ]);
+    }
+
+    public function classAttendance(Request $request)
+    {
+        $date = $request->filled('date') ? Carbon::parse($request->get('date')) : Carbon::today();
+        $sections = Section::with('department')->get()
+            ->sortBy(fn ($section) => $this->sectionLabel($section))
+            ->values();
+
+        $lessons = $this->lessonsForDate($date);
+        $sectionIdsWithLessons = $lessons->pluck('section_id')->unique();
+
+        $selectedSectionId = $request->integer('section') ?: $sectionIdsWithLessons->first();
+        $sectionLessons = $lessons->where('section_id', $selectedSectionId)->values();
+        $periods = $sectionLessons->pluck('period')->filter()->unique('position')->sortBy('position')->values();
+
+        $rows = collect();
+        if ($sectionLessons->isNotEmpty()) {
+            $records = RoutineStudentAttendance::query()
+                ->with(['student', 'session.lesson.period'])
+                ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $date)
+                    ->whereNotNull('submitted_at')
+                    ->whereIn('routine_lesson_id', $sectionLessons->pluck('id')))
+                ->get();
+
+            $rows = $records->groupBy('student_id')->map(function (Collection $studentRows) use ($periods) {
+                $counted = $studentRows->where('status', '!=', 'excused');
+                $absentCount = $counted->where('status', 'absent')->count();
+                $dayStatus = $counted->isNotEmpty() && $absentCount > $counted->count() / 2 ? 'absent' : 'present';
+                $byPosition = $studentRows->keyBy(fn ($row) => $row->session->lesson->period->position ?? null);
+
+                return (object) [
+                    'student' => $studentRows->first()->student,
+                    'day_status' => $dayStatus,
+                    'cells' => $periods->map(fn ($period) => (object) [
+                        'period' => $period,
+                        'status' => $byPosition->get($period->position)?->status,
+                    ]),
+                ];
+            })->sortBy(fn ($row) => $row->student->full_name ?? '')->values();
+        }
+
+        return view('backend.founder-dashboard.attendance', [
+            'date' => $date,
+            'sections' => $sections,
+            'selectedSectionId' => $selectedSectionId,
+            'periods' => $periods,
+            'rows' => $rows,
+            'noLessonsToday' => $sectionLessons->isEmpty(),
+            'summary' => [
+                'total' => $rows->count(),
+                'present' => $rows->where('day_status', 'present')->count(),
+                'absent' => $rows->where('day_status', 'absent')->count(),
+            ],
+        ]);
+    }
+
+    public function analysis()
+    {
+        $today = Carbon::today();
+        $windowDays = 20;
+        $maxLookback = 60;
+
+        $teacherStats = [];
+        $sectionStats = [];
+        $daysScanned = 0;
+
+        for ($i = 0; $daysScanned < $windowDays && $i < $maxLookback; $i++) {
+            $date = $today->copy()->subDays($i);
+            $lessons = $this->lessonsForDate($date);
+            if ($lessons->isEmpty()) {
+                continue;
+            }
+            $daysScanned++;
+
+            $sessionsByLesson = $this->sessionsForDate($lessons->pluck('id'), $date);
+            foreach ($lessons as $lesson) {
+                $taken = (bool) $sessionsByLesson->get($lesson->id)?->submitted_at;
+                foreach ($lesson->groups->flatMap->teachers->unique('id') as $teacher) {
+                    $teacherStats[$teacher->id] ??= ['name' => $teacher->name, 'scheduled' => 0, 'taken' => 0];
+                    $teacherStats[$teacher->id]['scheduled']++;
+                    if ($taken) {
+                        $teacherStats[$teacher->id]['taken']++;
+                    }
+                }
+            }
+
+            foreach ($this->dailyStudentStatuses($date) as $row) {
+                $label = $row->section_label ?? 'Unassigned';
+                $sectionStats[$label] ??= ['present' => 0, 'total' => 0];
+                $sectionStats[$label]['total']++;
+                if ($row->status === 'present') {
+                    $sectionStats[$label]['present']++;
+                }
+            }
+        }
+
+        $teacherRanking = collect($teacherStats)->map(fn ($stat) => (object) [
+            'name' => $stat['name'],
+            'scheduled' => $stat['scheduled'],
+            'taken' => $stat['taken'],
+            'rate' => $stat['scheduled'] > 0 ? (int) round($stat['taken'] / $stat['scheduled'] * 100) : 0,
+        ])->sortBy('rate')->values();
+
+        $sectionRanking = collect($sectionStats)->map(fn ($stat, $label) => (object) [
+            'label' => $label,
+            'total' => $stat['total'],
+            'rate' => $stat['total'] > 0 ? (int) round($stat['present'] / $stat['total'] * 100) : 0,
+        ])->sortBy('rate')->values();
+
+        $trend = $this->trend($today, 30);
+
+        return view('backend.founder-dashboard.analysis', [
+            'teacherRanking' => $teacherRanking,
+            'sectionRanking' => $sectionRanking,
+            'trend' => $trend,
+            'daysScanned' => $daysScanned,
+        ]);
+    }
+
+    private function pendingApprovalCategories(): Collection
+    {
+        return collect([
+            (object) ['label' => 'Leave Requests', 'icon' => '🗓', 'count' => LeaveRequest::where('status', 'pending')->count(), 'route' => route('hajiri.leave-requests.index')],
+            (object) ['label' => 'Staff ID Card Requests', 'icon' => '🪪', 'count' => StaffCardRequest::where('status', 'pending')->count(), 'route' => route('hajiri.staff-card-request.admin')],
+            (object) ['label' => 'Student ID Card Requests', 'icon' => '🎫', 'count' => CardRequest::where('status', 'pending')->count(), 'route' => route('admin.card-requests')],
+            (object) ['label' => 'Unread Contact Messages', 'icon' => '✉️', 'count' => ContactMessage::where('is_read', false)->count(), 'route' => route('admin.contacts.index')],
+            (object) ['label' => 'Work Task Reviews', 'icon' => '📋', 'count' => WorkTaskSubmission::where('status', 'submitted')->count(), 'route' => route('admin.work-tasks.index')],
+            (object) ['label' => 'Pending Admissions', 'icon' => '🎓', 'count' => Admission::where('status', 'Pending')->count(), 'route' => route('admin.admissions.index')],
+            (object) ['label' => 'Vacancy Applications', 'icon' => '💼', 'count' => VacancyApplication::where('status', 'Pending')->count(), 'route' => route('admin.vacancies.index')],
+            (object) ['label' => 'Store Requisitions Awaiting Approval', 'icon' => '📦', 'count' => StoreRequisition::where('status', 'draft')->count(), 'route' => route('admin.store.requisitions.index')],
+            (object) ['label' => 'Purchase Orders Awaiting Approval', 'icon' => '🧾', 'count' => StorePurchaseOrder::where('status', 'draft')->count(), 'route' => route('admin.store.purchase-orders.index')],
+            (object) ['label' => 'Exam Mark Unlock Requests', 'icon' => '🔓', 'count' => ExaminationMarkSubmission::whereNotNull('unlock_requested_at')->whereNull('unlocked_at')->count(), 'route' => route('admin.examinations.index')],
         ]);
     }
 

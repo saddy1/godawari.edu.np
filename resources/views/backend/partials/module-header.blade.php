@@ -38,7 +38,7 @@
         ['key' => 'hr', 'category' => 'People', 'label' => 'HR', 'sub' => 'People master', 'url' => route('admin.hr.members.index'), 'show' => $isAdmin && $user?->canAccess(['hr.members.view', 'hr.members.create', 'hr.members.edit', 'hr.members.delete']) && \App\Services\ModuleService::enabled('hr')],
         ['key' => 'teaching-learning', 'category' => 'Academic', 'label' => 'Teaching & Learning', 'sub' => 'Subjects & routine', 'url' => route('admin.teaching-learning.dashboard'), 'show' => $isAdmin && $user?->canAccess(['teaching-learning.subjects.view', 'teaching-learning.subjects.create', 'teaching-learning.subjects.delete']) && \App\Services\ModuleService::enabled('teaching_learning')],
         ['key' => 'examinations', 'category' => 'Academic', 'label' => 'Examinations', 'sub' => 'Marks & results', 'url' => route('admin.examinations.index'), 'show' => ($isAdmin || $isScopedTeacher) && $user?->canAccess(['examinations.view', 'examinations.manage', 'examinations.marks.enter', 'examinations.reports']) && \App\Services\ModuleService::enabled('examinations')],
-        ['key' => 'id-card', 'category' => 'Academic', 'label' => 'Students', 'sub' => 'Records & cards', 'url' => $idCardUrl, 'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['students.view', 'students.create', 'students.edit', 'students.delete', 'users.bulk-import', 'cards.view', 'cards.print', 'students.card-request', 'card-settings.view']) && \App\Services\ModuleService::enabled('card')],
+        ['key' => 'id-card', 'category' => 'Card/Certificate', 'label' => 'Card/Certificate', 'sub' => 'Student records & cards', 'url' => $idCardUrl, 'show' => $isAdmin && ! $isNormalTeacher && $user?->canAccess(['students.view', 'students.create', 'students.edit', 'students.delete', 'users.bulk-import', 'cards.view', 'cards.print', 'students.card-request', 'card-settings.view']) && \App\Services\ModuleService::enabled('card')],
         ['key' => 'hajiri', 'category' => 'Administration', 'label' => 'Hajiri', 'sub' => 'Attendance', 'url' => route('hajiri.home'), 'show' => ($isAdmin || $isStaffEmployee) && ($isStaffEmployee || $user?->device_id || $user?->canAccess(['attendance.view', 'attendance.report', 'users.view', 'leaves.view', 'settings.view'])) && \App\Services\ModuleService::enabled('hajiri')],
         ['key' => 'learning', 'category' => 'Academic', 'label' => 'Learning', 'sub' => 'Courses & tests', 'url' => route('admin.learning.dashboard'), 'show' => ($isAdmin || $isScopedTeacher) && $hasLearningAssignment && $user?->canAccess(['learning.courses.view', 'learning.students.view', 'learning.lessons.view', 'learning.resources.view', 'learning.quizzes.view', 'learning.reports.view']) && \App\Services\ModuleService::enabled('learning')],
         ['key' => 'store', 'category' => 'Resources', 'label' => 'Store', 'sub' => 'Inventory', 'url' => route('admin.store.dashboard'), 'show' => $isAdmin && $user?->canAccess(['store.view', 'store.create', 'store.edit', 'store.delete', 'store.approve', 'store.reports']) && \App\Services\ModuleService::enabled('store')],
@@ -113,6 +113,13 @@
                 <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                     @foreach($categorizedModuleLinks as $category=>$modules)
                     @php $categoryBadge = $modules->sum(fn($m) => $moduleBadges[$m['key']] ?? 0); $categoryActive = $modules->contains('key', $currentModule); @endphp
+                    @if($category === 'Card/Certificate')
+                    @php $cardModule = $modules->first(); @endphp
+                    <a href="{{$cardModule['url']}}" class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2 py-2.5 text-[10px] font-black shadow-sm transition-colors sm:px-3 sm:text-xs {{ $categoryActive ? 'border-[#1a5632]/30 bg-[#1a5632]/10 text-[#1a5632]' : 'border-white bg-white/90 text-gray-700 hover:bg-white' }}" @if($categoryActive) aria-current="page" @endif>
+                        <span>Card/Certificate</span>
+                        @if($categoryBadge>0)<span class="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-black text-white">{{ $categoryBadge }}</span>@endif
+                    </a>
+                    @else
                     <div class="relative shrink-0" :class="activeCategory===@js($category)?'z-50':'z-0'">
                         <button type="button" @click="activeCategory=activeCategory===@js($category)?null:@js($category)"
                                 class="inline-flex items-center gap-1 whitespace-nowrap rounded-xl border px-2 py-2.5 text-[10px] font-black shadow-sm transition-colors sm:px-3 sm:text-xs {{ $categoryActive ? 'border-[#1a5632]/30 bg-[#1a5632]/10 text-[#1a5632]' : 'border-white bg-white/90 text-gray-700 hover:bg-white' }}"
@@ -125,6 +132,7 @@
                             @foreach($modules as $m)<a href="{{$m['url']}}" @click="activeCategory=null" class="flex items-center justify-between rounded-lg px-3 py-2 {{ $currentModule===$m['key']?'bg-emerald-100 text-[#1a5632]':'text-gray-700 hover:bg-gray-50' }}"><span><span class="block text-xs font-black">{{$m['label']}}</span><span class="block text-[9px] font-semibold opacity-60">{{$m['sub']}}</span></span>@if(($moduleBadges[$m['key']]??0)>0)<span class="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-black text-white">{{$moduleBadges[$m['key']]}}</span>@endif</a>@endforeach
                         </div>
                     </div>
+                    @endif
                     @endforeach
                 </div>
                 @endif
