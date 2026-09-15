@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'teacher-v2';
+const CACHE_VERSION = 'teacher-v3';
 const STATIC_CACHE = `teacher-static-${CACHE_VERSION}`;
 const OFFLINE_URL = '/teacher-offline.html';
 const PRECACHE_URLS = [

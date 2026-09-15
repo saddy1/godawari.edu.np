@@ -9,11 +9,11 @@ use Illuminate\Support\Facades\File;
 
 class GeneratePwaIcons extends Command
 {
-    protected $signature = 'pwa:icons {surface? : Regenerate icons for one surface only (admin, student, learning). Omit for all.}';
+    protected $signature = 'pwa:icons {surface? : Regenerate icons for one surface only (admin, student, learning, teacher). Omit for all.}';
 
     protected $description = 'Generate PWA icon sets (192/512 any + maskable, apple-touch-icon) per dashboard from the configured site logo';
 
-    private const SURFACES = ['admin', 'student', 'learning'];
+    private const SURFACES = ['admin', 'student', 'learning', 'teacher'];
 
     public function handle(): int
     {
