@@ -249,6 +249,45 @@
         </div>
     </div>
 
+    {{-- Attendance at a glance — gender breakdown --}}
+    @php $genderTotal = collect($genderBreakdown)->sum(fn ($b) => $b['present'] + $b['absent']); @endphp
+    @if($genderTotal > 0)
+        <div class="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <h3 class="mb-1 text-sm font-black text-gray-900">Attendance at a Glance — by Gender</h3>
+            <p class="mb-4 text-[10px] font-semibold text-gray-400">Present vs absent today, so the overall picture reads in one look</p>
+            <div class="space-y-4">
+                @foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $genderKey => $genderLabel)
+                    @php
+                        $bucket = $genderBreakdown[$genderKey];
+                        $bucketTotal = $bucket['present'] + $bucket['absent'];
+                        $presentPct = $bucketTotal > 0 ? round($bucket['present'] / $bucketTotal * 100) : 0;
+                        $absentPct = $bucketTotal > 0 ? 100 - $presentPct : 0;
+                    @endphp
+                    @if($bucketTotal > 0)
+                        <div>
+                            <div class="mb-1 flex items-center justify-between text-xs font-bold text-gray-600">
+                                <span>{{ $genderLabel }}</span>
+                                <span class="text-gray-400">{{ $bucketTotal }} total · {{ $presentPct }}% present</span>
+                            </div>
+                            <div class="flex h-6 w-full overflow-hidden rounded-lg bg-gray-100">
+                                @if($bucket['present'] > 0)
+                                    <div class="flex items-center justify-center bg-emerald-500 text-[10px] font-black text-white" style="width: {{ $presentPct }}%">{{ $bucket['present'] }}</div>
+                                @endif
+                                @if($bucket['absent'] > 0)
+                                    <div class="flex items-center justify-center bg-red-500 text-[10px] font-black text-white" style="width: {{ $absentPct }}%">{{ $bucket['absent'] }}</div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+            <div class="mt-4 flex items-center gap-4 text-[10px] font-bold text-gray-500">
+                <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded bg-emerald-500"></span> Present</span>
+                <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded bg-red-500"></span> Absent</span>
+            </div>
+        </div>
+    @endif
+
     {{-- Row 2: teachers not marking / conflicts / escalation --}}
     <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
 

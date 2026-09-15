@@ -86,7 +86,9 @@ class FounderDashboardController extends Controller
             ->groupBy('section_label')
             ->map(fn ($group, $label) => (object) [
                 'label' => $label ?: 'Unassigned',
-                'students' => $group->pluck('student')->sortBy('full_name')->values(),
+                // unique('id') guards against a student ever being listed twice even if
+                // the same person's attendance rows resolved through more than one path.
+                'students' => $group->pluck('student')->filter()->unique('id')->sortBy('full_name')->values(),
             ])
             ->sortBy('label')
             ->values();
@@ -98,6 +100,19 @@ class FounderDashboardController extends Controller
             ->sortByDesc('count')
             ->take(10)
             ->values();
+
+        $normalizeGender = fn (?string $gender) => match (mb_strtolower((string) $gender)) {
+            'male', 'm' => 'male',
+            'female', 'f' => 'female',
+            default => 'other',
+        };
+        $genderBreakdown = ['male' => ['present' => 0, 'absent' => 0], 'female' => ['present' => 0, 'absent' => 0], 'other' => ['present' => 0, 'absent' => 0]];
+        foreach (collect($todayStatuses)->unique(fn ($row) => $row->student?->id) as $row) {
+            if (! $row->student || ! in_array($row->status, ['present', 'absent'], true)) {
+                continue;
+            }
+            $genderBreakdown[$normalizeGender($row->student->gender)][$row->status]++;
+        }
 
         $formatLessonRow = fn ($row) => (object) [
             'period_label' => 'P'.$row->lesson->period->position.' · '.$row->lesson->period->name,
@@ -122,6 +137,7 @@ class FounderDashboardController extends Controller
             'allClassesDetail' => $lessonRows->map($formatLessonRow)->values(),
             'takenClassesDetail' => $lessonRows->where('taken', true)->map($formatLessonRow)->values(),
             'notTakenClassesDetail' => $notTakenRows->map($formatLessonRow)->values(),
+            'genderBreakdown' => $genderBreakdown,
         ]);
     }
 
@@ -404,17 +420,56 @@ class FounderDashboardController extends Controller
 
     private function pendingApprovalCategories(): Collection
     {
+        $row = fn (string $title, ?string $subtitle, $date) => (object) [
+            'title' => $title ?: '—',
+            'subtitle' => $subtitle ?: null,
+            'date' => $date,
+        ];
+
+        $limit = 20;
+
+        $leaveRequests = LeaveRequest::where('status', 'pending')->with('user')->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->user->name ?? 'Staff', ($r->days_count ?? '?').' day(s) · '.($r->reason ?: 'No reason given'), $r->start_date));
+
+        $staffCardRequests = StaffCardRequest::where('status', 'pending')->with('user')->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->user->name ?? 'Staff', $r->reason, $r->created_at));
+
+        $studentCardRequests = CardRequest::where('status', 'pending')->with('student')->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->student->full_name ?? 'Student', $r->student->roll_number ?? null, $r->created_at));
+
+        $contactMessages = ContactMessage::where('is_read', false)->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->name ?: $r->email, $r->subject ?: str($r->message)->limit(80), $r->created_at));
+
+        $workTaskReviews = WorkTaskSubmission::where('status', 'submitted')->with(['task', 'submittedBy'])->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->task->title ?? 'Task', 'Submitted by '.($r->submittedBy->name ?? 'staff'), $r->submitted_at));
+
+        $admissions = Admission::where('status', 'Pending')->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->student_name, $r->applied_grade, $r->created_at));
+
+        $vacancyApplications = VacancyApplication::where('status', 'Pending')->with('vacancy')->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->full_name, $r->vacancy->title ?? null, $r->created_at));
+
+        $storeRequisitions = StoreRequisition::where('status', 'draft')->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->requisition_no, ($r->requested_by_name ?: '—').' · '.($r->purpose ?: 'No purpose given'), $r->requested_at));
+
+        $purchaseOrders = StorePurchaseOrder::where('status', 'draft')->latest()->limit($limit)->get()
+            ->map(fn ($r) => $row($r->order_no, $r->supplier_name, $r->order_date));
+
+        $markUnlocks = ExaminationMarkSubmission::whereNotNull('unlock_requested_at')->whereNull('unlocked_at')
+            ->with(['teacher', 'examinationSubject.offering.subject'])->latest('unlock_requested_at')->limit($limit)->get()
+            ->map(fn ($r) => $row($r->teacher->name ?? 'Teacher', $r->examinationSubject->offering->subject->name ?? null, $r->unlock_requested_at));
+
         return collect([
-            (object) ['label' => 'Leave Requests', 'icon' => '🗓', 'count' => LeaveRequest::where('status', 'pending')->count(), 'route' => route('hajiri.leave-requests.index')],
-            (object) ['label' => 'Staff ID Card Requests', 'icon' => '🪪', 'count' => StaffCardRequest::where('status', 'pending')->count(), 'route' => route('hajiri.staff-card-request.admin')],
-            (object) ['label' => 'Student ID Card Requests', 'icon' => '🎫', 'count' => CardRequest::where('status', 'pending')->count(), 'route' => route('admin.card-requests')],
-            (object) ['label' => 'Unread Contact Messages', 'icon' => '✉️', 'count' => ContactMessage::where('is_read', false)->count(), 'route' => route('admin.contacts.index')],
-            (object) ['label' => 'Work Task Reviews', 'icon' => '📋', 'count' => WorkTaskSubmission::where('status', 'submitted')->count(), 'route' => route('admin.work-tasks.index')],
-            (object) ['label' => 'Pending Admissions', 'icon' => '🎓', 'count' => Admission::where('status', 'Pending')->count(), 'route' => route('admin.admissions.index')],
-            (object) ['label' => 'Vacancy Applications', 'icon' => '💼', 'count' => VacancyApplication::where('status', 'Pending')->count(), 'route' => route('admin.vacancies.index')],
-            (object) ['label' => 'Store Requisitions Awaiting Approval', 'icon' => '📦', 'count' => StoreRequisition::where('status', 'draft')->count(), 'route' => route('admin.store.requisitions.index')],
-            (object) ['label' => 'Purchase Orders Awaiting Approval', 'icon' => '🧾', 'count' => StorePurchaseOrder::where('status', 'draft')->count(), 'route' => route('admin.store.purchase-orders.index')],
-            (object) ['label' => 'Exam Mark Unlock Requests', 'icon' => '🔓', 'count' => ExaminationMarkSubmission::whereNotNull('unlock_requested_at')->whereNull('unlocked_at')->count(), 'route' => route('admin.examinations.index')],
+            (object) ['label' => 'Leave Requests', 'icon' => '🗓', 'count' => LeaveRequest::where('status', 'pending')->count(), 'items' => $leaveRequests],
+            (object) ['label' => 'Staff ID Card Requests', 'icon' => '🪪', 'count' => StaffCardRequest::where('status', 'pending')->count(), 'items' => $staffCardRequests],
+            (object) ['label' => 'Student ID Card Requests', 'icon' => '🎫', 'count' => CardRequest::where('status', 'pending')->count(), 'items' => $studentCardRequests],
+            (object) ['label' => 'Unread Contact Messages', 'icon' => '✉️', 'count' => ContactMessage::where('is_read', false)->count(), 'items' => $contactMessages],
+            (object) ['label' => 'Work Task Reviews', 'icon' => '📋', 'count' => WorkTaskSubmission::where('status', 'submitted')->count(), 'items' => $workTaskReviews],
+            (object) ['label' => 'Pending Admissions', 'icon' => '🎓', 'count' => Admission::where('status', 'Pending')->count(), 'items' => $admissions],
+            (object) ['label' => 'Vacancy Applications', 'icon' => '💼', 'count' => VacancyApplication::where('status', 'Pending')->count(), 'items' => $vacancyApplications],
+            (object) ['label' => 'Store Requisitions Awaiting Approval', 'icon' => '📦', 'count' => StoreRequisition::where('status', 'draft')->count(), 'items' => $storeRequisitions],
+            (object) ['label' => 'Purchase Orders Awaiting Approval', 'icon' => '🧾', 'count' => StorePurchaseOrder::where('status', 'draft')->count(), 'items' => $purchaseOrders],
+            (object) ['label' => 'Exam Mark Unlock Requests', 'icon' => '🔓', 'count' => ExaminationMarkSubmission::whereNotNull('unlock_requested_at')->whereNull('unlocked_at')->count(), 'items' => $markUnlocks],
         ]);
     }
 
