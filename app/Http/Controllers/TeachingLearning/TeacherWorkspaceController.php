@@ -80,11 +80,26 @@ class TeacherWorkspaceController extends Controller
             $lesson->setAttribute('attendance_opens_at', $opensAt);
             $lesson->setAttribute('attendance_closes_at', $closesAt);
             $lesson->setAttribute('attendance_is_open', now()->gte($opensAt) && now()->lt($closesAt));
+            $lesson->setAttribute('period_starts_at', Carbon::parse(now()->toDateString().' '.$lesson->period->starts_at));
             $lesson->setAttribute('teacher_groups', $this->teacherGroups($lesson, $user));
             $lesson->setAttribute('present_count', (int) $counts->whereIn('status', ['present', 'late'])->sum('total'));
             $lesson->setAttribute('absent_count', (int) $counts->where('status', 'absent')->sum('total'));
             return $lesson;
         });
+
+        // A class only gets its 10-minute "open early" head start if the teacher isn't
+        // still genuinely inside another class's real scheduled time — otherwise two
+        // back-to-back periods can both show as "open" for that 10-minute overlap.
+        $inSessionNow = $lessons->contains(fn ($lesson) => now()->gte($lesson->period_starts_at) && now()->lt($lesson->attendance_closes_at));
+        if ($inSessionNow) {
+            $lessons = $lessons->map(function ($lesson) {
+                if ($lesson->attendance_is_open && now()->lt($lesson->period_starts_at)) {
+                    $lesson->setAttribute('attendance_is_open', false);
+                    $lesson->setAttribute('attendance_opens_at', $lesson->period_starts_at);
+                }
+                return $lesson;
+            });
+        }
 
         return view('teaching_learning.teacher-workspace.index', compact('markEntries', 'lessons'));
     }
