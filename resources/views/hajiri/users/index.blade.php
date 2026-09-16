@@ -190,7 +190,7 @@
                                 Edit
                             </a>
                             @else
-                            <a href="{{ route('admin.hr.members.create', ['prefill_user' => $user->id]) }}"
+                            <a href="{{ $user->student ? route('admin.hr.members.edit', $user->student) : route('admin.hr.members.create', ['prefill_user' => $user->id]) }}"
                                class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 text-xs font-bold rounded-lg hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
