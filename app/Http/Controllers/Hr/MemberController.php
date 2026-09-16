@@ -349,10 +349,6 @@ class MemberController extends Controller
 
     public function destroyOrphanUser(User $user)
     {
-        if (! $user->hasAnyRole(['teacher', 'staff', 'admin', 'administrator'])) {
-            return back()->with('error', 'Only unlinked employee or administration accounts can be deleted from this panel.');
-        }
-
         if ($user->student()->exists()) {
             return back()->with('error', "\"{$user->name}\" already has an HR profile. Delete the HR member record instead.");
         }
