@@ -832,16 +832,16 @@ function photoCapture() {
                 ->values()),
 
             // Permanent address
-            permProvince:     @json(old('permanent_province',     $isEdit ? $member->permanent_province     : '')),
-            permDistrict:     @json(old('permanent_district',     $isEdit ? $member->permanent_district     : '')),
-            permMunicipality: @json(old('permanent_municipality', $isEdit ? $member->permanent_municipality : '')),
+            permProvince:     @json(old('permanent_province',     $isEdit ? $member->permanent_province     : ($p?->province ?? ''))),
+            permDistrict:     @json(old('permanent_district',     $isEdit ? $member->permanent_district     : ($p?->district ?? ''))),
+            permMunicipality: @json(old('permanent_municipality', $isEdit ? $member->permanent_municipality : ($p?->municipal ?? ''))),
             permWard:         @json(old('permanent_ward',         $isEdit ? $member->permanent_ward         : '')),
             permTole:         @json(old('permanent_tole',         $isEdit ? $member->permanent_tole         : '')),
 
             // Temporary address
-            tempProvince:     @json(old('temporary_province',     $isEdit ? $member->temporary_province     : '')),
-            tempDistrict:     @json(old('temporary_district',     $isEdit ? $member->temporary_district     : '')),
-            tempMunicipality: @json(old('temporary_municipality', $isEdit ? $member->temporary_municipality : '')),
+            tempProvince:     @json(old('temporary_province',     $isEdit ? $member->temporary_province     : ($p?->province ?? ''))),
+            tempDistrict:     @json(old('temporary_district',     $isEdit ? $member->temporary_district     : ($p?->district ?? ''))),
+            tempMunicipality: @json(old('temporary_municipality', $isEdit ? $member->temporary_municipality : ($p?->municipal ?? ''))),
             tempWard:         @json(old('temporary_ward',         $isEdit ? $member->temporary_ward         : '')),
             tempTole:         @json(old('temporary_tole',         $isEdit ? $member->temporary_tole         : '')),
 
@@ -854,7 +854,7 @@ function photoCapture() {
                         ? ($member->permanent_province === $member->temporary_province
                            && $member->permanent_district === $member->temporary_district
                            && $member->permanent_municipality === $member->temporary_municipality)
-                        : false)
+                        : (bool) $p)
             ),
 
             get isStudent()  { return this.memberType === 'student'; },
