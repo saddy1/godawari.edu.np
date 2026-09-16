@@ -198,14 +198,21 @@
                                 Edit in HR
                             </a>
                             @if(!$user->student && auth()->user()?->canAccess('hr.members.delete'))
-                            <form method="POST" action="{{ route('admin.hr.members.orphan-users.destroy', $user) }}"
-                                  class="inline" onsubmit="return confirm('Delete this unlinked user account? This cannot be undone.');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100">
-                                    Delete
-                                </button>
-                            </form>
+                                @if($user->library_clearance_hold)
+                                    <button type="button" disabled title="{{ $user->library_clearance_message }}"
+                                            class="inline-flex items-center gap-1.5 cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-400">
+                                        Clearance Pending
+                                    </button>
+                                @else
+                                    <form method="POST" action="{{ route('admin.hr.members.orphan-users.destroy', $user) }}"
+                                          class="inline" onsubmit="return confirm('Delete this unlinked user account? This cannot be undone.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100">
+                                            Delete
+                                        </button>
+                                    </form>
+                                @endif
                             @endif
                             @endif
                         </td>

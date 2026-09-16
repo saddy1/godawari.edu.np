@@ -16,6 +16,7 @@ use App\Models\Hajiri\Designation;
 use App\Models\Hajiri\EmploymentType;
 use App\Models\Hajiri\WorkAssigned;
 use App\Models\Hajiri\Department;
+use App\Services\LibraryClearanceService;
 
 class UserController extends Controller
 {
@@ -24,14 +25,16 @@ class UserController extends Controller
     private $employmentType;
     private $work_assigned;
     private $department;
+    private $libraryClearance;
 
-    public function __construct(User $user, Designation $desig,EmploymentType $employmentType, WorkAssigned $work_assigned, Department $department)
+    public function __construct(User $user, Designation $desig,EmploymentType $employmentType, WorkAssigned $work_assigned, Department $department, LibraryClearanceService $libraryClearance)
     {
         $this->user = $user;
         $this->desig = $desig;
         $this->employmentType = $employmentType;
         $this->work_assigned = $work_assigned;
         $this->department = $department;
+        $this->libraryClearance = $libraryClearance;
 
     }
     /**
@@ -94,6 +97,8 @@ class UserController extends Controller
             ->orderBy('sort')
             ->orderBy('name')
             ->get();
+
+        $this->libraryClearance->attachTo($users, true);
 
         $desig = $this->desig->get();
         $employmentType = $this->employmentType->get();
