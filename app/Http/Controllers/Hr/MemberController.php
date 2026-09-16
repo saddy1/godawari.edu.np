@@ -367,7 +367,13 @@ class MemberController extends Controller
         }
 
         $name = $user->name;
-        $user->delete();
+        DB::transaction(function () use ($user) {
+            DB::table('routine_lesson_group_teachers')
+                ->where('teacher_id', $user->id)
+                ->delete();
+
+            $user->delete();
+        });
 
         return back()->with('success', "User account \"{$name}\" deleted.");
     }
