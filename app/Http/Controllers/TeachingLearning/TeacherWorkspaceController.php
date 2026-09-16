@@ -63,15 +63,28 @@ class TeacherWorkspaceController extends Controller
             ->where('day_of_week', now()->format('l'))
             ->whereHas('plan', fn ($query) => $query->where('status', 'published'))
             ->whereHas('groups', fn ($groups) => $this->teacherGroupQuery($groups, $user))
-            ->get()->sortBy(fn ($lesson) => $lesson->period->starts_at)->values()
-            ->map(function ($lesson) use ($user) {
-                [$opensAt, $closesAt] = $this->attendanceWindow($lesson);
-                $lesson->setAttribute('attendance_opens_at', $opensAt);
-                $lesson->setAttribute('attendance_closes_at', $closesAt);
-                $lesson->setAttribute('attendance_is_open', now()->gte($opensAt) && now()->lt($closesAt));
-                $lesson->setAttribute('teacher_groups', $this->teacherGroups($lesson, $user));
-                return $lesson;
-            });
+            ->get()->sortBy(fn ($lesson) => $lesson->period->starts_at)->values();
+
+        $attendanceCounts = RoutineStudentAttendance::query()
+            ->join('routine_attendance_sessions', 'routine_attendance_sessions.id', '=', 'routine_student_attendances.routine_attendance_session_id')
+            ->whereIn('routine_attendance_sessions.routine_lesson_id', $lessons->pluck('id'))
+            ->whereDate('routine_attendance_sessions.attendance_date', now()->toDateString())
+            ->selectRaw('routine_attendance_sessions.routine_lesson_id, routine_student_attendances.status, count(*) as total')
+            ->groupBy('routine_attendance_sessions.routine_lesson_id', 'routine_student_attendances.status')
+            ->get()
+            ->groupBy('routine_lesson_id');
+
+        $lessons = $lessons->map(function ($lesson) use ($user, $attendanceCounts) {
+            [$opensAt, $closesAt] = $this->attendanceWindow($lesson);
+            $counts = $attendanceCounts->get($lesson->id, collect());
+            $lesson->setAttribute('attendance_opens_at', $opensAt);
+            $lesson->setAttribute('attendance_closes_at', $closesAt);
+            $lesson->setAttribute('attendance_is_open', now()->gte($opensAt) && now()->lt($closesAt));
+            $lesson->setAttribute('teacher_groups', $this->teacherGroups($lesson, $user));
+            $lesson->setAttribute('present_count', (int) $counts->whereIn('status', ['present', 'late'])->sum('total'));
+            $lesson->setAttribute('absent_count', (int) $counts->where('status', 'absent')->sum('total'));
+            return $lesson;
+        });
 
         return view('teaching_learning.teacher-workspace.index', compact('markEntries', 'lessons'));
     }

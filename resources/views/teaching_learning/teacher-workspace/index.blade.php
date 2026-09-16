@@ -16,14 +16,14 @@
 
     @if($openLessons->isNotEmpty())
         @php $activeLesson=$openLessons->first();$activeEnd=$activeLesson->endPeriod?:$activeLesson->period;$activeGroups=$activeLesson->teacher_groups; @endphp
-        <a href="{{route('admin.teacher.attendance',$activeLesson)}}" class="mb-3 flex items-center gap-3 rounded-2xl bg-emerald-600 p-3 text-white shadow-lg shadow-emerald-700/15 transition active:scale-[.99] sm:p-4"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 text-xl">✓</span><span class="min-w-0 flex-1"><span class="block text-[9px] font-black uppercase tracking-widest text-emerald-100">Attendance is open now</span><b class="block truncate text-base">{{$activeGroups->pluck('offering.subject.name')->unique()->implode(' / ')}} · {{$activeLesson->section->name}}</b><small class="block text-[10px] font-semibold text-emerald-100">Tap once to start marking students</small></span><span class="text-2xl">→</span></a>
+        <a href="{{route('admin.teacher.attendance',$activeLesson)}}" class="mb-3 flex items-center gap-3 rounded-2xl bg-emerald-600 p-3 text-white shadow-lg shadow-emerald-700/15 transition active:scale-[.99] sm:p-4"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15 text-xl">✓</span><span class="min-w-0 flex-1"><span class="block text-[9px] font-black uppercase tracking-widest text-emerald-100">Attendance is open now</span><span class="flex flex-wrap items-center gap-x-2 gap-y-0.5"><b class="truncate text-base">{{$activeGroups->pluck('offering.subject.name')->unique()->implode(' / ')}} · {{$activeLesson->section->name}}</b>@if($activeLesson->present_count||$activeLesson->absent_count)<span class="inline-flex items-center gap-1 rounded-full bg-blue-500/90 px-2 py-0.5 text-[10px] font-black text-white">{{$activeLesson->present_count}} present</span><span class="inline-flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-black text-white">{{$activeLesson->absent_count}} absent</span>@endif</span><small class="block text-[10px] font-semibold text-emerald-100">Tap once to start marking students</small></span><span class="text-2xl">→</span></a>
     @endif
 
     <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         @forelse($lessons as $lesson)
             @php $end=$lesson->endPeriod?:$lesson->period;$groups=$lesson->teacher_groups;$studentCount=$groups->flatMap->students->unique('id')->count(); @endphp
             <article class="flex flex-col rounded-2xl border {{$lesson->attendance_is_open?'border-emerald-300 bg-emerald-50/60':'border-slate-200 bg-white'}} p-3 shadow-sm">
-                <div class="flex items-center gap-3"><div class="w-[72px] shrink-0 rounded-xl {{$lesson->attendance_is_open?'bg-emerald-600 text-white':'bg-slate-100 text-slate-700'}} px-2 py-2 text-center"><b class="block text-[11px]">{{\Carbon\Carbon::parse($lesson->period->starts_at)->format('h:i A')}}</b><span class="text-[8px] font-bold opacity-65">{{\Carbon\Carbon::parse($end->ends_at)->format('h:i A')}}</span></div><div class="min-w-0 flex-1"><p class="truncate text-[9px] font-black uppercase tracking-wider text-slate-400">{{$lesson->plan->department->name}} · {{$lesson->section->name}}</p><h3 class="truncate text-sm font-black">{{$groups->pluck('offering.subject.name')->unique()->implode(' / ')}}</h3><p class="mt-0.5 text-[10px] font-semibold text-slate-500">{{$studentCount}} students · {{$groups->pluck('group_label')->filter()->implode(' · ')?:'Whole class'}}</p></div></div>
+                <div class="flex items-center gap-3"><div class="w-[72px] shrink-0 rounded-xl {{$lesson->attendance_is_open?'bg-emerald-600 text-white':'bg-slate-100 text-slate-700'}} px-2 py-2 text-center"><b class="block text-[11px]">{{\Carbon\Carbon::parse($lesson->period->starts_at)->format('h:i A')}}</b><span class="text-[8px] font-bold opacity-65">{{\Carbon\Carbon::parse($end->ends_at)->format('h:i A')}}</span></div><div class="min-w-0 flex-1"><p class="truncate text-[9px] font-black uppercase tracking-wider text-slate-400">{{$lesson->plan->department->name}} · {{$lesson->section->name}}</p><div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5"><h3 class="truncate text-sm font-black">{{$groups->pluck('offering.subject.name')->unique()->implode(' / ')}}</h3>@if($lesson->present_count||$lesson->absent_count)<span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-black text-blue-700">{{$lesson->present_count}}P</span><span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-black text-red-700">{{$lesson->absent_count}}A</span>@endif</div><p class="mt-0.5 text-[10px] font-semibold text-slate-500">{{$studentCount}} students · {{$groups->pluck('group_label')->filter()->implode(' · ')?:'Whole class'}}</p></div></div>
                 @if($lesson->attendance_is_open)<a href="{{route('admin.teacher.attendance',$lesson)}}" class="mt-3 flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white">Take attendance →</a>@elseif(now()->gte($lesson->attendance_closes_at))<a href="{{route('admin.teacher.attendance',$lesson)}}" class="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-center text-xs font-bold text-slate-600">View attendance · Class finished</a>@else<div class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-center text-[10px] font-bold text-slate-400">{{now()->lt($lesson->attendance_opens_at)?'Opens '.$lesson->attendance_opens_at->format('h:i A'):'Closed at '.$lesson->attendance_closes_at->format('h:i A')}}</div>@endif
             </article>
         @empty
@@ -51,3 +51,17 @@
     </div>
 </section>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    let last = Date.now();
+    setInterval(function () {
+        if (document.visibilityState !== 'visible') return;
+        if (Date.now() - last < 25000) return;
+        last = Date.now();
+        window.location.reload();
+    }, 5000);
+})();
+</script>
+@endpush
