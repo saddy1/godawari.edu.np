@@ -40,6 +40,17 @@
 
 {{-- Filter --}}
 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 mb-6">
+    @if(isset($type_id))
+    <form action="{{ url()->current() }}" method="GET" class="mb-4 flex flex-col gap-2 sm:flex-row">
+        <input type="search" name="search" value="{{ request('search') }}"
+               placeholder="Search name, email, phone, or Device ID..."
+               class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:bg-white focus:outline-none">
+        <button type="submit" class="rounded-xl bg-[#1a5632] px-4 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Search</button>
+        @if(request('search'))
+            <a href="{{ url()->current() }}" class="rounded-xl border border-gray-200 px-4 py-2.5 text-center text-sm font-bold text-gray-600 hover:bg-gray-50">Clear</a>
+        @endif
+    </form>
+    @endif
     <form action="{{ route('hajiri.users.filter') }}" method="POST">
         @csrf
         <div class="flex flex-wrap items-center gap-3">
@@ -180,6 +191,16 @@
                                 </svg>
                                 Edit in HR
                             </a>
+                            @if(!$user->student && auth()->user()?->canAccess('hr.members.delete'))
+                            <form method="POST" action="{{ route('admin.hr.members.orphan-users.destroy', $user) }}"
+                                  class="inline" onsubmit="return confirm('Delete this unlinked user account? This cannot be undone.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100">
+                                    Delete
+                                </button>
+                            </form>
+                            @endif
                             @endif
                         </td>
                     </tr>

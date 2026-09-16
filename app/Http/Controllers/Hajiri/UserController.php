@@ -55,7 +55,7 @@ class UserController extends Controller
         return view('hajiri.users.index',compact('type','users','desig','work_assigned','sort','allowEdit'));
     }
 
-    public function index_custom($typeid,$sort = null)
+    public function index_custom(Request $request, $typeid, $sort = null)
     {
         [$memberType, $workAreaLabel, $type] = match ($typeid) {
             'adminstration', 'administration' => ['staff', 'Administration', 'Administrative Employee'],
@@ -82,6 +82,15 @@ class UserController extends Controller
             })
             ->where('status',1)
             ->whereNotNull('device_id')
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim((string) $request->input('search'));
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('device_id', 'like', "%{$search}%");
+                });
+            })
             ->orderBy('sort')
             ->orderBy('name')
             ->get();
@@ -92,7 +101,7 @@ class UserController extends Controller
 
         $sort = false;
         $allowEdit = false;
-        return view('hajiri.users.index',compact('type','users','desig','work_assigned','sort','type_id','allowEdit'));
+        return view('hajiri.users.index', compact('type', 'users', 'desig', 'work_assigned', 'sort', 'type_id', 'allowEdit'));
     }
 
     public function index_inactive()
