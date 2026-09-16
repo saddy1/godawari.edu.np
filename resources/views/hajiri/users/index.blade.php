@@ -38,6 +38,12 @@
     </div>
 </div>
 
+@if(session('success') || session('error'))
+<div class="mb-6 rounded-xl border px-4 py-3 text-sm font-semibold {{ session('error') ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-800' }}">
+    {{ session('error') ?: session('success') }}
+</div>
+@endif
+
 {{-- Filter --}}
 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 mb-6">
     @if(isset($type_id))

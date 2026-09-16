@@ -349,8 +349,8 @@ class MemberController extends Controller
 
     public function destroyOrphanUser(User $user)
     {
-        if (! $user->hasAnyRole(['teacher', 'staff'])) {
-            return back()->with('error', 'Only orphan teacher/staff users can be deleted from this panel.');
+        if (! $user->hasAnyRole(['teacher', 'staff', 'admin', 'administrator'])) {
+            return back()->with('error', 'Only unlinked employee or administration accounts can be deleted from this panel.');
         }
 
         if ($user->student()->exists()) {
@@ -359,6 +359,10 @@ class MemberController extends Controller
 
         if ($user->isSuperAdmin()) {
             return back()->with('error', 'Super admin accounts cannot be deleted here.');
+        }
+
+        if ($user->is(auth()->user())) {
+            return back()->with('error', 'You cannot delete the account currently being used.');
         }
 
         $clearance = $this->libraryClearanceSummary(null, $user->id);
