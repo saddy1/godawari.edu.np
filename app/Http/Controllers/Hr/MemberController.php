@@ -103,7 +103,7 @@ class MemberController extends Controller
         $showOrphans = ! $typeFilter || $typeFilter === 'teacher' || $typeFilter === 'staff';
         $orphanUsers = $showOrphans
             ? User::query()
-                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['teacher', 'staff']))
+                ->whereNotNull('device_id')
                 ->whereDoesntHave('student')
                 ->when($typeFilter, fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', $typeFilter)))
                 ->when($request->filled('search'), function ($q) use ($request) {
@@ -853,7 +853,7 @@ class MemberController extends Controller
         }
 
         return User::with('roles')
-            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['teacher', 'staff']))
+            ->whereNotNull('device_id')
             ->whereDoesntHave('student')
             ->find((int) $request->input('prefill_user'));
     }
