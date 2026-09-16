@@ -19,6 +19,8 @@
     }
 
     $selectedType = old('member_type', $isEdit ? $member->member_type : ($pfType ?: 'student'));
+    $prefillOrganization = optional($p)->organizationSlug() ?? '';
+    $prefillStream = optional($p)->departmentName() ?? '';
     $lockAcademic = $isEdit && $member->member_type === 'student';
     $pendingUpdateRequest = $pendingUpdateRequest ?? null;
     $input = 'w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15';
@@ -818,8 +820,8 @@ function photoCapture() {
             customGuardianName: @json(old('guardian_name', $isEdit ? $member->guardian_name : '')),
             guardianContact: @json(old('guardian_contact', $isEdit ? ($member->guardian_contact ?: $member->parent_contact) : ($p?->phone ?? ''))),
             cardOptions: @json($formOptions),
-            organization: @json(old('organization', $isEdit ? $member->organization : '')),
-            stream: @json(old('stream', $isEdit ? $member->stream : '')),
+            organization: @json(old('organization', $isEdit ? $member->organization : $prefillOrganization)),
+            stream: @json(old('stream', $isEdit ? $member->stream : $prefillStream)),
             section: @json(old('section', $isEdit ? $member->section : '')),
             employmentTypeId: @json((string) old('employment_type_id', $isEdit ? $member->user?->employment_type_id : ($p?->employment_type_id ?? ''))),
             initialHasPermanentDate: @json($isEdit && (filled($member->permanent_date) || filled($member->permanent_date_bs))),
