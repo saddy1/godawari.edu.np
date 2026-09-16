@@ -4,17 +4,17 @@
         <div class="space-y-1 text-xs font-semibold">
             <p class="text-[#1a5632] font-bold uppercase tracking-widest text-[10px] mb-1">Required</p>
             <p><code class="bg-gray-100 px-1 rounded">roll_number</code> — unique roll / S.N.</p>
-            <p><code class="bg-gray-100 px-1 rounded">first_name</code></p>
-            <p><code class="bg-gray-100 px-1 rounded">last_name</code></p>
+            <p><code class="bg-gray-100 px-1 rounded">full_name</code> — one complete name</p>
         </div>
         <div class="mt-3 space-y-1 text-xs font-semibold">
             <p class="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-1">Optional</p>
             <p><code class="bg-gray-100 px-1 rounded">middle_name</code></p>
             <p><code class="bg-gray-100 px-1 rounded">dob_bs</code> — e.g. <span class="text-gray-500">2080-06-05</span></p>
             <p><code class="bg-gray-100 px-1 rounded">dob</code> — AD date (YYYY-MM-DD)</p>
-            <p><code class="bg-gray-100 px-1 rounded">gender</code> — male / female / other</p>
-            <p><code class="bg-gray-100 px-1 rounded">mobile</code> / <code class="bg-gray-100 px-1 rounded">guardian_contact</code></p>
+            <p><code class="bg-gray-100 px-1 rounded">gender</code> — Male / Female / Other; invalid values are rejected in preview</p>
+            <p><code class="bg-gray-100 px-1 rounded">contact_no</code> / <code class="bg-gray-100 px-1 rounded">mobile</code> / <code class="bg-gray-100 px-1 rounded">guardian_contact</code></p>
             <p><code class="bg-gray-100 px-1 rounded">father_name</code> / <code class="bg-gray-100 px-1 rounded">mother_name</code></p>
+            <p><code class="bg-gray-100 px-1 rounded">device_id</code> — required for teacher / staff</p>
             <p><code class="bg-gray-100 px-1 rounded">guardian_name</code></p>
             <p><code class="bg-gray-100 px-1 rounded">email</code></p>
             <p><code class="bg-gray-100 px-1 rounded">registration_no</code></p>

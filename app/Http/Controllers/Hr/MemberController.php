@@ -77,6 +77,7 @@ class MemberController extends Controller
                 });
             })
             ->when($request->filled('stream'), fn ($q) => $q->where('stream', $request->stream))
+            ->when($request->filled('gender'), fn ($q) => $q->where('gender', $request->gender))
             ->when($request->filled('section'), fn ($q) => $q->where('section', $request->section))
             ->when($request->filled('permanent_district'), fn ($q) => $q->where('permanent_district', $request->permanent_district))
             ->when($request->filled('permanent_municipality'), fn ($q) => $q->where('permanent_municipality', $request->permanent_municipality));
@@ -290,6 +291,27 @@ class MemberController extends Controller
         return redirect()->route('admin.hr.members.index')->with('success', 'Member updated and synced across ERP modules.');
     }
 
+    public function resetPassword(Request $request, Student $member)
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $member->user;
+        if (! $user) {
+            return back()->with('error', 'This member does not have a login account yet.');
+        }
+
+        if ($user->isSuperAdmin() && ! auth()->user()->isSuperAdmin()) {
+            return back()->with('error', 'Cannot reset a Super Admin password.');
+        }
+
+        $user->password = Hash::make($validated['password']);
+        $user->saveQuietly();
+
+        return back()->with('success', $member->full_name . "'s password has been reset successfully.");
+    }
+
     private function preserveOmittedDateFields(Request $request, Student $member, array &$data): void
     {
         foreach (['dob', 'dob_bs', 'valid_till', 'valid_till_bs', 'joining_date', 'joining_date_bs', 'permanent_date', 'permanent_date_bs'] as $field) {
@@ -379,7 +401,15 @@ class MemberController extends Controller
             ])
             ->all();
 
-        return view('hr.members.bulk-edit', compact('academicOptions'));
+        $batchOptions = Student::query()
+            ->where('member_type', 'student')
+            ->whereNotNull('batch')
+            ->where('batch', '!=', '')
+            ->distinct()
+            ->orderBy('batch')
+            ->pluck('batch');
+
+        return view('hr.members.bulk-edit', compact('academicOptions', 'batchOptions'));
     }
 
     public function bulkEditSearch(Request $request)
@@ -389,16 +419,21 @@ class MemberController extends Controller
         $organization = $request->input('organization');
         $stream = $request->input('stream');
         $section = $request->input('section');
+        $gender = $request->input('gender');
+        $batch = $request->input('batch');
 
-        if ($q === '' && !$type && !$organization && !$stream && !$section) {
+        if ($q === '' && !$type && !$organization && !$stream && !$section && !$gender && !$batch) {
             return response()->json(['members' => []]);
         }
 
         $members = Student::query()
             ->when($type, fn ($query) => $query->where('member_type', $type))
+            ->when($gender, fn ($query) => $query->where('gender', $gender))
             ->when($organization, fn ($query) => $query->where('organization', $organization))
             ->when($stream, fn ($query) => $query->where('stream', $stream))
             ->when($section, fn ($query) => $query->where('section', $section))
+            ->when($batch === '__none__', fn ($query) => $query->where(fn ($batchQuery) => $batchQuery->whereNull('batch')->orWhere('batch', '')))
+            ->when($batch && $batch !== '__none__', fn ($query) => $query->where('batch', $batch))
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($inner) use ($q) {
                     $inner->where('first_name', 'like', "%{$q}%")
@@ -410,7 +445,8 @@ class MemberController extends Controller
                 });
             })
             ->orderBy('first_name')
-            ->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number', 'member_type', 'stream', 'section', 'photo'])
+            ->limit(250)
+            ->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number', 'member_type', 'stream', 'section', 'batch', 'photo'])
             ->map(fn (Student $s) => [
                 'id'          => $s->id,
                 'name'        => trim("{$s->first_name} {$s->middle_name} {$s->last_name}"),
@@ -418,23 +454,37 @@ class MemberController extends Controller
                 'member_type' => $s->member_type,
                 'stream'      => $s->stream,
                 'section'     => $s->section,
+                'batch'       => $s->batch,
+                'gender'      => $s->gender,
                 'photo_url'   => $s->photo_url,
             ]);
 
         return response()->json(['members' => $members]);
     }
 
-    // ── Bulk update class / section / valid till ────────────────────────────
+    // ── Bulk update gender / class / section / valid till ────────────────────
     public function bulkUpdate(Request $request, SubjectEnrollmentService $subjectEnrollments)
     {
         $request->validate([
             'ids'        => 'required|array|min:1',
             'ids.*'      => 'integer|exists:students,id',
+            'gender'     => ['nullable', Rule::in(['Male', 'Female', 'Other'])],
+            'batch'      => ['nullable', 'string', 'max:20'],
             'valid_till' => 'nullable|date',
             'section_id' => 'nullable|integer|exists:sections,id',
         ]);
 
-        $data = array_filter($request->only(['valid_till']), fn ($value) => filled($value));
+        $data = array_filter($request->only(['gender', 'batch', 'valid_till']), fn ($value) => filled($value));
+
+        if ($request->filled('batch')) {
+            $containsNonStudents = Student::whereIn('id', $request->ids)
+                ->where('member_type', '!=', 'student')
+                ->exists();
+
+            if ($containsNonStudents) {
+                return back()->with('error', 'A batch can only be assigned to students. Remove teachers or staff from the selection first.');
+            }
+        }
 
         if ($request->filled('section_id')) {
             $containsNonStudents = Student::whereIn('id', $request->ids)
@@ -865,8 +915,11 @@ class MemberController extends Controller
             'csv_file'           => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
             'organization'       => ['required', 'string', 'max:100'],
             'member_type'        => ['required', Rule::in(['student', 'teacher', 'staff'])],
-            'stream'             => ['required', 'string', 'max:100'],
-            'section'            => ['required', 'string', 'max:50'],
+            'stream'             => [Rule::requiredIf($request->member_type === 'student'), 'nullable', 'string', 'max:100'],
+            'section'            => [Rule::requiredIf($request->member_type === 'student'), 'nullable', 'string', 'max:50'],
+            'batch'              => [Rule::requiredIf($request->member_type === 'student'), 'nullable', 'string', 'max:20'],
+            'semester'           => ['nullable', 'integer', 'min:1', 'max:8'],
+            'year_level'         => ['nullable', 'integer', 'min:1', 'max:6'],
             'employee_category'  => ['nullable', Rule::in(['academic', 'administrative'])],
             'designation_id'     => $this->optionalForeignIdRules((new Designation())->getTable()),
             'employment_type_id' => $this->optionalForeignIdRules((new EmploymentType())->getTable()),
@@ -874,14 +927,26 @@ class MemberController extends Controller
             'hajiri_department_id' => $this->optionalForeignIdRules((new HajiriDepartment())->getTable()),
         ]);
 
-        $handle  = fopen($request->file('csv_file')->getRealPath(), 'r');
-        $headers = array_map(fn($h) => strtolower(str_replace([' ', '-'], '_', trim($h))), fgetcsv($handle) ?: []);
+        $academicSystem = CardDepartment::query()
+            ->whereHas('organization', fn ($query) => $query->where('slug', $request->organization))
+            ->where('name', $request->stream)
+            ->value('academic_system') ?? 'none';
 
-        $required = ['first_name', 'last_name', 'roll_number'];
-        $missing  = array_diff($required, $headers);
-        if ($missing) {
+        if ($request->member_type === 'student' && $academicSystem === 'semester' && ! $request->filled('semester')) {
+            return back()->withInput()->withErrors(['semester' => 'Semester is required for this department.']);
+        }
+        if ($request->member_type === 'student' && $academicSystem === 'year' && ! $request->filled('year_level')) {
+            return back()->withInput()->withErrors(['year_level' => 'Study year is required for this department.']);
+        }
+
+        $handle  = fopen($request->file('csv_file')->getRealPath(), 'r');
+        $headers = array_map(fn ($h) => $this->normalizeSpreadsheetHeader($h), fgetcsv($handle) ?: []);
+
+        $hasFullName = in_array('full_name', $headers, true) || in_array('name', $headers, true);
+        $hasSeparateName = in_array('first_name', $headers, true) && in_array('last_name', $headers, true);
+        if (! in_array('roll_number', $headers, true) || (! $hasFullName && ! $hasSeparateName)) {
             fclose($handle);
-            return back()->withErrors(['csv_file' => 'CSV is missing columns: ' . implode(', ', $missing)]);
+            return back()->withErrors(['csv_file' => 'CSV must include roll_number and either full_name or both first_name and last_name.']);
         }
 
         $rows   = [];
@@ -891,13 +956,51 @@ class MemberController extends Controller
             if (count($raw) !== count($headers)) continue;
             $data = array_combine($headers, array_map('trim', $raw));
             if (empty(array_filter($data))) continue;
-            $rows[] = $this->buildImportRow($lineNo, $data, $request->organization, $request->stream, $request->section);
+            if (blank($data['full_name'] ?? null) && filled($data['name'] ?? null)) {
+                $data['full_name'] = $data['name'];
+            }
+            if (blank($data['mobile'] ?? null)) {
+                $data['mobile'] = $data['contact_no'] ?? ($data['contact_number'] ?? ($data['mobile_no'] ?? ''));
+            }
+            if (filled($data['full_name'] ?? null)) {
+                [$data['first_name'], $data['middle_name'], $data['last_name']] = $this->splitImportName($data['full_name']);
+            }
+            $data['gender'] = $this->normalizeImportGender($data['gender'] ?? '');
+            $row = $this->buildImportRow($lineNo, $data, $request->organization, $request->stream, $request->section);
+            $rowType = in_array($row['member_type'], ['student', 'teacher', 'staff'], true)
+                ? $row['member_type']
+                : $request->member_type;
+            if ($rowType !== 'student' && blank($row['device_id'])) {
+                $row['error'] = trim(($row['error'] ? $row['error'].' • ' : '').'Device ID / Staff ID is required for teachers and staff.');
+            } elseif ($rowType !== 'student' && filled($row['device_id']) && ! ctype_digit((string) $row['device_id'])) {
+                $row['error'] = trim(($row['error'] ? $row['error'].' • ' : '').'Device ID / Staff ID must contain numbers only.');
+            }
+            $rows[] = $row;
         }
         fclose($handle);
 
         if (empty($rows)) {
             return back()->withErrors(['csv_file' => 'No data rows found.']);
         }
+
+        $rollGroups = collect($rows)->groupBy(fn ($row) => strtolower(trim((string) $row['roll_number'])));
+        foreach ($rollGroups as $roll => $matchingRows) {
+            if ($roll === '' || $matchingRows->count() < 2) continue;
+            foreach ($matchingRows as $matchingRow) {
+                foreach ($rows as $index => $row) {
+                    if ($row['line'] === $matchingRow['line']) {
+                        $rows[$index]['error'] = trim(($row['error'] ? $row['error'].' • ' : '')."Duplicate roll number {$matchingRow['roll_number']} in this CSV. Correct the file before importing.");
+                        break;
+                    }
+                }
+            }
+        }
+
+        $request->merge([
+            'import_kind' => 'csv',
+            'academic_system' => $academicSystem,
+            'employee_category' => $request->member_type === 'student' ? null : $request->employee_category,
+        ]);
 
         return $this->showImportPreview($rows, $request);
     }
@@ -1265,6 +1368,13 @@ class MemberController extends Controller
                     'program'             => $memberType === 'student'
                         ? (($row['stream'] ?? '') ?: $context['stream'])
                         : ($row['program'] ?? null),
+                    'batch'               => $memberType === 'student' ? (($row['batch'] ?? '') ?: ($context['batch'] ?? null)) : null,
+                    'semester'            => $memberType === 'student' && ($context['academic_system'] ?? 'none') === 'semester'
+                        ? (($row['semester'] ?? '') ?: ($context['semester'] ?? null))
+                        : null,
+                    'year_level'          => $memberType === 'student' && ($context['academic_system'] ?? 'none') === 'year'
+                        ? (($row['year_level'] ?? '') ?: ($context['year_level'] ?? null))
+                        : null,
                     'has_bus_pass'        => false,
                     'has_library_card'    => false,
                 ]);
@@ -1592,6 +1702,7 @@ class MemberController extends Controller
         if (empty($rollNumber))          $error = 'Roll number is empty';
         elseif (empty($data['first_name'])) $error = 'First name is empty';
         elseif (empty($data['last_name']))  $error = 'Last name is empty';
+        elseif (filled($data['gender'] ?? null) && ! in_array($data['gender'], ['Male', 'Female', 'Other'], true)) $error = 'Gender must be Male, Female, or Other';
         elseif ($rollExists)             $error = "Roll #{$rollNumber} already exists";
         elseif ($loginExists)            $error = "Login ID '{$loginUserId}' already taken";
 
@@ -1620,6 +1731,9 @@ class MemberController extends Controller
             'member_type'      => $data['member_type']      ?? '',
             'stream'           => $data['stream']           ?? '',
             'section'          => $data['section']          ?? '',
+            'batch'            => $data['batch']            ?? '',
+            'semester'         => $data['semester']         ?? '',
+            'year_level'       => $data['year_level']       ?? '',
             'designation'      => $data['designation']      ?? '',
             'employment_type'  => $data['employment_type']  ?? '',
             'joining_date'     => $data['joining_date']     ?? '',
@@ -1631,7 +1745,6 @@ class MemberController extends Controller
             'pan_number'       => $data['pan_number']       ?? '',
             'device_id'        => $data['device_id']        ?? '',
             'program'          => $data['program']          ?? '',
-            'batch'            => $data['batch']            ?? '',
             'password'         => $data['password']         ?? '',
             'organization'     => $defaultOrg,
             'error'            => $error,
@@ -1650,6 +1763,10 @@ class MemberController extends Controller
             'employment_type_id'   => $request->employment_type_id,
             'work_assigned_id'     => $request->work_assigned_id,
             'hajiri_department_id' => $request->hajiri_department_id,
+            'batch'                => $request->batch,
+            'semester'             => $request->semester,
+            'year_level'           => $request->year_level,
+            'academic_system'      => $request->input('academic_system', 'none'),
             'import_kind'          => $request->input('import_kind', 'standard'),
         ];
 
@@ -1782,24 +1899,32 @@ class MemberController extends Controller
         return sprintf('%04d-%02d-%02d', $year, $month, $day);
     }
 
-    public function template()
+    public function template(Request $request)
     {
-        $headers = [
-            'roll_number', 'login_user_id', 'member_type', 'first_name', 'middle_name', 'last_name',
-            'father_name', 'mother_name', 'grandfather_name', 'guardian_name',
-            'guardian_relation', 'guardian_contact',
-            'dob', 'gender', 'blood_group', 'mobile', 'parent_contact', 'email',
-            'stream', 'section', 'designation', 'employment_type', 'employee_category',
-            'joining_date', 'permanent_date', 'device_id', 'bank_name', 'bank_branch',
-            'bank_account_name', 'bank_account_number', 'pan_number',
-            'permanent_province', 'permanent_district', 'permanent_municipality',
-            'temporary_province', 'temporary_district', 'temporary_municipality',
-            'password',
-        ];
+        $type = in_array($request->query('type'), ['teacher', 'staff'], true) ? $request->query('type') : 'student';
+        $isEmployee = $type !== 'student';
+        $headers = $isEmployee
+            ? ['roll_number', 'full_name', 'gender', 'contact_no', 'email', 'device_id']
+            : ['roll_number', 'full_name', 'gender', 'contact_no', 'email'];
+        $rows = $isEmployee
+            ? [
+                ['DEMO-TEACHER', 'Demo Teacher', 'Male', '9800000011', 'demo-teacher@example.com', '1001'],
+                ['DEMO-STAFF', 'Demo Staff', 'Female', '9800000012', 'demo-staff@example.com', '1002'],
+            ]
+            : [
+                ['DEMO-MALE', 'Demo Student Male', 'Male', '9800000001', 'demo-male@example.com'],
+                ['DEMO-FEMALE', 'Demo Student Female', 'Female', '9800000002', 'demo-female@example.com'],
+                ['DEMO-OTHER', 'Demo Student Other', 'Other', '9800000003', 'demo-other@example.com'],
+            ];
 
-        return response(implode(',', $headers) . "\n", 200, [
+        $content = implode(',', $headers) . "\n";
+        foreach ($rows as $row) {
+            $content .= implode(',', $row) . "\n";
+        }
+
+        return response($content, 200, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="hr-members-template.csv"',
+            'Content-Disposition' => 'attachment; filename="hr-'.($isEmployee ? 'employee' : 'student').'-template.csv"',
         ]);
     }
 

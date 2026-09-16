@@ -9,7 +9,7 @@
     $isPhotoPreview = isset($photoRows);
     $previewKind = $context['import_kind'] ?? 'standard';
     $tab = $isPreview
-        ? ($previewKind === 'class_list' ? 'class-list' : 'excel')
+        ? ($previewKind === 'class_list' ? 'class-list' : ($previewKind === 'csv' ? 'csv' : 'excel'))
         : ($isPhotoPreview ? 'photos' : (request('tab') ?: 'excel'));
     $selectedOrg = old('organization', array_key_first($formOptions ?? []));
 @endphp
@@ -67,9 +67,9 @@
     @endphp
 
     <div class="flex items-center gap-3 text-sm text-gray-500">
-        <a href="{{ route('admin.hr.members.import', ['tab' => $previewKind === 'class_list' ? 'class-list' : 'excel']) }}" class="hover:text-[#1a5632]">← Back to upload</a>
+        <a href="{{ route('admin.hr.members.import', ['tab' => $tab]) }}" class="hover:text-[#1a5632]">← Back to upload</a>
         <span class="text-gray-300">|</span>
-        <span>Preview — {{ $context['organization'] }} / {{ $context['stream'] ?: 'All streams' }} / {{ $context['section'] ?: 'All sections' }}</span>
+        <span>Preview {{ strtoupper($tab) }} — {{ $context['organization'] }} / {{ $context['stream'] ?: 'All streams' }} / {{ $context['section'] ?: 'All sections' }}</span>
     </div>
 
     <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
@@ -78,7 +78,7 @@
             <div class="flex gap-4 text-sm">
                 <span class="text-emerald-600 font-bold">✓ {{ $valid->count() }} ready</span>
                 @if($invalid->count())
-                <span class="text-red-500 font-bold">✗ {{ $invalid->count() }} errors (skipped)</span>
+                <span class="text-red-500 font-bold">✗ {{ $invalid->count() }} {{ $previewKind === 'csv' ? 'errors — fix before importing' : 'errors (skipped)' }}</span>
                 @endif
             </div>
         </div>
@@ -94,6 +94,10 @@
                         @endif
                         <th class="px-3 py-2 text-left text-gray-500 font-semibold">Full Name</th>
                         <th class="px-3 py-2 text-left text-gray-500 font-semibold">DOB (BS)</th>
+                        @if($previewKind !== 'class_list')
+                        <th class="px-3 py-2 text-left text-gray-500 font-semibold">Gender</th>
+                        <th class="px-3 py-2 text-left text-gray-500 font-semibold">Batch / Term</th>
+                        @endif
                         @if($previewKind === 'class_list')
                         <th class="px-3 py-2 text-left text-gray-500 font-semibold">DOB (AD)</th>
                         <th class="px-3 py-2 text-left text-gray-500 font-semibold">Gender</th>
@@ -116,14 +120,25 @@
                         @endif
                         <td class="px-3 py-2">{{ trim("{$row['first_name']} {$row['middle_name']} {$row['last_name']}") }}</td>
                         <td class="px-3 py-2 text-gray-500">{{ $row['dob_bs'] }}</td>
+                        @if($previewKind !== 'class_list')
+                        <td class="px-3 py-2 text-gray-500">{{ $row['gender'] ?: '—' }}</td>
+                        <td class="px-3 py-2 text-gray-500">
+                            {{ $context['batch'] ?: '—' }}
+                            @if(($context['academic_system'] ?? 'none') === 'semester') · Semester {{ $context['semester'] }}
+                            @elseif(($context['academic_system'] ?? 'none') === 'year') · Year {{ $context['year_level'] }}
+                            @endif
+                        </td>
+                        @endif
                         @if($previewKind === 'class_list')
                         <td class="px-3 py-2 text-gray-500">{{ $row['dob'] }}</td>
+                        <th class="px-3 py-2 text-left text-gray-500 font-semibold">Email</th>
                         <td class="px-3 py-2 text-gray-500">{{ $row['gender'] }}</td>
                         <td class="px-3 py-2 text-gray-500">{{ $context['section'] }}</td>
                         @endif
                         <td class="px-3 py-2 text-gray-500">{{ $row['mobile'] }}</td>
                         @if($previewKind !== 'class_list')
                         <td class="px-3 py-2 text-gray-500">{{ $row['father_name'] }}</td>
+                        <td class="px-3 py-2 text-gray-500">{{ $row['email'] ?: '—' }}</td>
                         @endif
                         <td class="px-3 py-2">
                             @if($row['error'])
@@ -138,7 +153,7 @@
             </table>
         </div>
 
-        @if($valid->count())
+        @if($valid->count() && ($previewKind !== 'csv' || $invalid->isEmpty()))
         <form method="POST" action="{{ route('admin.hr.members.import.confirm') }}">
             @csrf
             <div class="flex gap-3 pt-3 border-t border-gray-100">
@@ -152,10 +167,15 @@
                 </a>
             </div>
         </form>
+        @elseif($invalid->isNotEmpty())
+        <div class="pt-3 border-t border-gray-100">
+            <p class="text-sm text-red-500 mb-3">Import is blocked because this preview contains errors. Correct the CSV and upload it again.</p>
+            <a href="{{ route('admin.hr.members.import', ['tab' => $tab]) }}" class="text-sm text-[#1a5632] hover:underline">← Back</a>
+        </div>
         @else
         <div class="pt-3 border-t border-gray-100">
             <p class="text-sm text-red-500 mb-3">No valid rows to import. Fix your file and try again.</p>
-            <a href="{{ route('admin.hr.members.import', ['tab' => $previewKind === 'class_list' ? 'class-list' : 'excel']) }}" class="text-sm text-[#1a5632] hover:underline">← Back</a>
+            <a href="{{ route('admin.hr.members.import', ['tab' => $tab]) }}" class="text-sm text-[#1a5632] hover:underline">← Back</a>
         </div>
         @endif
     </div>
@@ -279,7 +299,7 @@
             </div>
             <div class="grid gap-4 md:grid-cols-2">
                 <div><label class="{{ $label }}">Default Member Type</label>
-                    <select name="member_type" class="{{ $input }}">
+                    <select name="member_type" x-model="memberType" class="{{ $input }}">
                         <option value="student">Student</option>
                         <option value="teacher">Teacher / Academic</option>
                         <option value="staff">Staff / Administrative</option>
@@ -288,27 +308,23 @@
                     <select name="organization" x-model="organization" class="{{ $input }}">
                         @foreach($formOptions as $slug => $org)<option value="{{ $slug }}">{{ $org['label'] }}</option>@endforeach
                     </select></div>
-                <div><label class="{{ $label }}">Class / Stream <span class="text-red-500">*</span></label>
-                    <select name="stream" x-model="stream" required class="{{ $input }}">
+                <div x-show="memberType === 'student'" x-cloak><label class="{{ $label }}">Class / Stream <span class="text-red-500">*</span></label>
+                    <select name="stream" x-model="stream" required :disabled="memberType !== 'student'" class="{{ $input }}">
                         <option value="">-- Select --</option>
                         <template x-for="s in streams" :key="s"><option :value="s" x-text="s"></option></template>
                     </select></div>
-                <div><label class="{{ $label }}">Section <span class="text-red-500">*</span></label>
-                    <select name="section" x-model="section" required class="{{ $input }}">
+                <div x-show="memberType === 'student'" x-cloak><label class="{{ $label }}">Section <span class="text-red-500">*</span></label>
+                    <select name="section" x-model="section" required :disabled="memberType !== 'student'" class="{{ $input }}">
                         <option value="">-- Select --</option>
                         <template x-for="s in sections" :key="s"><option :value="s" x-text="s"></option></template>
                     </select></div>
                 <div><label class="{{ $label }}">Excel File (.xlsx / .xls / .ods)</label>
                     <input type="file" name="xlsx_file" required accept=".xlsx,.xls,.ods,.csv"
                            class="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#1a5632] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white"></div>
-                <div><label class="{{ $label }}">Employee Category</label>
-                    <select name="employee_category" class="{{ $input }}">
-                        <option value="">Use CSV / none</option>
-                        <option value="academic">Academic</option>
-                        <option value="administrative">Administrative</option>
-                    </select></div>
             </div>
-            @include('hr.members._import_hajiri_fields', ['input' => $input, 'label' => $label, 'hajiriOptions' => $hajiriOptions])
+            <div x-show="memberType !== 'student'" x-cloak>
+                @include('hr.members._import_hajiri_fields', ['input' => $input, 'label' => $label, 'hajiriOptions' => $hajiriOptions])
+            </div>
             <div class="flex gap-3 pt-3 border-t border-gray-100">
                 <button class="rounded-xl bg-[#1a5632] px-6 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Preview Import →</button>
                 <a href="{{ route('admin.hr.members.index') }}" class="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</a>
@@ -319,21 +335,21 @@
 
     @elseif($tab === 'csv')
     {{-- ─── CSV Tab ────────────────────────────────────────────────────── --}}
-    <div class="grid gap-5 lg:grid-cols-[1fr_340px]">
+    <div class="w-full">
         <form method="POST" action="{{ route('admin.hr.members.import.csv.preview') }}" enctype="multipart/form-data"
-              class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-5" x-data="hrImportSelectors(@js($formOptions), @js($selectedOrg))">
+              class="w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-5" x-data="hrImportSelectors(@js($formOptions), @js($selectedOrg))">
             @csrf
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-extrabold text-gray-950">CSV Import</h2>
-                <a href="{{ route('admin.hr.members.template') }}" class="text-xs text-[#1a5632] hover:underline font-semibold">↓ Download Template</a>
+                <a :href="templateUrl" class="text-xs text-[#1a5632] hover:underline font-semibold">↓ <span x-text="templateLabel"></span></a>
             </div>
             <div class="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
-                <p class="font-semibold">Required columns: <span class="font-mono">roll_number, first_name, last_name</span></p>
-                <p class="mt-1">Optional: <span class="font-mono">dob_bs, dob, gender, father_name, mother_name, guardian_name, guardian_contact, mobile, email, stream, section, member_type, registration_no, address_en, …</span></p>
+                <p class="font-semibold">Use one simple row per member: <span class="font-mono">roll_number, full_name, gender, contact_no, email, device_id</span></p>
+                <p class="mt-1">Students need roll number and full name. Teachers/staff also need a numeric <span class="font-mono">device_id</span>. Gender must be Male, Female, or Other.</p>
             </div>
             <div class="grid gap-4 md:grid-cols-2">
                 <div><label class="{{ $label }}">Default Member Type</label>
-                    <select name="member_type" class="{{ $input }}">
+                    <select name="member_type" x-model="memberType" class="{{ $input }}">
                         <option value="student">Student</option>
                         <option value="teacher">Teacher / Academic</option>
                         <option value="staff">Staff / Administrative</option>
@@ -342,33 +358,57 @@
                     <select name="organization" x-model="organization" class="{{ $input }}">
                         @foreach($formOptions as $slug => $org)<option value="{{ $slug }}">{{ $org['label'] }}</option>@endforeach
                     </select></div>
-                <div><label class="{{ $label }}">Class / Stream <span class="text-red-500">*</span></label>
-                    <select name="stream" x-model="stream" required class="{{ $input }}">
+                <div x-show="memberType === 'student'" x-cloak><label class="{{ $label }}">Class / Stream <span class="text-red-500">*</span></label>
+                    <select name="stream" x-model="stream" required :disabled="memberType !== 'student'" class="{{ $input }}">
                         <option value="">-- Select --</option>
                         <template x-for="s in streams" :key="s"><option :value="s" x-text="s"></option></template>
                     </select></div>
-                <div><label class="{{ $label }}">Section <span class="text-red-500">*</span></label>
-                    <select name="section" x-model="section" required class="{{ $input }}">
+                <div x-show="memberType === 'student'" x-cloak><label class="{{ $label }}">Section <span class="text-red-500">*</span></label>
+                    <select name="section" x-model="section" required :disabled="memberType !== 'student'" class="{{ $input }}">
                         <option value="">-- Select --</option>
                         <template x-for="s in sections" :key="s"><option :value="s" x-text="s"></option></template>
                     </select></div>
+                <div x-show="memberType === 'student'" x-cloak>
+                    <label class="{{ $label }}">Batch <span class="text-red-500">*</span></label>
+                    <input name="batch" required :disabled="memberType !== 'student'" x-model="batch" placeholder="e.g. 2083" class="{{ $input }}">
+                </div>
+                <div x-show="memberType === 'student' && academicSystem === 'semester'" x-cloak>
+                    <label class="{{ $label }}">Semester <span class="text-red-500">*</span></label>
+                    <select name="semester" required :disabled="academicSystem !== 'semester'" class="{{ $input }}">
+                        <option value="">Select semester</option>
+                        @for($semester = 1; $semester <= 8; $semester++)
+                            <option value="{{ $semester }}">Semester {{ $semester }}</option>
+                        @endfor
+                    </select>
+                </div>
+                <div x-show="memberType === 'student' && academicSystem === 'year'" x-cloak>
+                    <label class="{{ $label }}">Study Year <span class="text-red-500">*</span></label>
+                    <select name="year_level" required :disabled="academicSystem !== 'year'" class="{{ $input }}">
+                        <option value="">Select year</option>
+                        @for($year = 1; $year <= 4; $year++)
+                            <option value="{{ $year }}">Year {{ $year }}</option>
+                        @endfor
+                    </select>
+                </div>
                 <div><label class="{{ $label }}">CSV File</label>
                     <input type="file" name="csv_file" required accept=".csv,text/csv,text/plain"
                            class="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#1a5632] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white"></div>
-                <div><label class="{{ $label }}">Employee Category</label>
-                    <select name="employee_category" class="{{ $input }}">
-                        <option value="">Use CSV / none</option>
-                        <option value="academic">Academic</option>
-                        <option value="administrative">Administrative</option>
-                    </select></div>
+                <div x-show="memberType !== 'student'" x-cloak>
+                    <label class="{{ $label }}">Device ID / Staff ID <span class="text-red-500">*</span></label>
+                    <p class="text-xs font-semibold text-gray-400">Required in the CSV <span class="font-mono">device_id</span> column for each teacher/staff row.</p>
+                </div>
             </div>
-            @include('hr.members._import_hajiri_fields', ['input' => $input, 'label' => $label, 'hajiriOptions' => $hajiriOptions])
+            <div x-show="memberType !== 'student'" x-cloak>
+                @include('hr.members._import_hajiri_fields', ['input' => $input, 'label' => $label, 'hajiriOptions' => $hajiriOptions])
+            </div>
+            <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+                Upload only the required identity columns, review every row on the next screen, then confirm the import. Optional details can be updated later.
+            </div>
             <div class="flex gap-3 pt-3 border-t border-gray-100">
-                <button class="rounded-xl bg-[#1a5632] px-6 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Preview Import →</button>
+                <button class="rounded-xl bg-[#1a5632] px-6 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Preview &amp; Validate →</button>
                 <a href="{{ route('admin.hr.members.index') }}" class="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50">Cancel</a>
             </div>
         </form>
-        @include('hr.members._import_sidebar', ['hajiriOptions' => $hajiriOptions])
     </div>
 
     @elseif($tab === 'class-list')
@@ -479,8 +519,20 @@ function hrImportSelectors(options, defaultOrg) {
     return {
         options,
         organization: defaultOrg,
+        memberType: 'student',
+        get templateUrl() {
+            const type = this.memberType === 'student' ? 'student' : this.memberType;
+            return `{{ route('admin.hr.members.template') }}?type=${type}`;
+        },
+        get templateLabel() {
+            return this.memberType === 'student' ? 'Download Student Template' : 'Download ' + (this.memberType === 'teacher' ? 'Teacher' : 'Staff') + ' Template';
+        },
+        batch: '',
         stream: '',
         section: '',
+        get academicSystem() {
+            return this.options[this.organization]?.academic_systems?.[this.stream] || 'none';
+        },
         get streams() { return Object.keys(this.options[this.organization]?.streams || {}); },
         get sections() { return this.options[this.organization]?.streams?.[this.stream] || []; },
         init() {

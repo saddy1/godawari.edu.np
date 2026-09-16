@@ -38,7 +38,7 @@
                 <div class="space-y-3 mb-3">
                     <div>
                         <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Organization</label>
-                        <select x-model="organizationFilter" @change="departmentFilter = ''; sectionFilter = ''"
+                        <select x-model="organizationFilter" @change="departmentFilter = ''; sectionFilter = ''; batchFilter = ''"
                                 class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
                             <option value="">All organizations</option>
                             <template x-for="organization in organizations" :key="organization.slug">
@@ -48,7 +48,7 @@
                     </div>
                     <div>
                         <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Class / Department</label>
-                        <select x-model="departmentFilter" @change="sectionFilter = ''"
+                        <select x-model="departmentFilter" @change="sectionFilter = ''; batchFilter = ''"
                                 class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
                             <option value="">All classes</option>
                             <option x-show="hasUnassignedDepartment" value="__none__">Class not assigned</option>
@@ -68,6 +68,15 @@
                             </template>
                         </select>
                     </div>
+                    <div>
+                        <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Batch</label>
+                        <select x-model="batchFilter"
+                                class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                            <option value="">All batches</option>
+                            <option x-show="hasUnassignedBatch" value="__none__">Batch not assigned</option>
+                            <template x-for="batch in batches" :key="batch"><option :value="batch" x-text="batch"></option></template>
+                        </select>
+                    </div>
                 </div>
 
                 {{-- Search within list --}}
@@ -79,7 +88,7 @@
                     <button type="button"
                             x-show="groupVisible(@js($g))"
                             @click="selectGroup(@js($g))"
-                            :class="selected && selected.organization === @js($g['organization']) && selected.program === @js($g['program']) && selected.stream === @js($g['stream']) && selected.section === @js($g['section']) && selected.semester === @js($g['semester']) && selected.year_level === @js($g['year_level'])
+                            :class="selected && selected.organization === @js($g['organization']) && selected.program === @js($g['program']) && selected.stream === @js($g['stream']) && selected.section === @js($g['section']) && selected.batch === @js($g['batch']) && selected.semester === @js($g['semester']) && selected.year_level === @js($g['year_level'])
                                 ? 'bg-[#1a5632] text-white border-[#1a5632]'
                                 : 'bg-white text-gray-700 border-gray-200 hover:border-[#1a5632] hover:bg-emerald-50'"
                             class="w-full flex items-center justify-between rounded-xl border px-3.5 py-3 text-left transition-all">
@@ -87,6 +96,7 @@
                             <p class="mb-1 text-[10px] font-bold uppercase tracking-wider opacity-60">{{ $g['organization_label'] }}</p>
                             <p class="text-sm font-extrabold leading-tight">{{ $g['class_name'] }}</p>
                             <p class="text-xs mt-0.5 opacity-70">
+                                @if($g['batch']) Batch {{ $g['batch'] }} · @endif
                                 @if($g['academic_system'] === 'semester')
                                     {{ $g['semester'] ? 'Semester '.$g['semester'] : 'Semester not assigned' }}
                                 @elseif($g['academic_system'] === 'year')
@@ -212,6 +222,17 @@
                     <div class="rounded-2xl border border-gray-200 bg-white shadow-sm p-5 space-y-4">
                         <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">Progression Settings</p>
 
+                        <div>
+                            <label class="block text-xs font-extrabold uppercase tracking-widest text-gray-500 mb-1.5">Academic Year <span class="text-red-500">*</span></label>
+                            <select x-model="academicYearId" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                                <option value="">Select academic year</option>
+                                @foreach($academicYears as $academicYear)
+                                    <option value="{{ $academicYear->id }}">{{ $academicYear->name }}{{ $academicYear->is_active ? ' · Active' : '' }}</option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1.5 text-xs font-semibold text-gray-400">Subject assignments will be refreshed for this year after promotion.</p>
+                        </div>
+
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div x-show="selected?.academic_system === 'none'">
                                 <label class="block text-xs font-extrabold uppercase tracking-widest text-gray-500 mb-1.5">Promote To (Class)</label>
@@ -324,6 +345,7 @@ function promoteApp(academicOptions) {
         organizationFilter: '',
         departmentFilter: '',
         sectionFilter:  '',
+        batchFilter:    '',
         studentSearch:  '',
         students:       [],
         totalStudents:  0,
@@ -335,6 +357,7 @@ function promoteApp(academicOptions) {
         toSectionId: '',
         toSemester: '',
         toYearLevel: '',
+        academicYearId: @js($selectedAcademicYear?->id ? (string) $selectedAcademicYear->id : ''),
         action:     'promote',
         validTill:  '',
         gradAction: 'mark',
@@ -379,6 +402,22 @@ function promoteApp(academicOptions) {
                 .some(group => !group.section);
         },
 
+        get batches() {
+            return [...new Set(this.allGroups
+                .filter(group => !this.organizationFilter || group.organization === this.organizationFilter)
+                .filter(group => !this.departmentFilter || (this.departmentFilter === '__none__' ? !group.stream : group.stream === this.departmentFilter))
+                .map(group => group.batch)
+                .filter(Boolean))]
+                .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+        },
+
+        get hasUnassignedBatch() {
+            return this.allGroups
+                .filter(group => !this.organizationFilter || group.organization === this.organizationFilter)
+                .filter(group => !this.departmentFilter || (this.departmentFilter === '__none__' ? !group.stream : group.stream === this.departmentFilter))
+                .some(group => !group.batch);
+        },
+
         get availableClasses() {
             return this.selected?.target_classes ?? [];
         },
@@ -417,7 +456,7 @@ function promoteApp(academicOptions) {
         },
 
         get canSubmitProgression() {
-            if (this.checkedIds.length === 0) return false;
+            if (this.checkedIds.length === 0 || !this.academicYearId) return false;
             if (this.action === 'graduate') return true;
             if (this.action === 'advance_semester') return Boolean(this.toSemester);
             if (this.action === 'advance_year') return Boolean(this.toYearLevel);
@@ -451,10 +490,12 @@ function promoteApp(academicOptions) {
                 || (this.departmentFilter === '__none__' ? !group.stream : group.stream === this.departmentFilter);
             const matchesSection = !this.sectionFilter
                 || (this.sectionFilter === '__none__' ? !group.section : group.section === this.sectionFilter);
+            const matchesBatch = !this.batchFilter
+                || (this.batchFilter === '__none__' ? !group.batch : group.batch === this.batchFilter);
             const matchesSearch = !this.groupSearch
                 || (group.label ?? '').toLowerCase().includes(this.groupSearch.toLowerCase());
 
-            return matchesOrganization && matchesDepartment && matchesSection && matchesSearch;
+            return matchesOrganization && matchesDepartment && matchesSection && matchesBatch && matchesSearch;
         },
 
         selectGroup(g) {
@@ -502,6 +543,7 @@ function promoteApp(academicOptions) {
                 program: this.selected.program ?? '',
                 stream:  this.selected.stream  ?? '',
                 section: this.selected.section ?? '',
+                batch: this.selected.batch ?? '',
                 semester: this.selected.semester ?? '',
                 year_level: this.selected.year_level ?? '',
                 q:       this.studentSearch,
@@ -524,6 +566,7 @@ function promoteApp(academicOptions) {
 
         submitPromotion() {
             if (this.checkedIds.length === 0) return;
+            if (!this.academicYearId) return;
             if (this.action === 'promote' && !this.toClass) return;
             if (this.action === 'promote' && this.requiresTargetSection && !this.toSectionId) return;
             if (this.action === 'advance_semester' && !this.toSemester) return;
@@ -545,6 +588,7 @@ function promoteApp(academicOptions) {
             add('groups[0][from_organization]', this.selected.organization ?? '');
             add('groups[0][from_stream]',  this.selected.stream  ?? '');
             add('groups[0][from_section]', this.selected.section ?? '');
+            add('groups[0][from_batch]', this.selected.batch ?? '');
             add('groups[0][from_semester]', this.selected.semester ?? '');
             add('groups[0][from_year_level]', this.selected.year_level ?? '');
             add('groups[0][to_program]',   this.toClass);
@@ -555,6 +599,7 @@ function promoteApp(academicOptions) {
             add('groups[0][to_year_level]', this.toYearLevel || '');
             add('groups[0][academic_system]', this.selected.academic_system || 'none');
             add('groups[0][action]',       this.action);
+            add('academic_year_id', this.academicYearId);
             add('grad_action',             this.gradAction);
             if (this.validTill) add('valid_till', this.validTill);
 

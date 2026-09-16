@@ -261,10 +261,15 @@ class LibraryController extends Controller
 
             $borrower      = Student::findOrFail($validated['borrower_student_id']);
             $patronRules   = $this->rulesForBorrower($borrower, $copy->book);
-            $activeCount   = LibraryLoan::where('student_id', $borrower->id)->where('status', 'issued')->count();
+            $activeLoansQuery = LibraryLoan::where('student_id', $borrower->id)->where('status', 'issued');
+            if ($patronRules['_category_id'] !== null) {
+                $activeLoansQuery->whereHas('copy.book', fn ($query) => $query->where('library_category_id', $patronRules['_category_id']));
+            }
+            $activeCount = $activeLoansQuery->count();
 
             if ($activeCount >= (int) $patronRules['max_active_books']) {
-                throw ValidationException::withMessages(['borrower_student_id' => "This borrower already has the maximum allowed {$patronRules['max_active_books']} active books (based on their patron category)."]);
+                $scope = $patronRules['_category_id'] !== null ? 'in this book category' : 'across all book categories';
+                throw ValidationException::withMessages(['borrower_student_id' => "This borrower already has the maximum allowed {$patronRules['max_active_books']} active books {$scope} (based on their patron category)."]);
             }
 
             if ((bool) $patronRules['block_same_title']) {
@@ -1407,6 +1412,7 @@ class LibraryController extends Controller
             'max_active_books' => 3,
             'fine_per_day'     => 2,
             'block_same_title' => 1,
+            '_category_id'     => null,
             '_category'        => 'System default',
         ];
 
@@ -1422,6 +1428,7 @@ class LibraryController extends Controller
                     'max_active_books' => $category->max_active_books,
                     'fine_per_day'     => (float) $category->fine_per_day,
                     'block_same_title' => $category->block_same_title ? 1 : 0,
+                    '_category_id'    => $category->library_category_id,
                     '_category'        => $category->name,
                 ];
             }

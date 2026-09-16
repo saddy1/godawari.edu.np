@@ -20,19 +20,26 @@
 @section('content')
 
 <div x-data="{ absentModalOpen: false, presentModalOpen: false, allClassesModalOpen: false, takenModalOpen: false, notTakenModalOpen: false }">
+<div id="founder-dashboard-content">
 
     {{-- Range selector --}}
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
             <p class="text-sm font-bold text-gray-500">Teaching &amp; learning — real-time oversight for {{ now()->format('l, jS F Y') }}</p>
         </div>
-        <div class="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm" data-founder-range>
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="refreshFounderDashboard()"
+                    class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-extrabold text-gray-600 shadow-sm transition-colors hover:bg-gray-50">
+                Refresh
+            </button>
+            <div class="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm" data-founder-range>
             @foreach(['today' => 'Today', 'week' => 'This Week', 'month' => 'This Month'] as $value => $label)
                 <a href="{{ route('admin.founder.dashboard', ['range' => $value]) }}"
                    class="rounded-lg px-3 py-1.5 text-xs font-extrabold transition-colors {{ $range === $value ? 'bg-[#1a5632] text-white' : 'text-gray-500 hover:bg-gray-100' }}">
                     {{ $label }}
                 </a>
             @endforeach
+            </div>
         </div>
     </div>
 
@@ -503,19 +510,43 @@
     </div>
 
 </div>
+</div>
 
 @endsection
 
 @push('scripts')
 <script>
 (function () {
-    let last = Date.now();
+    window.refreshFounderDashboard = async function () {
+        const url = new URL(window.location.href);
+        url.searchParams.set('_refresh', Date.now().toString());
+        const current = document.getElementById('founder-dashboard-content');
+        if (!current) return;
+        current.classList.add('opacity-60', 'pointer-events-none');
+        try {
+            const response = await fetch(url.toString(), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                cache: 'no-store',
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const html = await response.text();
+            const documentParser = new DOMParser();
+            const parsed = documentParser.parseFromString(html, 'text/html');
+            const fresh = parsed.getElementById('founder-dashboard-content');
+            if (!fresh) throw new Error('Dashboard content not found');
+            current.innerHTML = fresh.innerHTML;
+            if (window.Alpine?.initTree) window.Alpine.initTree(current);
+        } catch (error) {
+            console.error('Unable to refresh founder dashboard:', error);
+        } finally {
+            current.classList.remove('opacity-60', 'pointer-events-none');
+        }
+    };
+
     setInterval(function () {
         if (document.visibilityState !== 'visible') return;
-        if (Date.now() - last < 55000) return;
-        last = Date.now();
-        window.location.reload();
-    }, 15000);
+        window.refreshFounderDashboard();
+    }, 30000);
 })();
 </script>
 @endpush

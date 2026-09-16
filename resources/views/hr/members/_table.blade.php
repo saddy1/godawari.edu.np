@@ -24,8 +24,8 @@
                     </th>
                     <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Member</th>
                     <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Type</th>
+                    <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Gender</th>
                     <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Class / Section</th>
-                    <th class="px-5 py-3 text-left text-xs font-extrabold uppercase tracking-widest text-gray-500">Linked Modules</th>
                     <th class="px-5 py-3 text-right text-xs font-extrabold uppercase tracking-widest text-gray-500">Actions</th>
                 </tr>
             </thead>
@@ -36,7 +36,7 @@
                             ->filter(fn ($enrollment) => $enrollment->offering?->is_elective)
                             ->pluck('offering.elective_group')->filter()->unique()->values();
                     @endphp
-                    <tr class="hover:bg-gray-50">
+                    <tr class="{{ $member->member_type === 'student' ? 'bg-blue-50/30 hover:bg-blue-50' : ($member->member_type === 'teacher' ? 'bg-emerald-50/30 hover:bg-emerald-50' : 'bg-amber-50/30 hover:bg-amber-50') }}">
                         <td class="w-20 px-5 py-4">
                             <label class="inline-flex items-center">
                                 <span class="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
@@ -64,6 +64,11 @@
                             </span>
                         </td>
                         <td class="px-5 py-4" data-highlight>
+                            <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-bold {{ $member->gender === 'Female' ? 'border-pink-100 bg-pink-50 text-pink-700' : ($member->gender === 'Male' ? 'border-sky-100 bg-sky-50 text-sky-700' : 'border-gray-200 bg-gray-50 text-gray-500') }}">
+                                {{ $member->gender ?: 'Not set' }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4" data-highlight>
                             <p class="text-sm font-semibold text-gray-700">{{ $member->stream ?: '-' }} <span class="text-gray-400">/</span> {{ $member->section ?: '-' }}</p>
                             @if($member->member_type === 'student' && ($member->academicSection?->group_name || $memberElectiveGroups->isNotEmpty()))
                                 <div class="mt-1.5 flex max-w-64 flex-wrap gap-1">
@@ -76,32 +81,14 @@
                                 </div>
                             @endif
                         </td>
-                        <td class="px-5 py-4">
-                            <div class="flex flex-wrap gap-1.5">
-                                <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700">ID Card</span>
-                                @if($member->user)
-                                    <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">Login</span>
-                                    @if($member->user->device_id)
-                                        <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">Hajiri</span>
-                                    @endif
-                                    @if($member->user->hasAnyRole(['student', 'teacher']))
-                                        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">Learning</span>
-                                    @endif
-                                @else
-                                    <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-500">No Login</span>
-                                @endif
-                                @if($member->library_clearance_hold)
-                                    <span class="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700" title="{{ $member->library_clearance_message }}">
-                                        Library clearance pending
-                                    </span>
-                                @endif
-                            </div>
-                        </td>
                         <td class="px-5 py-4 text-right">
                             <div class="flex justify-end gap-2">
                                 <a href="{{ route('admin.hr.members.show', $member) }}" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-extrabold text-blue-700 hover:bg-blue-100">View</a>
                                 @if(auth()->user()?->canAccess('hr.members.edit'))
                                     <a href="{{ route('admin.hr.members.edit', $member) }}" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-extrabold text-gray-700 hover:bg-gray-50">Edit</a>
+                                    @if($member->user)
+                                        <button type="button" onclick="openHrPasswordReset({{ $member->id }}, @js($member->full_name))" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-700 hover:bg-amber-100">Reset Password</button>
+                                    @endif
                                 @endif
                                 @if(auth()->user()?->canAccess('hr.members.delete'))
                                     @if($member->library_clearance_hold)

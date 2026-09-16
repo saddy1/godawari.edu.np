@@ -10,36 +10,10 @@
         'teacher' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
         'staff' => 'bg-amber-50 text-amber-700 border-amber-100',
     ];
+    $genderOptions = ['Male', 'Female', 'Other'];
 @endphp
 
 <div class="space-y-6">
-    <div class="rounded-2xl bg-gradient-to-br from-[#0b2415] to-[#1a5632] p-5 sm:p-6 text-white shadow-sm">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-                <p class="text-sm font-bold uppercase tracking-widest text-white/50">Human Resource</p>
-                <h1 class="mt-1 text-3xl font-extrabold">People Master</h1>
-                <p class="mt-2 max-w-3xl text-sm font-medium text-white/70">
-                    Add students, teachers, and staff once. HR syncs them to ID Card, Hajiri, Learning, and future ERP modules.
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                @if(auth()->user()?->canAccess('hr.members.edit'))
-                    <a href="{{ route('admin.hr.members.bulk-edit.index') }}" class="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-extrabold text-white hover:bg-white/20">
-                        Bulk Edit
-                    </a>
-                @endif
-                @if(auth()->user()?->canAccess('hr.members.create'))
-                    <a href="{{ route('admin.hr.members.import') }}" class="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-extrabold text-white hover:bg-white/20">
-                        Bulk Import
-                    </a>
-                    <a href="{{ route('admin.hr.members.create') }}" class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-extrabold text-[#1a5632] hover:bg-gray-100">
-                        New Member
-                    </a>
-                @endif
-            </div>
-        </div>
-    </div>
-
     @if(session('success'))
         <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ session('success') }}</div>
     @endif
@@ -58,13 +32,20 @@
 
     <form id="hr-member-filter-form" method="GET" action="{{ route('admin.hr.members.index') }}" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" x-data="districtFilter()">
         <div class="grid gap-3">
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.8fr_1fr_1fr_1fr_1fr]">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.6fr_repeat(5,minmax(0,1fr))]">
                 <input name="search" value="{{ request('search') }}" placeholder="Search name, ID, email, mobile..." autocomplete="off" data-ajax-search class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
 
                 <select name="type" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
                     <option value="">All types</option>
                     @foreach($typeLabels as $value => $label)
                         <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+
+                <select name="gender" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    <option value="">All genders</option>
+                    @foreach($genderOptions as $gender)
+                        <option value="{{ $gender }}" @selected(request('gender') === $gender)>{{ $gender }}</option>
                     @endforeach
                 </select>
 
@@ -232,6 +213,34 @@
     </div>
 </div>
 
+<div id="hr-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+    <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="hr-password-title">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">Reset Password</p>
+                <h3 id="hr-password-title" class="mt-1 text-base font-extrabold text-gray-900"></h3>
+            </div>
+            <button type="button" onclick="closeHrPasswordReset()" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Close">&times;</button>
+        </div>
+        <form id="hr-password-form" method="POST" class="mt-5 space-y-3">
+            @csrf
+            @method('PATCH')
+            <div>
+                <label class="mb-1 block text-xs font-bold text-gray-600">New password</label>
+                <input name="password" type="password" required minlength="8" placeholder="Minimum 8 characters" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-bold text-gray-600">Confirm password</label>
+                <input name="password_confirmation" type="password" required minlength="8" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeHrPasswordReset()" class="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button type="submit" class="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-600">Reset Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {{-- Custom Delete Confirmation Modal --}}
 <div id="hr-delete-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden">
     <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl mx-4">
@@ -258,6 +267,23 @@
 
 @push('scripts')
 <script>
+function openHrPasswordReset(memberId, memberName) {
+    const modal = document.getElementById('hr-password-modal');
+    const form = document.getElementById('hr-password-form');
+    form.action = `{{ url('/admin/hr/members') }}/${memberId}/password`;
+    document.getElementById('hr-password-title').textContent = memberName;
+    form.reset();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    form.querySelector('[name="password"]').focus();
+}
+
+function closeHrPasswordReset() {
+    const modal = document.getElementById('hr-password-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const filterForm = document.getElementById('hr-member-filter-form');
     const results    = document.getElementById('hr-member-results');

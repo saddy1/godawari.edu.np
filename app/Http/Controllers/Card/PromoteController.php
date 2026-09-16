@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Card\Organization;
 use App\Models\Card\Section;
 use App\Models\Card\Student;
+use App\Models\TeachingLearning\AcademicYear;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,6 +22,13 @@ class PromoteController extends Controller
     public function index()
     {
         $user = auth()->user();
+        $academicYears = AcademicYear::query()
+            ->where('is_locked', false)
+            ->orderByDesc('is_active')
+            ->latest('starts_on')
+            ->latest('id')
+            ->get();
+        $selectedAcademicYear = $academicYears->firstWhere('is_active', true) ?? $academicYears->first();
         $academicOptions = Organization::query()
             ->with('departments.sections')
             ->where('is_active', true)
@@ -55,8 +63,8 @@ class PromoteController extends Controller
             ->when($organizationSlugs, fn ($query) => $query->whereIn('organization', $organizationSlugs))
             ->where('member_type', 'student')
             ->where(fn ($query) => $query->whereNull('stream')->orWhere('stream', '!=', 'Graduated'))
-            ->select('organization', 'stream', 'section', 'semester', 'year_level', DB::raw('COUNT(*) as count'))
-            ->groupBy('organization', 'stream', 'section', 'semester', 'year_level')
+            ->select('organization', 'stream', 'section', 'batch', 'semester', 'year_level', DB::raw('COUNT(*) as count'))
+            ->groupBy('organization', 'stream', 'section', 'batch', 'semester', 'year_level')
             ->orderBy('organization')
             ->orderByRaw('stream IS NULL ASC')
             ->orderBy('stream')
@@ -84,6 +92,7 @@ class PromoteController extends Controller
                     'academic_system'  => $academicSystem,
                     'stream'           => $g->stream,
                     'section'          => $g->section,
+                    'batch'            => $g->batch,
                     'semester'         => $g->semester,
                     'year_level'       => $g->year_level,
                     'count'            => $g->count,
@@ -97,7 +106,7 @@ class PromoteController extends Controller
                 ];
             });
 
-        return view('hr.members.promote', compact('groups', 'academicOptions'));
+        return view('hr.members.promote', compact('groups', 'academicOptions', 'academicYears', 'selectedAcademicYear'));
     }
 
     // ── AJAX: students in a class/section ────────────────────────────────
@@ -105,6 +114,7 @@ class PromoteController extends Controller
     {
         $stream  = $request->input('stream');
         $section = $request->input('section');
+        $batch = $request->input('batch');
         $organization = $request->input('organization');
         $semester = $request->input('semester');
         $yearLevel = $request->input('year_level');
@@ -117,6 +127,7 @@ class PromoteController extends Controller
             ->where('member_type', 'student')
             ->when($stream  !== null, fn ($query) => $query->where('stream',  $stream  ?: null))
             ->when($section !== null, fn ($query) => $query->where('section', $section ?: null))
+            ->when($batch !== null, fn ($query) => $query->where('batch', $batch ?: null))
             ->when($semester !== null, fn ($query) => $query->where('semester', $semester ?: null))
             ->when($yearLevel !== null, fn ($query) => $query->where('year_level', $yearLevel ?: null))
             ->when($q !== '', function ($query) use ($q) {
@@ -149,6 +160,7 @@ class PromoteController extends Controller
             'groups.*.from_organization'=> 'required|string|max:100',
             'groups.*.from_stream' => 'nullable|string|max:100',
             'groups.*.from_section'=> 'nullable|string|max:50',
+            'groups.*.from_batch'=> 'nullable|string|max:20',
             'groups.*.from_semester'=> 'nullable|integer|min:1|max:8',
             'groups.*.from_year_level'=> 'nullable|integer|min:1|max:6',
             'groups.*.to_program'  => 'nullable|string|max:100',
@@ -159,6 +171,7 @@ class PromoteController extends Controller
             'groups.*.academic_system' => 'required|in:semester,year,none',
             'groups.*.action'      => 'required|in:promote,advance_semester,advance_year,graduate,skip',
             'valid_till'           => 'nullable|date',
+            'academic_year_id'     => 'required|integer|exists:academic_years,id',
             'grad_action'          => 'required|in:mark',
             'student_ids'          => 'nullable|array',
             'student_ids.*'        => 'integer|exists:students,id',
@@ -167,6 +180,13 @@ class PromoteController extends Controller
         $groups     = $request->input('groups', []);
         $validTill  = $request->input('valid_till');
         $studentIds = $request->input('student_ids', []);
+        $academicYear = AcademicYear::findOrFail($request->integer('academic_year_id'));
+
+        if ($academicYear->is_locked) {
+            throw ValidationException::withMessages([
+                'academic_year_id' => 'Choose an unlocked academic year for promotion.',
+            ]);
+        }
 
         foreach ($groups as $index => $group) {
             $action = $group['action'] ?? null;
@@ -265,7 +285,7 @@ class PromoteController extends Controller
         $promoted  = 0;
         $graduated = 0;
 
-        DB::transaction(function () use ($groups, $validTill, $studentIds, $user, &$promoted, &$graduated) {
+        DB::transaction(function () use ($groups, $validTill, $studentIds, $user, $academicYear, &$promoted, &$graduated) {
             foreach ($groups as $g) {
                 if ($g['action'] === 'skip') continue;
 
@@ -275,6 +295,7 @@ class PromoteController extends Controller
                     ->where('member_type', 'student')
                     ->where('stream', $g['from_stream'] ?: null)
                     ->where('section', $g['from_section'] ?: null)
+                    ->where('batch', $g['from_batch'] ?: null)
                     ->where('semester', $g['from_semester'] ?: null)
                     ->where('year_level', $g['from_year_level'] ?: null)
                     ->when(!empty($studentIds), fn ($q) => $q->whereIn('id', $studentIds));
@@ -312,7 +333,7 @@ class PromoteController extends Controller
                 ->tap(fn ($query) => $user->applyStudentScope($query))
                 ->whereIn('id', $studentIds)
                 ->get()
-                ->each(fn ($student) => $enrollments->syncStudent($student));
+                ->each(fn ($student) => $enrollments->syncStudent($student, $academicYear));
         }
 
         $msg = [];
