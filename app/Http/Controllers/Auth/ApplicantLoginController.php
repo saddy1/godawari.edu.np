@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Auth\Concerns\ForgetsStaleIntendedUrl;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ApplicantLoginController extends Controller
 {
+    use ForgetsStaleIntendedUrl;
+
     public function showLoginForm()
     {
         return view('auth.applicant-login');
@@ -30,6 +33,8 @@ class ApplicantLoginController extends Controller
                 Auth::logout();
                 return back()->withErrors(['email' => 'Please use the admin login page.'])->onlyInput('email');
             }
+
+            $this->forgetStaleAdminIntendedUrl($request, $user);
 
             return redirect()->intended(route('vacancies'));
         }

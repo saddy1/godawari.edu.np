@@ -94,6 +94,24 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasRole('teacher');
     }
 
+    // Authoritative check for staff-portal (Hajiri/admin) access — keyed off the
+    // actual HR profile rather than Spatie role names, which can drift out of
+    // sync (e.g. a linked staff member with no literal 'teacher'/'staff' role).
+    // Falls back to device_id for legacy Hajiri-only accounts with no HR profile
+    // yet. A plain applicant (no HR profile, no device) is never eligible.
+    public function isStaffPortalEligible(): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->student && in_array($this->student->member_type, ['teacher', 'staff'], true)) {
+            return true;
+        }
+
+        return filled($this->device_id);
+    }
+
     public function canAccess(string|array $permissions): bool
     {
         $permissions = (array) $permissions;

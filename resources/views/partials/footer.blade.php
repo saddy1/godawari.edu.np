@@ -7,6 +7,7 @@
     $footerGradient  = "linear-gradient(135deg, {$footerBg} 0%, {$footerGradEnd} 100%)";
     $quickLinks      = \App\Models\QuickLink::where('is_active', true)->orderBy('sort_order')->get();
     $vacancyModuleEnabled = \App\Services\ModuleService::enabled('vacancy');
+    $showApplicantLogin = $vacancyModuleEnabled && \App\Models\Vacancy::open()->exists();
     $footerNav = collect([
         ['label' => __('site.nav.home'),        'url' => url('/')],
         ['label' => __('site.nav.about_us'),    'url' => url('/about')],
@@ -177,7 +178,7 @@
                         <div class="grid gap-2">
                             <a href="{{ route('login') }}" class="footer-link">{{ __('site.nav.staff_portal') }}</a>
                             <a href="/student/card/login" class="footer-link">{{ __('site.nav.student_portal') }}</a>
-                            @if($vacancyModuleEnabled)
+                            @if($showApplicantLogin)
                             <a href="{{ route('applicant.login') }}" class="footer-link">{{ __('site.nav.applicant_login') }}</a>
                             @endif
                         </div>
@@ -190,7 +191,7 @@
                 <div class="grid gap-3">
                     <a href="{{ route('login') }}" class="rounded-lg border border-white/10 bg-white/10 px-4 py-3 text-sm font-black text-white hover:bg-white/20 transition">{{ __('site.nav.staff_portal') }}</a>
                     <a href="/student/card/login" class="rounded-lg border border-white/10 bg-white/10 px-4 py-3 text-sm font-black text-white hover:bg-white/20 transition">{{ __('site.nav.student_portal') }}</a>
-                    @if($vacancyModuleEnabled)
+                    @if($showApplicantLogin)
                     <a href="{{ route('applicant.login') }}" class="rounded-lg border border-white/10 bg-white/10 px-4 py-3 text-sm font-black text-white hover:bg-white/20 transition">{{ __('site.nav.applicant_login') }}</a>
                     @endif
                 </div>

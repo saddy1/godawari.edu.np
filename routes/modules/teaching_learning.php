@@ -55,7 +55,7 @@ Route::prefix('admin/teaching-learning')
         });
     });
 
-Route::prefix('admin/teacher')->name('admin.teacher.')->middleware(['auth', 'module.enabled:teaching_learning'])->group(function () {
+Route::prefix('admin/teacher')->name('admin.teacher.')->middleware(['auth', 'staff_portal', 'module.enabled:teaching_learning'])->group(function () {
     Route::get('/workspace', [TeacherWorkspaceController::class, 'index'])->name('workspace');
     Route::get('/attendance/{routineLesson}', [TeacherWorkspaceController::class, 'attendance'])->name('attendance');
     Route::put('/attendance/{routineLesson}', [TeacherWorkspaceController::class, 'saveAttendance'])->name('attendance.save');

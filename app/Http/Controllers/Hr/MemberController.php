@@ -77,7 +77,8 @@ class MemberController extends Controller
                         ->orWhere('registration_no', 'like', "%{$search}%")
                         ->orWhere('designation', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('mobile', 'like', "%{$search}%");
+                        ->orWhere('mobile', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery->where('email', 'like', "%{$search}%"));
                 });
             })
             ->when($request->filled('stream'), fn ($q) => $q->where('stream', $request->stream))
@@ -107,7 +108,10 @@ class MemberController extends Controller
         $showOrphans = ! $typeFilter || $typeFilter === 'teacher' || $typeFilter === 'staff';
         $orphanUsers = $showOrphans
             ? User::query()
-                ->whereNotNull('device_id')
+                ->where(function ($q) {
+                    $q->whereNotNull('device_id')
+                        ->orWhereHas('roles', fn ($r) => $r->whereIn('name', ['teacher', 'staff']));
+                })
                 ->whereDoesntHave('student')
                 ->when($typeFilter, fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', $typeFilter)))
                 ->when($request->filled('search'), function ($q) use ($request) {
@@ -154,9 +158,16 @@ class MemberController extends Controller
         $data = $this->validated($request, null, $prefillUser);
         $password = $request->input('password');
         $loginUserId = $request->input('login_user_id');
+        $loginEmail = $request->input('login_email');
         $deviceId = $request->input('device_id');
         $hajiriData = $this->hajiriData($request);
-        unset($data['login_user_id'], $data['password'], $data['password_confirmation'], $data['device_id'], $data['designation_id'], $data['employment_type_id'], $data['work_assigned_id'], $data['hajiri_department_id']);
+        unset($data['login_user_id'], $data['login_email'], $data['password'], $data['password_confirmation'], $data['device_id'], $data['designation_id'], $data['employment_type_id'], $data['work_assigned_id'], $data['hajiri_department_id']);
+
+        // Email and Login Email are the same address — keep them in sync
+        // server-side too, in case the client-side mirroring didn't run.
+        if (filled($loginEmail)) {
+            $data['email'] = $loginEmail;
+        }
 
         if (($data['member_type'] ?? null) === 'student') {
             $data['program'] = $data['stream'] ?? null;
@@ -168,14 +179,18 @@ class MemberController extends Controller
             $data['photo'] = $this->storeBase64Photo($request->input('photo_capture'), $data['roll_number']);
         }
 
-        DB::transaction(function () use ($data, $password, $loginUserId, $deviceId, $hajiriData, $prefillUser, $subjectEnrollments) {
+        $emailConflictMessage = null;
+
+        DB::transaction(function () use ($data, $password, $loginUserId, $loginEmail, $deviceId, $hajiriData, $prefillUser, $subjectEnrollments, &$emailConflictMessage) {
             $member = Student::create($data);
 
             if ($prefillUser) {
                 $member->forceFill(['user_id' => $prefillUser->id])->save();
             }
 
-            $user = app(MemberAccountService::class)->sync($member, $password, $loginUserId);
+            $accountService = app(MemberAccountService::class);
+            $user = $accountService->sync($member, $password, $loginUserId, $loginEmail);
+            $emailConflictMessage = $accountService->lastEmailConflictMessage;
 
             $userData = [
                 'device_id' => filled($deviceId) ? (string) $deviceId : $user->device_id,
@@ -188,6 +203,10 @@ class MemberController extends Controller
             $user->forceFill($userData)->save();
             $subjectEnrollments->syncStudent($member);
         });
+
+        if ($emailConflictMessage) {
+            return redirect()->route('admin.hr.members.index')->with('warning', 'Member created, but the email could not be used for login: '.$emailConflictMessage);
+        }
 
         return redirect()->route('admin.hr.members.index')->with('success', 'Member created and synced across ERP modules.');
     }
@@ -247,9 +266,16 @@ class MemberController extends Controller
         $this->preserveOmittedDateFields($request, $member, $data);
         $password = $request->input('password');
         $loginUserId = $request->input('login_user_id');
+        $loginEmail = $request->input('login_email');
         $deviceId = $request->input('device_id');
         $hajiriData = $this->hajiriData($request);
-        unset($data['login_user_id'], $data['password'], $data['password_confirmation'], $data['device_id'], $data['designation_id'], $data['employment_type_id'], $data['work_assigned_id'], $data['hajiri_department_id']);
+        unset($data['login_user_id'], $data['login_email'], $data['password'], $data['password_confirmation'], $data['device_id'], $data['designation_id'], $data['employment_type_id'], $data['work_assigned_id'], $data['hajiri_department_id']);
+
+        // Email and Login Email are the same address — keep them in sync
+        // server-side too, in case the client-side mirroring didn't run.
+        if (filled($loginEmail)) {
+            $data['email'] = $loginEmail;
+        }
 
         if (($data['member_type'] ?? null) === 'student') {
             $data['program'] = $data['stream'] ?? null;
@@ -263,10 +289,14 @@ class MemberController extends Controller
             $data['photo'] = $this->storeBase64Photo($request->input('photo_capture'), $data['roll_number']);
         }
 
+        $emailConflictMessage = null;
+
         try {
-            DB::transaction(function () use ($member, $data, $password, $loginUserId, $deviceId, $hajiriData, $subjectEnrollments) {
+            DB::transaction(function () use ($member, $data, $password, $loginUserId, $loginEmail, $deviceId, $hajiriData, $subjectEnrollments, &$emailConflictMessage) {
                 $member->update($data);
-                $user = app(MemberAccountService::class)->sync($member, $password, $loginUserId);
+                $accountService = app(MemberAccountService::class);
+                $user = $accountService->sync($member, $password, $loginUserId, $loginEmail);
+                $emailConflictMessage = $accountService->lastEmailConflictMessage;
 
                 $oldDeviceId = $user->device_id;
                 $newDeviceId = filled($deviceId) ? (string) $deviceId : null;
@@ -290,6 +320,10 @@ class MemberController extends Controller
             return back()->withInput()->withErrors([
                 'email' => 'The email address is already in use by another account.',
             ]);
+        }
+
+        if ($emailConflictMessage) {
+            return redirect()->route('admin.hr.members.index')->with('warning', 'Member updated, but the email could not be used for login: '.$emailConflictMessage);
         }
 
         return redirect()->route('admin.hr.members.index')->with('success', 'Member updated and synced across ERP modules.');
@@ -335,20 +369,38 @@ class MemberController extends Controller
 
         DB::transaction(function () use ($member) {
             $linkedUser = $member->user;
-            $shouldDeleteLinkedStudentLogin = $member->member_type === 'student'
-                && $linkedUser
-                && $linkedUser->hasRole('student')
-                && ! $linkedUser->isSuperAdmin();
+            $shouldDeleteLinkedLogin = $linkedUser
+                && ! $linkedUser->isSuperAdmin()
+                && ! $linkedUser->is(auth()->user());
 
             $this->deletePhoto($member->photo);
             $member->delete();
 
-            if ($shouldDeleteLinkedStudentLogin) {
-                $linkedUser->delete();
+            if ($shouldDeleteLinkedLogin) {
+                $this->deleteLinkedUserAccount($linkedUser);
             }
         });
 
         return back()->with('success', 'Member removed from HR master.');
+    }
+
+    // Deleting an HR profile removes the whole login account with it — leaving
+    // it behind orphans the login row and lets it silently squat on the email,
+    // blocking that same email from being reused on the next HR profile.
+    private function deleteLinkedUserAccount(User $user): void
+    {
+        // routine_lesson_groups.teacher_id is a restrict-on-delete FK — it must
+        // be cleared (the column is nullable) before the user row can be deleted,
+        // same as the co-teacher pivot below.
+        DB::table('routine_lesson_groups')
+            ->where('teacher_id', $user->id)
+            ->update(['teacher_id' => null]);
+
+        DB::table('routine_lesson_group_teachers')
+            ->where('teacher_id', $user->id)
+            ->delete();
+
+        $user->delete();
     }
 
     public function destroyOrphanUser(User $user)
@@ -371,13 +423,7 @@ class MemberController extends Controller
         }
 
         $name = $user->name;
-        DB::transaction(function () use ($user) {
-            DB::table('routine_lesson_group_teachers')
-                ->where('teacher_id', $user->id)
-                ->delete();
-
-            $user->delete();
-        });
+        DB::transaction(fn () => $this->deleteLinkedUserAccount($user));
 
         return back()->with('success', "User account \"{$name}\" deleted.");
     }
@@ -551,16 +597,15 @@ class MemberController extends Controller
         DB::transaction(function () use ($members, &$count) {
             foreach ($members as $member) {
                 $linkedUser = $member->user;
-                $shouldDeleteLinkedStudentLogin = $member->member_type === 'student'
-                    && $linkedUser
-                    && $linkedUser->hasRole('student')
-                    && ! $linkedUser->isSuperAdmin();
+                $shouldDeleteLinkedLogin = $linkedUser
+                    && ! $linkedUser->isSuperAdmin()
+                    && ! $linkedUser->is(auth()->user());
 
                 $this->deletePhoto($member->photo);
                 $member->delete();
 
-                if ($shouldDeleteLinkedStudentLogin) {
-                    $linkedUser->delete();
+                if ($shouldDeleteLinkedLogin) {
+                    $this->deleteLinkedUserAccount($linkedUser);
                 }
                 $count++;
             }
@@ -666,6 +711,24 @@ class MemberController extends Controller
                     }
                 },
             ],
+
+            // Login email (teacher/staff sign in with this) must be globally unique across all users.
+            'login_email' => [
+                'nullable',
+                'email',
+                'max:150',
+                function ($attr, $value, $fail) use ($ignoredUserId) {
+                    if (blank($value)) return;
+                    $conflict = User::where('email', $value)
+                        ->when($ignoredUserId, fn ($q) => $q->where('id', '!=', $ignoredUserId))
+                        ->with('student')
+                        ->first();
+                    if ($conflict) {
+                        $name = $conflict->student?->full_name ?? $conflict->name ?? 'another member';
+                        $fail("Login email \"{$value}\" is already used by {$name}. Please choose a different login email.");
+                    }
+                },
+            ],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
@@ -728,6 +791,7 @@ class MemberController extends Controller
             'has_library_card' => ['boolean'],
             'password' => [$member ? 'nullable' : 'nullable', 'confirmed', Password::min(8)],
             'device_id' => [
+                Rule::requiredIf(in_array($memberType, ['teacher', 'staff'], true)),
                 'nullable',
                 'integer',
                 'min:1',
@@ -773,7 +837,10 @@ class MemberController extends Controller
         }
 
         return User::with('roles')
-            ->whereNotNull('device_id')
+            ->where(function ($q) {
+                $q->whereNotNull('device_id')
+                    ->orWhereHas('roles', fn ($r) => $r->whereIn('name', ['teacher', 'staff']));
+            })
             ->whereDoesntHave('student')
             ->find((int) $request->input('prefill_user'));
     }

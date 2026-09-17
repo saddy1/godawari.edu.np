@@ -149,7 +149,7 @@
                         <div class="mb-2 flex items-center justify-between gap-4">
                             <label for="password" class="block text-sm font-black text-gray-700">{{ __('site.staff_login.password_label') }}</label>
                             @if (Route::has('password.request'))
-                                <a class="text-sm font-black text-[var(--theme-primary)] hover:underline" href="{{ route('password.request') }}">
+                                <a class="text-sm font-black text-[var(--theme-primary)] hover:underline" href="{{ route('password.request', ['portal' => 'login']) }}">
                                     {{ __('site.staff_login.forgot') }}
                                 </a>
                             @endif
@@ -172,13 +172,18 @@
                     </button>
                 </form>
 
-                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                @php
+                    $showApplicantLoginLink = \App\Services\ModuleService::enabled('vacancy') && \App\Models\Vacancy::open()->exists();
+                @endphp
+                <div class="mt-4 grid gap-3 {{ $showApplicantLoginLink ? 'sm:grid-cols-2' : '' }}">
                     <a href="/student/card/login" class="login-alt-link px-4 py-2.5 text-center text-sm font-black">
                         {{ __('site.staff_login.student_portal') }}
                     </a>
-                    <a href="{{ route('applicant.login') }}" class="login-alt-link px-4 py-2.5 text-center text-sm font-black">
-                        {{ __('site.staff_login.applicant_login') }}
-                    </a>
+                    @if($showApplicantLoginLink)
+                        <a href="{{ route('applicant.login') }}" class="login-alt-link px-4 py-2.5 text-center text-sm font-black">
+                            {{ __('site.staff_login.applicant_login') }}
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>

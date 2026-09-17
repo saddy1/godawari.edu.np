@@ -33,7 +33,7 @@
     <form id="hr-member-filter-form" method="GET" action="{{ route('admin.hr.members.index') }}" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" x-data="districtFilter()">
         <div class="grid gap-3">
             <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.6fr_repeat(5,minmax(0,1fr))]">
-                <input name="search" value="{{ request('search') }}" placeholder="Search name, ID, email, mobile..." autocomplete="off" data-ajax-search class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                <input name="search" value="{{ request('search') }}" placeholder="Search name, ID, email, login email, mobile..." autocomplete="off" data-ajax-search class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
 
                 <select name="type" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
                     <option value="">All types</option>

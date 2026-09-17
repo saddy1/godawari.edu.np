@@ -43,7 +43,7 @@
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <label for="password" class="block text-sm font-bold text-gray-700">Password</label>
-                    <a href="{{ route('password.request') }}" class="text-sm font-bold text-[#1a5632] hover:underline">Forgot password?</a>
+                    <a href="{{ route('password.request', ['portal' => 'applicant']) }}" class="text-sm font-bold text-[#1a5632] hover:underline">Forgot password?</a>
                 </div>
                 <input id="password" type="password" name="password" required
                     class="w-full px-5 py-3.5 bg-gray-50 border @error('password') border-red-400 @else border-gray-200 @enderror rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a5632]/20 focus:border-[#1a5632] transition-all">

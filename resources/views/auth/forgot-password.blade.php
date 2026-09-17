@@ -9,6 +9,13 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="font-sans antialiased text-gray-900 bg-[#fdfbf7] min-h-screen flex items-center justify-center p-4">
+@php
+    $backToLogin = match (session('password_reset_portal', 'login')) {
+        'student' => ['route' => 'student.login', 'label' => 'Back to student login'],
+        'applicant' => ['route' => 'applicant.login', 'label' => 'Back to applicant login'],
+        default => ['route' => 'login', 'label' => 'Back to staff login'],
+    };
+@endphp
 <div class="w-full max-w-md">
     <div class="text-center mb-8">
         <a href="{{ route('home') }}" class="inline-block mb-4">
@@ -42,7 +49,7 @@
         </form>
 
         <p class="text-center text-sm text-gray-500 mt-6">
-            <a href="{{ route('applicant.login') }}" class="text-[#1a5632] font-bold hover:underline">Back to applicant login</a>
+            <a href="{{ route($backToLogin['route']) }}" class="text-[#1a5632] font-bold hover:underline">{{ $backToLogin['label'] }}</a>
         </p>
     </div>
 </div>

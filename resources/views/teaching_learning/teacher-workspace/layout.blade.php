@@ -29,7 +29,8 @@
 </head>
 <body class="min-h-dvh bg-slate-50 font-sans text-slate-900 antialiased">
 @php
-    $nav=[['Today','admin.teacher.workspace','M4 6h16M4 12h16M4 18h10'],['Exams','admin.examinations.index','M9 12h6m-6 4h12v16H6z']];
+    $canExams=auth()->user()?->canAccess('examinations.view');
+    $nav=array_filter([['Today','admin.teacher.workspace','M4 6h16M4 12h16M4 18h10'],$canExams?['Exams','admin.examinations.index','M9 12h6m-6 4h12v16H6z']:null]);
     $teacherNotices=$teacherNotices??collect();
     $initials=collect(preg_split('/\s+/',trim(auth()->user()->name)))->filter()->take(2)->map(fn($part)=>mb_strtoupper(mb_substr($part,0,1)))->implode('');
 @endphp
@@ -99,9 +100,11 @@
     </div>
 </section>
 
-<nav class="teacher-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white/95 safe-bottom shadow-[0_-8px_30px_rgba(15,23,42,.08)] backdrop-blur lg:hidden" aria-label="Teacher app navigation">
+<nav class="teacher-mobile-nav fixed inset-x-0 bottom-0 z-40 grid {{$canExams?'grid-cols-4':'grid-cols-3'}} border-t border-slate-200 bg-white/95 safe-bottom shadow-[0_-8px_30px_rgba(15,23,42,.08)] backdrop-blur lg:hidden" aria-label="Teacher app navigation">
     <a href="{{route('admin.teacher.workspace')}}" class="flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-black {{request()->routeIs('admin.teacher.workspace')?'text-emerald-700':'text-slate-400'}}"><span class="grid h-8 w-10 place-items-center rounded-xl text-lg {{request()->routeIs('admin.teacher.workspace')?'bg-emerald-50':''}}">⌂</span>Home</a>
+    @if($canExams)
     <a href="{{route('admin.examinations.index')}}" class="flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-black {{request()->routeIs('admin.examinations.*')?'text-purple-700':'text-slate-400'}}"><span class="grid h-8 w-10 place-items-center rounded-xl text-lg {{request()->routeIs('admin.examinations.*')?'bg-purple-50':''}}">▣</span>Exams</a>
+    @endif
     <button type="button" data-mobile-sheet-toggle="attendance" aria-expanded="false" class="flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-black {{request()->routeIs('admin.teacher.attendance*')||request()->routeIs('hajiri.home','hajiri.calendar-yy-mm','hajiri.my-leaves')?'text-blue-700':'text-slate-400'}}"><span class="grid h-8 w-10 place-items-center rounded-xl text-lg {{request()->routeIs('admin.teacher.attendance*')||request()->routeIs('hajiri.home','hajiri.calendar-yy-mm','hajiri.my-leaves')?'bg-blue-50':''}}">✓</span>Attendance</button>
     <button type="button" data-mobile-sheet-toggle="profile" aria-expanded="false" class="flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-black {{request()->routeIs('account.*')||request()->routeIs('hajiri.staff-card-request.index')?'text-emerald-700':'text-slate-400'}}"><span class="grid h-8 w-10 place-items-center rounded-xl text-lg {{request()->routeIs('account.*')||request()->routeIs('hajiri.staff-card-request.index')?'bg-emerald-50':''}}">●</span>Profile</button>
 </nav>

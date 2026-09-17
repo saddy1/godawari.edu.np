@@ -43,6 +43,9 @@
                 @if(session('success'))
                     <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ session('success') }}</div>
                 @endif
+                @if(session('warning'))
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">{{ session('warning') }}</div>
+                @endif
                 @if(session('error'))
                     <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{{ session('error') }}</div>
                 @endif

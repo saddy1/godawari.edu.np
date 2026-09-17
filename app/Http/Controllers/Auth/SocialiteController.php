@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Auth\Concerns\ForgetsStaleIntendedUrl;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -9,6 +10,8 @@ use Laravel\Socialite\Facades\Socialite;
 
 class SocialiteController extends Controller
 {
+    use ForgetsStaleIntendedUrl;
+
     public function redirectToGoogle()
     {
         return Socialite::driver('google')->redirect();
@@ -50,6 +53,8 @@ class SocialiteController extends Controller
         if ($user->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
+
+        $this->forgetStaleAdminIntendedUrl(request(), $user);
 
         return redirect()->intended(route('vacancies'));
     }

@@ -16,8 +16,15 @@ use Throwable;
 
 class PasswordResetController extends Controller
 {
-    public function request()
+    public function request(Request $request)
     {
+        // Which login page linked here — used only to send the user back to
+        // the right portal's login while they're in the reset flow.
+        $portal = $request->query('portal');
+        if (in_array($portal, ['login', 'student', 'applicant'], true)) {
+            $request->session()->put('password_reset_portal', $portal);
+        }
+
         return view('auth.forgot-password');
     }
 
@@ -125,13 +132,16 @@ class PasswordResetController extends Controller
             'password' => ['required', 'confirmed', PasswordRule::min(8)],
         ]);
 
+        $resetUser = null;
+
         $status = Password::reset(
             array_merge($request->only('password', 'password_confirmation'), $identity),
-            function ($user, string $password) {
+            function ($user, string $password) use (&$resetUser) {
                 $user->forceFill([
                     'password' => Hash::make($password),
                     'remember_token' => Str::random(60),
                 ])->save();
+                $resetUser = $user;
             }
         );
 
@@ -139,10 +149,30 @@ class PasswordResetController extends Controller
             Cache::forget($this->codeKey($identity));
             $request->session()->forget('password_reset_pending');
             $request->session()->forget('password_reset_identity');
+            $request->session()->forget('password_reset_portal');
         }
 
         return $status === Password::PASSWORD_RESET
-            ? redirect()->route('applicant.login')->with('status', __($status))
+            ? redirect()->route($this->loginRouteFor($resetUser))->with('status', __($status))
             : back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
+    }
+
+    // Each portal (staff/admin, student, applicant) shares this one reset flow,
+    // so route back to whichever login page actually matches the account.
+    private function loginRouteFor($user): string
+    {
+        if (! $user) {
+            return 'applicant.login';
+        }
+
+        if ($user->isStudent()) {
+            return 'student.login';
+        }
+
+        if ($user->isAdmin() || $user->isTeacher() || $user->hasRole('staff') || filled($user->device_id)) {
+            return 'login';
+        }
+
+        return 'applicant.login';
     }
 }

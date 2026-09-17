@@ -15,7 +15,7 @@ use App\Http\Controllers\Hajiri\UserController as HajiriUserController;
 use Illuminate\Support\Facades\Route;
 
 // ── Employee-accessible routes (any authenticated staff user) ─────────────────
-Route::prefix('admin/hajiri')->name('hajiri.')->middleware(['auth', 'module.enabled:hajiri'])->group(function () {
+Route::prefix('admin/hajiri')->name('hajiri.')->middleware(['auth', 'staff_portal', 'module.enabled:hajiri'])->group(function () {
     Route::get('/', fn () => redirect()->route('hajiri.home'));
     Route::get('/home', [HajiriHomeController::class, 'index'])->name('home');
     Route::get('/calendar/{year}/{month}', [HajiriHomeController::class, 'index'])->name('calendar-yy-mm');

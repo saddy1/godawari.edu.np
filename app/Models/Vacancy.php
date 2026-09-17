@@ -25,4 +25,10 @@ class Vacancy extends Model
     {
         return $this->deadline && $this->deadline->isPast();
     }
+
+    public function scopeOpen($query)
+    {
+        return $query->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('deadline')->orWhere('deadline', '>=', now()));
+    }
 }

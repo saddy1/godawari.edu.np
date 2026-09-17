@@ -11,19 +11,35 @@ use Spatie\Permission\Models\Role;
 
 class MemberAccountService
 {
-    public function sync(Student $member, ?string $password = null, ?string $loginUserId = null): User
+    // Set by sync() when the member's email couldn't be used for login because
+    // another account already owns it — a fallback login email was used instead.
+    public ?string $lastEmailConflictMessage = null;
+
+    public function sync(Student $member, ?string $password = null, ?string $loginUserId = null, ?string $loginEmail = null): User
     {
+        $this->lastEmailConflictMessage = null;
+
         $loginCode = trim($loginUserId ?: $member->user?->student_code ?: $member->roll_number);
         $fallbackEmail = strtolower($loginCode) . '@' . $member->member_type . '.local';
-        $email = $member->email ?: $fallbackEmail;
 
         $user = $member->user ?: User::where('student_code', $loginCode)->first();
 
-        if ($member->email) {
-            $emailOwner = User::where('email', $member->email)
+        // An explicit login email (admin override) takes priority over the
+        // member's contact email for what actually gets used to sign in.
+        $desiredEmail = filled($loginEmail) ? trim($loginEmail) : $member->email;
+        $email = $desiredEmail ?: $fallbackEmail;
+
+        if ($desiredEmail) {
+            $emailOwner = User::where('email', $desiredEmail)
                 ->when($user?->id, fn ($q) => $q->where('id', '!=', $user->id))
                 ->first();
-            $email = $emailOwner ? $fallbackEmail : $member->email;
+
+            if ($emailOwner) {
+                $email = $fallbackEmail;
+                $this->lastEmailConflictMessage = "\"{$desiredEmail}\" is already used by another account ({$emailOwner->name}), so a placeholder login email ({$fallbackEmail}) was used instead. Resolve the conflict (e.g. delete or change the other account's email) and save again to use the real email for login.";
+            } else {
+                $email = $desiredEmail;
+            }
         }
 
         if (!$user) {

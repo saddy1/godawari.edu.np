@@ -3,6 +3,7 @@
     $headerUser = auth()->user();
     $isStudentPortalSession = session()->has('student_id') || ($headerUser?->isStudent() ?? false);
     $vacancyModuleEnabled = \App\Services\ModuleService::enabled('vacancy');
+    $showApplicantLogin = $vacancyModuleEnabled && \App\Models\Vacancy::open()->exists();
 @endphp
 
 <header x-data="{
@@ -102,6 +103,7 @@
                                 </div>
                             </a>
                             @guest
+                            @if($showApplicantLogin)
                             <div class="mx-2 my-1 border-t border-gray-100"></div>
                             <a href="{{ route('applicant.login') }}" class="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-amber-50 transition-colors group">
                                 <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -110,6 +112,7 @@
                                     <div class="text-xs text-gray-400 mt-0.5">{{ __('site.nav.track_application') }}</div>
                                 </div>
                             </a>
+                            @endif
                             @endguest
                         </div>
                     </div>
@@ -359,7 +362,9 @@
                 <div x-show="open" x-transition class="pl-4 pr-2 py-1 mb-1 space-y-1 border-l-2 border-green-100 ml-4">
                     <a href="{{ route('vacancies') }}" class="block px-4 py-2 rounded-lg text-sm text-gray-600 hover:text-[#1a5632] hover:bg-green-50 transition-colors">{{ __('site.nav.open_vacancies') }}</a>
                     @guest
+                    @if($showApplicantLogin)
                     <a href="{{ route('applicant.login') }}" class="block px-4 py-2 rounded-lg text-sm text-amber-700 hover:bg-amber-50 font-medium transition-colors">{{ __('site.nav.applicant_login') }}</a>
+                    @endif
                     @endguest
                 </div>
             </div>
@@ -393,25 +398,6 @@
                     </a>
                 </div>
             </div>
-
-            @guest
-                <div class="pt-3 mt-3 border-t border-gray-100">
-                    <p class="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{{ __('site.nav.portals') }}</p>
-                    <div class="mx-4 grid gap-2">
-                        <a href="{{ route('login') }}" class="flex items-center justify-center rounded-xl bg-[#1a5632] px-4 py-3 text-sm font-extrabold text-white hover:bg-[#0b2415] transition-colors">
-                            {{ __('site.nav.staff_portal') }}
-                        </a>
-                        <a href="/student/card/login" class="flex items-center justify-center rounded-xl bg-blue-50 px-4 py-3 text-sm font-extrabold text-blue-700 hover:bg-blue-100 transition-colors">
-                            {{ __('site.nav.student_portal') }}
-                        </a>
-                        @if($vacancyModuleEnabled)
-                            <a href="{{ route('applicant.login') }}" class="flex items-center justify-center rounded-xl bg-amber-50 px-4 py-3 text-sm font-extrabold text-amber-700 hover:bg-amber-100 transition-colors">
-                                {{ __('site.nav.applicant_login') }}
-                            </a>
-                        @endif
-                    </div>
-                </div>
-            @endguest
 
         </div>
 
@@ -452,7 +438,7 @@
                     <a href="/student/card/login" class="rounded-xl bg-blue-50 py-2.5 text-center text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors">
                         {{ __('site.nav.student_portal') }}
                     </a>
-                    @if($vacancyModuleEnabled)
+                    @if($showApplicantLogin)
                         <a href="{{ route('applicant.login') }}" class="col-span-2 rounded-xl bg-amber-50 py-2.5 text-center text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors">
                             {{ __('site.nav.applicant_login') }}
                         </a>

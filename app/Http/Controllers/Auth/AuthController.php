@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Auth\Concerns\ForgetsStaleIntendedUrl;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    use ForgetsStaleIntendedUrl;
+
     /**
      * Show the login form.
      */
@@ -66,6 +69,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
         $user = Auth::user();
+        $this->forgetStaleAdminIntendedUrl($request, $user);
 
         if ($user->isStudent()) {
             return redirect()->intended(route('learning.dashboard'));
@@ -75,12 +79,18 @@ class AuthController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        if ($user->isTeacher()) {
-            if (\App\Services\ModuleService::enabled('teaching_learning')) {
+        // Any HR-linked teacher/staff member (or a legacy Hajiri-only account
+        // not yet linked to an HR profile) belongs on the staff portal —
+        // regardless of whether they happen to have the literal 'teacher'
+        // Spatie role, which can drift out of sync with the HR record.
+        if ($user->isStaffPortalEligible()) {
+            $isTeacher = $user->isTeacher() || $user->student?->member_type === 'teacher';
+
+            if ($isTeacher && \App\Services\ModuleService::enabled('teaching_learning')) {
                 return redirect()->intended(route('admin.teacher.workspace'));
             }
 
-            if (\App\Services\ModuleService::enabled('learning') && $user->assignedLearningClasses()->exists()) {
+            if ($isTeacher && \App\Services\ModuleService::enabled('learning') && $user->assignedLearningClasses()->exists()) {
                 return redirect()->intended(route('admin.learning.dashboard'));
             }
 
@@ -97,11 +107,6 @@ class AuthController extends Controller
             'learning.reports.view',
         ])) {
             return redirect()->intended(route('admin.learning.dashboard'));
-        }
-
-        // Staff employee with a biometric device — send to the Hajiri portal
-        if ($user->device_id) {
-            return redirect()->route('hajiri.home');
         }
 
         // Not a staff member — applicants use the applicant login form

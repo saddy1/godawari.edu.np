@@ -189,7 +189,12 @@
                         </div>
 
                         <div>
-                            <label for="password" class="mb-2 block text-sm font-black text-slate-700">{{ __('site.student_login.password_label') }}</label>
+                            <div class="mb-2 flex items-center justify-between gap-4">
+                                <label for="password" class="block text-sm font-black text-slate-700">{{ __('site.student_login.password_label') }}</label>
+                                @if (Route::has('password.request'))
+                                    <a href="{{ route('password.request', ['portal' => 'student']) }}" class="text-sm font-black text-[#1a5632] hover:underline">Forgot password?</a>
+                                @endif
+                            </div>
                             <input id="password"
                                    type="password"
                                    name="password"

@@ -22,7 +22,19 @@ class RedirectIfAuthenticated
             if (Auth::guard($guard)->check()) {
                 $user = Auth::guard($guard)->user();
 
-                return redirect($user->isAdmin() ? route('admin.dashboard') : route('vacancies'));
+                if ($user->isAdmin()) {
+                    return redirect()->route('admin.dashboard');
+                }
+
+                if ($user->isStudent()) {
+                    return redirect()->route('learning.dashboard');
+                }
+
+                if ($user->isStaffPortalEligible()) {
+                    return redirect()->route('hajiri.home');
+                }
+
+                return redirect()->route('vacancies');
             }
         }
 

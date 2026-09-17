@@ -70,8 +70,8 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [AboutController::class, 'index'])->name('about');
 
 // Admissions
-Route::get('/admissions', [App\Http\Controllers\AdmissionsController::class, 'index'])->middleware('module.enabled:admissions')->name('admissions');
-Route::post('/admissions', [App\Http\Controllers\AdmissionsController::class, 'storeAdmission'])->middleware(['module.enabled:admissions', 'throttle:5,1'])->name('admissions.store');
+Route::get('/admissions', [App\Http\Controllers\AdmissionsController::class, 'index'])->middleware('module.enabled:admissions,public')->name('admissions');
+Route::post('/admissions', [App\Http\Controllers\AdmissionsController::class, 'storeAdmission'])->middleware(['module.enabled:admissions,public', 'throttle:5,1'])->name('admissions.store');
 
 // Preserve authority from the retired school-era academic URLs.
 Route::permanentRedirect('/academics/elementary', '/pages/bsc-csit')->name('academics.elementary');
@@ -97,12 +97,12 @@ Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactController::class, 'storeContact'])->middleware('throttle:5,1')->name('contact.submit');
 
 // Vacancies (public listing, apply requires verified auth)
-Route::get('/vacancies', [VacancyController::class, 'index'])->middleware('module.enabled:vacancy')->name('vacancies');
+Route::get('/vacancies', [VacancyController::class, 'index'])->middleware('module.enabled:vacancy,public')->name('vacancies');
 Route::get('/vacancies/{vacancy}/apply', [VacancyController::class, 'createApplication'])
-    ->middleware(['auth', 'verified', 'module.enabled:vacancy'])
+    ->middleware(['auth', 'verified', 'module.enabled:vacancy,public'])
     ->name('vacancy.apply.create');
 Route::post('/vacancies/{vacancy}/apply', [VacancyController::class, 'apply'])
-    ->middleware(['auth', 'verified', 'module.enabled:vacancy'])
+    ->middleware(['auth', 'verified', 'module.enabled:vacancy,public'])
     ->name('vacancy.apply');
 
 // Legal pages
@@ -133,10 +133,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 
 // ── Applicant registration & login ───────────────────────────────────────────
 Route::middleware('guest')->group(function () {
-    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->middleware('module.enabled:vacancy')->name('register');
-    Route::post('/register', [RegisterController::class, 'register'])->middleware('module.enabled:vacancy');
-    Route::get('/applicant/login', [ApplicantLoginController::class, 'showLoginForm'])->middleware('module.enabled:vacancy')->name('applicant.login');
-    Route::post('/applicant/login', [ApplicantLoginController::class, 'login'])->middleware('module.enabled:vacancy')->name('applicant.login.submit');
+    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->middleware('module.enabled:vacancy,public')->name('register');
+    Route::post('/register', [RegisterController::class, 'register'])->middleware('module.enabled:vacancy,public');
+    Route::get('/applicant/login', [ApplicantLoginController::class, 'showLoginForm'])->middleware('module.enabled:vacancy,public')->name('applicant.login');
+    Route::post('/applicant/login', [ApplicantLoginController::class, 'login'])->middleware('module.enabled:vacancy,public')->name('applicant.login.submit');
     Route::get('/forgot-password', [PasswordResetController::class, 'request'])->name('password.request');
     Route::post('/forgot-password', [PasswordResetController::class, 'email'])->middleware('throttle:5,1')->name('password.email');
     Route::get('/reset-password-code', [PasswordResetController::class, 'codeForm'])->name('password.code.form');
@@ -152,8 +152,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/account/profile', [AccountController::class, 'updateProfile'])->name('account.profile.update');
     Route::get('/account/password', [AccountController::class, 'editPassword'])->name('account.password.edit');
     Route::put('/account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
-    Route::get('/account/applications', [VacancyController::class, 'myApplications'])->middleware('module.enabled:vacancy')->name('account.applications.index');
-    Route::get('/account/applications/{application}', [VacancyController::class, 'showApplication'])->middleware('module.enabled:vacancy')->name('account.applications.show');
+    Route::get('/account/applications', [VacancyController::class, 'myApplications'])->middleware('module.enabled:vacancy,public')->name('account.applications.index');
+    Route::get('/account/applications/{application}', [VacancyController::class, 'showApplication'])->middleware('module.enabled:vacancy,public')->name('account.applications.show');
 });
 
 Route::prefix('admin/work-tasks')

@@ -12,7 +12,7 @@
                     Showing content for {{ $student->stream ?: 'your class' }}{{ $student->section ? ' · Section '.$student->section : '' }}.
                 </p>
             </div>
-            @if(Route::has('learning.dashboard'))
+            @if(\App\Services\ModuleService::enabled('learning') && Route::has('learning.dashboard'))
                 <a href="{{ route('learning.dashboard') }}" class="inline-flex justify-center rounded-xl bg-[#1a5632] px-4 py-3 text-sm font-extrabold text-white hover:bg-[#0b2415]">
                     Open Full Learning View
                 </a>

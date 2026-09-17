@@ -235,6 +235,15 @@
                     <label class="{{ $label }}" x-text="isStudent ? 'Roll Number / Student ID' : 'Employee ID'"></label>
                     <input name="roll_number" value="{{ old('roll_number', $isEdit ? $member->roll_number : '') }}" required @readonly($lockAcademic) class="{{ $input }} {{ $lockAcademic ? 'cursor-not-allowed bg-gray-100 text-gray-500' : '' }}">
                 </div>
+                <div>
+                    <label class="{{ $label }}">Device ID <span x-show="isEmployee" class="text-red-500">*</span></label>
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" name="device_id"
+                           value="{{ old('device_id', $isEdit ? $member->user?->device_id : ($p?->device_id ?? '')) }}"
+                           placeholder="Biometric device ID"
+                           onwheel="this.blur()"
+                           :required="isEmployee"
+                           class="{{ $input }}">
+                </div>
                 <input type="hidden" name="employee_category" :value="memberType === 'teacher' ? 'academic' : (memberType === 'staff' ? 'administrative' : '')">
             </div>
         </section>
@@ -370,7 +379,7 @@
                 <div><label class="{{ $label }}">Blood Group</label><input name="blood_group" value="{{ old('blood_group', $isEdit ? $member->blood_group : '') }}" class="{{ $input }}"></div>
                 <div><label class="{{ $label }}">Citizenship No.</label><input name="citizenship_no" value="{{ old('citizenship_no', $isEdit ? $member->citizenship_no : '') }}" class="{{ $input }}"></div>
                 <div><label class="{{ $label }}">Mobile</label><input name="mobile" value="{{ old('mobile', $isEdit ? $member->mobile : ($p?->phone ?? '')) }}" class="{{ $input }}"></div>
-                <div class="xl:col-span-2"><label class="{{ $label }}">Email</label><input type="email" name="email" value="{{ old('email', $isEdit ? $member->email : ($p?->email ?? '')) }}" class="{{ $input }}"></div>
+                <div class="xl:col-span-2"><label class="{{ $label }}">Email</label><input type="email" name="email" x-model="contactEmail" class="{{ $input }}"></div>
             </div>
         </section>
 
@@ -473,20 +482,6 @@
                 <div><label class="{{ $label }}">SSF / CIT</label><div class="grid grid-cols-2 gap-3"><input name="ssf_number" value="{{ old('ssf_number', $isEdit ? $member->ssf_number : '') }}" placeholder="SSF" class="{{ $input }}"><input name="cit_number" value="{{ old('cit_number', $isEdit ? $member->cit_number : '') }}" placeholder="CIT" class="{{ $input }}"></div></div>
             </div>
             </fieldset>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p class="text-xs font-extrabold uppercase tracking-widest text-[#1a5632]">Attendance</p>
-            <h2 class="mt-1 text-lg font-extrabold text-gray-950">Biometric Device</h2>
-            <div class="mt-4 max-w-md">
-                <label class="{{ $label }}">Device ID</label>
-                <input type="text" inputmode="numeric" pattern="[0-9]*" name="device_id"
-                       value="{{ old('device_id', $isEdit ? $member->user?->device_id : ($p?->device_id ?? '')) }}"
-                       placeholder="Enter the ID registered on the device"
-                       onwheel="this.blur()"
-                       class="{{ $input }}">
-                <p class="mt-1.5 text-xs font-medium leading-5 text-gray-400">Available for students, teachers, and staff. Each device ID can only be assigned to one member.</p>
-            </div>
         </section>
 
         <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -629,6 +624,12 @@
                            value="{{ old('login_user_id', $isEdit ? $member->user?->student_code : ($p?->student_code ?? '')) }}"
                            placeholder="Blank = roll number"
                            class="{{ $input }}">
+                </div>
+                {{-- Login Email — teacher/staff sign in with this. Kept in sync
+                     with the Email field above; editing either updates both. --}}
+                <div x-show="isEmployee" x-transition>
+                    <label class="{{ $label }}">Login Email</label>
+                    <input type="email" name="login_email" x-model="contactEmail" class="{{ $input }}">
                 </div>
                 <div><label class="{{ $label }}">Login Password</label><input type="password" name="password" placeholder="{{ $isEdit ? 'New password optional' : 'Blank = Login User ID / Email' }}" class="{{ $input }}"></div>
                 <div><label class="{{ $label }}">Confirm Password</label><input type="password" name="password_confirmation" class="{{ $input }}"></div>
@@ -813,6 +814,8 @@ function photoCapture() {
     function hrMemberForm() {
         return {
             memberType: @json($selectedType),
+            // Email and Login Email are kept identical — same person, same address.
+            contactEmail: @json(old('email', old('login_email', $isEdit ? $member->email : ($p?->email ?? '')))),
             fatherName: @json(old('father_name', $isEdit ? $member->father_name : '')),
             motherName: @json(old('mother_name', $isEdit ? $member->mother_name : '')),
             parentContact: @json(old('parent_contact', $isEdit ? $member->parent_contact : ($p?->phone ?? ''))),

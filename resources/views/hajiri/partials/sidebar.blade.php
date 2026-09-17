@@ -201,6 +201,7 @@
         </a>
         @endif
 
+        @if(auth()->user()?->canAccess(['attendance.report', 'reports.view']))
         <a href="{{ route('hajiri.report.modal') }}"
            class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all
                   {{ $active('admin/hajiri/reporting*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
@@ -209,6 +210,7 @@
             </svg>
             <span class="flex-1 truncate">My Reports</span>
         </a>
+        @endif
 
         {{-- ── Services ── --}}
         <p class="px-2 pt-4 pb-1.5 text-[10px] font-bold text-white/30 uppercase tracking-widest">Services</p>
