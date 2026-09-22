@@ -371,6 +371,13 @@ class AdminPermissionMatrix
                             'cancel' => 'leaves.cancel',
                         ],
                     ],
+                    'staff-card-requests' => [
+                        'label' => 'Staff ID Card Requests',
+                        'permissions' => [
+                            'view' => 'students.card-request',
+                            'edit' => 'students.card-request',
+                        ],
+                    ],
                     'hajiri-settings' => [
                         'label' => 'Settings',
                         'permissions' => [

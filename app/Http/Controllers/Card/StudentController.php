@@ -129,6 +129,11 @@ class StudentController extends Controller
             ->whereDate('valid_till', '<', now()->toDateString())
             ->count();
 
+        if ($request->input('status') === 'expired') {
+            $query->whereNotNull('valid_till')
+                ->whereDate('valid_till', '<', now()->toDateString());
+        }
+
         $allowedPerPage = [10, 20, 40, 100];
         $perPageParam = $request->per_page ?? '';
 

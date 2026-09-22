@@ -9,6 +9,7 @@ use App\Models\Card\Organization;
 use App\Models\Card\OrgAsset;
 use App\Models\Card\Department;
 use App\Models\Card\Section;
+use App\Models\Card\SectionLabGroup;
 use App\Models\Card\MemberType;
 use App\Models\Card\Student;
 use App\Models\Card\SubjectOffering;
@@ -214,6 +215,36 @@ class SettingsController extends Controller
             $subjectEnrollments->syncDepartment($section->department()->with('organization')->firstOrFail(), $academicYear);
         }
         return back()->with('success', "Section updated.");
+    }
+
+    // Assigns each student in a section to Lab Group A/B (or clears it) — used
+    // to split a section for practical/lab classes in the routine builder.
+    // Defines which named groups (A, B, C, D, ...) exist for a section — actual
+    // student-to-group assignment happens on the Bulk Edit page, not here.
+    public function storeSectionLabGroup(Request $request, Section $section)
+    {
+        $data = $request->validate([
+            'name' => [
+                'required', 'string', 'max:30',
+                Rule::unique('section_lab_groups', 'name')->where('section_id', $section->id),
+            ],
+        ]);
+
+        $section->labGroups()->create($data);
+
+        return back()->with('success', "Group \"{$data['name']}\" added to {$section->name}.");
+    }
+
+    public function destroySectionLabGroup(SectionLabGroup $labGroup)
+    {
+        $studentCount = $labGroup->students()->count();
+        if ($studentCount > 0) {
+            return back()->with('error', "Cannot delete: {$studentCount} ".\Str::plural('student', $studentCount)." are still assigned to this group. Reassign them from Bulk Edit first.");
+        }
+
+        $labGroup->delete();
+
+        return back()->with('success', 'Group deleted.');
     }
 
     public function destroySection(Section $section, SubjectEnrollmentService $subjectEnrollments)

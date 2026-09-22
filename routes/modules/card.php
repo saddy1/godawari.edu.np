@@ -98,6 +98,8 @@ Route::prefix('admin/students')->middleware(['auth', 'admin', 'module.enabled:ca
         Route::post('/sections', [SettingsController::class, 'storeSection'])->middleware('permission:card-settings.create')->name('sections.store');
         Route::patch('/sections/{section}', [SettingsController::class, 'updateSection'])->middleware('permission:card-settings.edit')->name('sections.update');
         Route::delete('/sections/{section}', [SettingsController::class, 'destroySection'])->middleware('permission:card-settings.delete')->name('sections.destroy');
+        Route::post('/sections/{section}/lab-groups', [SettingsController::class, 'storeSectionLabGroup'])->middleware('permission:card-settings.create')->name('sections.lab-groups.store');
+        Route::delete('/lab-groups/{labGroup}', [SettingsController::class, 'destroySectionLabGroup'])->middleware('permission:card-settings.delete')->name('sections.lab-groups.destroy');
         Route::post('/member-types', [SettingsController::class, 'storeMemberType'])->middleware('permission:card-settings.create')->name('member-types.store');
         Route::patch('/member-types/{memberType}', [SettingsController::class, 'updateMemberType'])->middleware('permission:card-settings.edit')->name('member-types.update');
         Route::delete('/member-types/{memberType}', [SettingsController::class, 'destroyMemberType'])->middleware('permission:card-settings.delete')->name('member-types.destroy');

@@ -63,6 +63,13 @@
                 @endforeach
             </select>
 
+            <select name="status"
+                    class="w-full sm:w-auto border border-gray-200 rounded-lg px-3 py-2 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent">
+                <option value="">All Members</option>
+                <option value="expired" @selected(request('status') === 'expired')>Expired Only</option>
+            </select>
+
             {{-- Per-page selector: auto-submits so page resets to 1 --}}
             <select name="per_page"
                     class="w-full sm:w-auto border border-gray-200 rounded-lg px-3 py-2 text-sm
@@ -80,7 +87,7 @@
                 Search
             </button>
 
-            @if(request('search') || request('type') || request('stream') || request('section') || request('per_page'))
+            @if(request('search') || request('type') || request('stream') || request('section') || request('status') || request('per_page'))
             <a href="{{ route('students.index') }}"
                class="w-full sm:w-auto text-center px-4 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition">
                 Clear
@@ -89,15 +96,6 @@
         </form>
 
         <div class="flex gap-2 flex-shrink-0 flex-wrap w-full xl:w-auto">
-            <a href="{{ route('admin.hr.members.import') }}"
-               class="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-emerald-600 text-white font-semibold
-                      px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-                </svg>
-                Import
-            </a>
             <a href="{{ route('bulk.index') }}"
                class="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-accent text-primary-dark font-semibold
                       px-4 py-2 rounded-lg text-sm hover:bg-accent-light transition">
@@ -107,14 +105,6 @@
                              m2 4h6a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2z"/>
                 </svg>
                 Bulk Print
-            </a>
-            <a href="{{ \App\Services\ModuleService::enabled('hr') && auth()->user()->canAccess('hr.members.create') ? route('admin.hr.members.create') : route('students.create') }}"
-               class="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-primary text-white px-4 py-2 rounded-lg
-                      text-sm hover:bg-primary-light transition font-medium">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                Add from HR
             </a>
         </div>
     </div>
@@ -132,11 +122,12 @@
             <span class="font-bold text-gray-900">{{ $total }}</span> total members
         </span>
         @if(($expiredCount ?? 0) > 0)
-        <span class="w-full sm:w-auto bg-red-50 border border-red-100 rounded-lg px-4 py-2 text-red-700 shadow-sm text-xs flex items-center gap-1">
+        <a href="{{ route('students.index', array_merge(request()->except('page'), ['status' => 'expired'])) }}"
+           class="w-full sm:w-auto bg-red-50 border border-red-100 rounded-lg px-4 py-2 text-red-700 shadow-sm text-xs flex items-center gap-1 hover:bg-red-100 transition">
             {{ $expiredCount }} expired member{{ $expiredCount > 1 ? 's' : '' }} need attention
-        </span>
+        </a>
         @endif
-        @if(request('search') || request('type') || request('stream') || request('section'))
+        @if(request('search') || request('type') || request('stream') || request('section') || request('status'))
         <span class="w-full sm:w-auto bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-blue-700 shadow-sm text-xs flex items-center gap-1">
             Filtered results — showing {{ $students->count() }} of {{ $total }}
         </span>

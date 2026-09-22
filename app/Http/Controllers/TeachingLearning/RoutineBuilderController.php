@@ -130,6 +130,20 @@ class RoutineBuilderController extends Controller
             'id' => $teacher->id, 'name' => $teacher->name, 'initials' => $this->initials($teacher->name),
         ]);
         $rooms = RoutineRoom::where('organization_id', $routinePlan->organization_id)->where('is_active', true)->orderBy('type')->orderBy('name')->get();
+        // Practical mode reflects however many real lab groups a section
+        // actually has defined (Student Settings → Sections) — capped at 2 —
+        // instead of always fabricating a phantom "Group A"/"Group B" pair.
+        $sectionGroups = $routinePlan->sections->mapWithKeys(function (Section $section) {
+            $groups = $section->labGroups()->orderBy('name')->limit(2)->get(['id', 'name']);
+            $counts = Student::whereIn('lab_group_id', $groups->pluck('id'))
+                ->selectRaw('lab_group_id, COUNT(*) as total')->groupBy('lab_group_id')->pluck('total', 'lab_group_id');
+
+            return [$section->id => $groups->map(fn ($group) => [
+                'id' => $group->id,
+                'name' => $group->name,
+                'count' => (int) ($counts[$group->id] ?? 0),
+            ])->values()];
+        });
         $periods = $routinePlan->shift->periods->keyBy('id');
         $availableShifts = RoutineShift::with('periods')->where('is_active', true)
             ->whereHas('assignments', fn ($query) => $query
@@ -166,7 +180,7 @@ class RoutineBuilderController extends Controller
             }
         }
 
-        return view('teaching_learning.routine-builder.show', compact('routinePlan', 'day', 'offeringOptions', 'teachers', 'rooms', 'entries', 'cellLessons', 'availableShifts'));
+        return view('teaching_learning.routine-builder.show', compact('routinePlan', 'day', 'offeringOptions', 'teachers', 'rooms', 'entries', 'cellLessons', 'availableShifts', 'sectionGroups'));
     }
 
     public function teacherOptions(Request $request, RoutinePlan $routinePlan)
@@ -282,7 +296,7 @@ class RoutineBuilderController extends Controller
         }
         $groups = collect($data['groups']);
         if ($data['mode'] === 'single' && $groups->count() !== 1) throw ValidationException::withMessages(['groups' => 'A theory class requires one whole-class group.']);
-        if ($data['mode'] === 'practical_split' && $groups->count() !== 2) throw ValidationException::withMessages(['groups' => 'A 50/50 practical requires exactly two groups.']);
+        if ($data['mode'] === 'practical_split' && ! in_array($groups->count(), [1, 2], true)) throw ValidationException::withMessages(['groups' => 'A practical class requires one or two lab groups.']);
         $section = $routinePlan->sections->firstWhere('id', (int) $base['section_id']);
 
         // Theory has one shared subject; a practical split lets each group carry its own
@@ -421,7 +435,7 @@ class RoutineBuilderController extends Controller
         $section = $lesson->section;
         $students = Student::with(['subjectEnrollments' => fn ($query) => $query
                 ->where('academic_year', $plan->academicYear->name)
-                ->whereIn('subject_offering_id', $offeringIds)])
+                ->whereIn('subject_offering_id', $offeringIds), 'labGroup'])
             ->where('member_type', 'student')
             ->where(fn ($query) => $query->where('section_id', $section->id)
                 ->orWhere(fn ($query) => $query->whereNull('section_id')->where('section', $section->name)))
@@ -429,13 +443,43 @@ class RoutineBuilderController extends Controller
             ->filter(fn ($student) => $student->subjectEnrollments->isNotEmpty())->values();
 
         $buckets = $lesson->groups->mapWithKeys(fn ($group) => [$group->id => collect()]);
-        if ($lesson->mode === 'single') {
+        if ($lesson->mode === 'single' || $lesson->groups->count() === 1) {
+            // A practical lesson with only one lab group (the section has
+            // just one Lab Group defined) has nowhere else for anyone to go —
+            // every eligible student attends that one lab.
             $group = $lesson->groups->first();
             $buckets[$group->id] = $students->filter(fn ($student) => $student->subjectEnrollments->contains('subject_offering_id', $group->subject_offering_id))->values();
-        } elseif ($offeringIds->count() === 1) {
-            $half = (int) ceil($students->count() / 2);
-            $buckets[$lesson->groups[0]->id] = $students->take($half)->values();
-            $buckets[$lesson->groups[1]->id] = $students->slice($half)->values();
+        } elseif ($offeringIds->count() === 1 && $lesson->groups->count() === 2) {
+            // group_label holds the real Lab Group's name (e.g. "A"), except
+            // on lessons saved before this used real names, which stored the
+            // literal "Group A"/"Group B" — accept either form here.
+            $labelFor = fn ($group) => preg_replace('/^Group\s+/i', '', (string) $group->group_label);
+            [$groupOne, $groupTwo] = $lesson->groups->values()->all();
+            $nameOne = $labelFor($groupOne);
+            $nameTwo = $labelFor($groupTwo);
+            $assignedOne = $students->filter(fn ($student) => $student->labGroup?->name === $nameOne)->values();
+            $assignedTwo = $students->filter(fn ($student) => $student->labGroup?->name === $nameTwo)->values();
+
+            // Only trust declared Lab Groups when the section actually has
+            // real students in both groups — e.g. if a section only ever
+            // defined one group, every unassigned student would otherwise
+            // get dumped entirely into the always-empty second group below.
+            if (filled($nameOne) && filled($nameTwo) && $assignedOne->isNotEmpty() && $assignedTwo->isNotEmpty()) {
+                // Balance anyone left unassigned across whichever group is
+                // currently smaller.
+                $unassigned = $students->filter(fn ($student) => blank($student->labGroup?->name))->values();
+
+                foreach ($unassigned as $student) {
+                    $assignedOne->count() <= $assignedTwo->count() ? $assignedOne->push($student) : $assignedTwo->push($student);
+                }
+
+                $buckets[$groupOne->id] = $assignedOne;
+                $buckets[$groupTwo->id] = $assignedTwo;
+            } else {
+                $half = (int) ceil($students->count() / 2);
+                $buckets[$groupOne->id] = $students->take($half)->values();
+                $buckets[$groupTwo->id] = $students->slice($half)->values();
+            }
         } else {
             foreach ($students as $student) {
                 $eligible = $lesson->groups->filter(fn ($group) => $student->subjectEnrollments->contains('subject_offering_id', $group->subject_offering_id));

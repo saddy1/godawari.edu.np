@@ -135,13 +135,16 @@ class TeacherWorkspaceController extends Controller
             RoutineAttendanceSession::whereKey($session->id)->lockForUpdate()->first();
             $this->authorizeAttendance($routineLesson, $request->user());
             foreach ($students as $student) {
-                $key = ['routine_attendance_session_id' => $session->id, 'student_id' => $student->id];
-                $values = ['status' => 'present', 'marked_by' => $request->user()->id, 'marked_at' => now()];
-                if ($all || (int) $student->id === (int) ($data['student_id'] ?? 0)) {
-                    RoutineStudentAttendance::updateOrCreate($key, array_merge($values, ['status' => $data['status']]));
-                } else {
-                    RoutineStudentAttendance::firstOrCreate($key, $values);
+                $isTarget = $all || (int) $student->id === (int) ($data['student_id'] ?? 0);
+                if (! $isTarget) {
+                    continue;
                 }
+                $key = ['routine_attendance_session_id' => $session->id, 'student_id' => $student->id];
+                RoutineStudentAttendance::updateOrCreate($key, [
+                    'status' => $data['status'],
+                    'marked_by' => $request->user()->id,
+                    'marked_at' => now(),
+                ]);
             }
             $session->update(['submitted_at' => now()]);
         });

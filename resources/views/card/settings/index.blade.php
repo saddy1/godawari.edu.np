@@ -421,7 +421,7 @@
 {{-- ── SECTIONS ────────────────────────────────────────────────────────────── --}}
 @if($tab === 'sections')
 @php
-    $secQuery = \App\Models\Card\Section::with('department.organization');
+    $secQuery = \App\Models\Card\Section::with('department.organization', 'labGroups');
     if ($deptId) $secQuery->where('department_id', $deptId);
     elseif ($orgId) $secQuery->whereHas('department', fn($q) => $q->where('organization_id', $orgId));
     $secs = $secQuery->orderBy('name')->get();
@@ -473,9 +473,37 @@
                 <div class="flex items-start justify-between"><div><h3 class="text-sm font-bold text-gray-900">Section {{ $sec->name }}</h3><p class="mt-0.5 text-[11px] text-gray-400">{{ $sec->department->name }} · {{ $sec->department->organization->name }}</p></div><span class="h-2.5 w-2.5 rounded-full {{ $sec->is_active ? 'bg-emerald-500' : 'bg-gray-300' }}"></span></div>
                 @if($sec->group_name)<span class="mt-2 inline-flex rounded-md bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-700">{{ $sec->group_name }}</span>@endif
                 <p class="mt-2 text-[10px] font-semibold text-gray-400">{{ $secStudentCount }} {{ Str::plural('student', $secStudentCount) }}</p>
-                <div class="mt-3 flex justify-end gap-1.5 border-t border-gray-100 pt-2.5"><button type="button" onclick="document.getElementById('edit-section-{{ $sec->id }}').showModal()" class="rounded-lg border px-3 py-1.5 text-[11px] font-bold text-gray-600">Edit</button><form method="POST" action="{{ route('settings.sections.destroy', $sec) }}" onsubmit="return confirm('Delete this section?')">@csrf @method('DELETE')<button @disabled($secStudentCount > 0) title="{{ $secStudentCount > 0 ? $secStudentCount.' '.Str::plural('student', $secStudentCount).' still belong to this section' : 'Delete section' }}" class="rounded-lg border border-red-100 px-3 py-1.5 text-[11px] font-bold text-red-500 disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300">Delete</button></form></div>
+                <div class="mt-3 flex justify-end gap-1.5 border-t border-gray-100 pt-2.5">
+                    <button type="button" onclick="document.getElementById('lab-groups-{{ $sec->id }}').showModal()" class="rounded-lg border px-3 py-1.5 text-[11px] font-bold text-purple-600">Groups{{ $sec->labGroups->isNotEmpty() ? ' ('.$sec->labGroups->count().')' : '' }}</button>
+                    <button type="button" onclick="document.getElementById('edit-section-{{ $sec->id }}').showModal()" class="rounded-lg border px-3 py-1.5 text-[11px] font-bold text-gray-600">Edit</button><form method="POST" action="{{ route('settings.sections.destroy', $sec) }}" onsubmit="return confirm('Delete this section?')">@csrf @method('DELETE')<button @disabled($secStudentCount > 0) title="{{ $secStudentCount > 0 ? $secStudentCount.' '.Str::plural('student', $secStudentCount).' still belong to this section' : 'Delete section' }}" class="rounded-lg border border-red-100 px-3 py-1.5 text-[11px] font-bold text-red-500 disabled:cursor-not-allowed disabled:border-gray-100 disabled:text-gray-300">Delete</button></form></div>
             </article>
             <dialog id="edit-section-{{ $sec->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('settings.sections.update', $sec) }}">@csrf @method('PATCH')<div class="flex items-center justify-between border-b px-5 py-4"><div><p class="text-[10px] font-bold uppercase tracking-widest text-primary">Edit section</p><h3 class="font-bold">{{ $sec->department->name }} · {{ $sec->name }}</h3></div><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="space-y-3 p-5"><div><label class="mb-1 block text-xs font-semibold text-gray-600">Section name</label><input name="name" value="{{ $sec->name }}" required class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm"></div><div><label class="mb-1 block text-xs font-semibold text-gray-600">Elective group</label><input name="group_name" value="{{ $sec->group_name }}" placeholder="Optional" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm"></div><label class="flex items-center gap-2 text-xs font-semibold text-gray-600"><input type="checkbox" name="is_active" value="1" @checked($sec->is_active) class="rounded text-primary"> Active</label></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600">Cancel</button><button class="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white">Save changes</button></div></form></dialog>
+            <dialog id="lab-groups-{{ $sec->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55">
+                <div class="flex items-center justify-between border-b px-5 py-4">
+                    <div><p class="text-[10px] font-bold uppercase tracking-widest text-purple-600">Lab Groups</p><h3 class="font-bold">{{ $sec->department->name }} · {{ $sec->name }}</h3></div>
+                    <button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button>
+                </div>
+                <p class="px-5 pt-3 text-[11px] text-gray-400">Define the groups this section can be split into (e.g. A, B, C, D) — for practical/lab classes or any other sub-split. Assign students to a group from Bulk Edit.</p>
+                <div class="space-y-1.5 p-5">
+                    @forelse($sec->labGroups as $labGroup)
+                        @php $labGroupStudentCount = $labGroup->students()->count(); @endphp
+                        <div class="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+                            <span class="text-xs font-bold text-gray-700">Group {{ $labGroup->name }} <span class="font-medium text-gray-400">· {{ $labGroupStudentCount }} {{ Str::plural('student', $labGroupStudentCount) }}</span></span>
+                            <form method="POST" action="{{ route('settings.sections.lab-groups.destroy', $labGroup) }}" onsubmit="return confirm('Delete this group?')">
+                                @csrf @method('DELETE')
+                                <button @disabled($labGroupStudentCount > 0) title="{{ $labGroupStudentCount > 0 ? $labGroupStudentCount.' '.Str::plural('student', $labGroupStudentCount).' still assigned' : 'Delete group' }}" class="text-[11px] font-bold text-red-500 disabled:cursor-not-allowed disabled:text-gray-300">Delete</button>
+                            </form>
+                        </div>
+                    @empty
+                        <p class="rounded-lg border border-dashed py-6 text-center text-xs text-gray-400">No groups defined yet.</p>
+                    @endforelse
+                </div>
+                <form method="POST" action="{{ route('settings.sections.lab-groups.store', $sec) }}" class="flex gap-2 border-t px-5 py-4">
+                    @csrf
+                    <input name="name" placeholder="e.g. A, B, C, D" maxlength="30" required class="w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-purple-600 focus:ring-2 focus:ring-purple-600/15">
+                    <button class="shrink-0 rounded-lg bg-purple-600 px-4 py-2 text-xs font-bold text-white">Add group</button>
+                </form>
+            </dialog>
         @empty
             <div class="col-span-full rounded-2xl border border-dashed bg-white py-12 text-center text-sm text-gray-400">No sections found for this filter.</div>
         @endforelse

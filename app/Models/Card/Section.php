@@ -14,6 +14,11 @@ class Section extends Model
         return $this->belongsTo(Department::class);
     }
 
+    public function labGroups()
+    {
+        return $this->hasMany(SectionLabGroup::class)->orderBy('name');
+    }
+
     // Not a true Eloquent relation (can't be eager-loaded) — a section's
     // offerings depend on both its department AND its own group_name.
     public function subjectOfferingsQuery()

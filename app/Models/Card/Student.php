@@ -21,7 +21,7 @@ protected $fillable = [
         'employee_category', 'joining_date', 'permanent_date',
         'bank_name', 'bank_branch', 'bank_account_name', 'bank_account_number',
         'pan_number', 'ssf_number', 'cit_number',
-        'program', 'stream', 'section', 'section_id', 'batch', 'semester', 'year_level',
+        'program', 'stream', 'section', 'section_id', 'lab_group_id', 'batch', 'semester', 'year_level',
         'zone', 'district', 'municipality', 'country',
         'permanent_province', 'permanent_district', 'permanent_municipality', 'permanent_ward', 'permanent_tole',
         'address_en',
@@ -123,6 +123,11 @@ protected $fillable = [
     public function subjectEnrollments()
     {
         return $this->hasMany(StudentSubjectEnrollment::class);
+    }
+
+    public function labGroup()
+    {
+        return $this->belongsTo(SectionLabGroup::class, 'lab_group_id');
     }
 
     public function getAddressLabelAttribute(): ?string

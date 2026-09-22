@@ -108,6 +108,7 @@
                                     <span x-show="m.section"> · <span x-text="m.section"></span></span>
                                     <span x-show="m.batch"> · Batch <span x-text="m.batch"></span></span>
                                     <span x-show="m.gender"> · <span x-text="m.gender"></span></span>
+                                    <span x-show="m.lab_group_name"> · Group <span x-text="m.lab_group_name"></span></span>
                                 </p>
                             </div>
                             <span class="shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-extrabold capitalize"
@@ -148,6 +149,7 @@
                             <span class="min-w-0 flex-1 truncate text-xs font-bold text-gray-700">
                                 <span x-text="selectedMembers[id]?.name || ('#' + id)"></span>
                                 <span x-show="selectedMembers[id]?.roll_number" class="font-medium text-gray-400"> · <span x-text="selectedMembers[id]?.roll_number"></span></span>
+                                <span x-show="selectedMembers[id]?.lab_group_name" class="font-medium text-gray-400"> · Group <span x-text="selectedMembers[id]?.lab_group_name"></span></span>
                             </span>
                             <button type="button" @click="deselect(id)" class="shrink-0 text-gray-400 hover:text-red-600">
                                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -207,6 +209,7 @@
                     <label class="mb-1 block text-[11px] font-extrabold uppercase tracking-wider text-gray-500">Set Valid Till</label>
                     <input type="date" name="valid_till" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
                 </div>
+                <p class="text-[11px] font-semibold text-gray-400">Need to assign a Lab Group instead? Use <a href="{{ route('admin.hr.members.lab-groups.index') }}" class="font-extrabold text-purple-700 hover:underline">Assign Lab Group</a> in the sidebar.</p>
 
                 <button type="submit" :disabled="selectedIds.length === 0"
                         class="w-full rounded-xl bg-[#1a5632] px-5 py-3 text-sm font-extrabold text-white hover:bg-[#0b2415] disabled:cursor-not-allowed disabled:opacity-40">

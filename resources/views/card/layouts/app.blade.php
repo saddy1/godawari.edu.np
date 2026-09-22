@@ -92,8 +92,6 @@
         <nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
             @php
                 $canMembers = auth()->user()->canAccess('students.view');
-                $canCreateMembers = auth()->user()->canAccess('students.create');
-                $canImport = auth()->user()->canAccess('users.bulk-import');
                 $canPromote = auth()->user()->canAccess('students.edit');
                 $canCards = auth()->user()->canAccess(['cards.view', 'cards.print']);
                 $canRequests = auth()->user()->canAccess('students.card-request');
@@ -102,31 +100,13 @@
             @endphp
 
             {{-- Members --}}
-            @if($canMembers || $canCreateMembers || $canImport || $canPromote)
-            <p class="erp-card-section px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-widest">Members</p>
-            @endif
             @if($canMembers)
+            <p class="erp-card-section px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-widest">Members</p>
             <a href="{{ route('students.index') }}"
                @click="sidebarOpen = false"
                class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ request()->routeIs('students.*') ? 'active' : 'erp-card-muted' }}">
                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
                 <span class="flex-1 truncate">All Members</span>
-            </a>
-            @endif
-            @if($canCreateMembers)
-            <a href="{{ \App\Services\ModuleService::enabled('hr') && auth()->user()->canAccess('hr.members.create') ? route('admin.hr.members.create') : route('students.create') }}"
-               @click="sidebarOpen = false"
-               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all erp-card-muted">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                <span class="flex-1 truncate">Add from HR</span>
-            </a>
-            @endif
-            @if($canImport)
-            <a href="{{ route('admin.hr.members.import') }}"
-               @click="sidebarOpen = false"
-               class="sidebar-link group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all erp-card-muted">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                <span class="flex-1 truncate">Import</span>
             </a>
             @endif
 

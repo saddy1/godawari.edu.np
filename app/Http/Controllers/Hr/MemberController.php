@@ -431,7 +431,32 @@ class MemberController extends Controller
     // ── Bulk edit page: search-and-select members, then update in one go ───
     public function bulkEdit()
     {
-        $academicOptions = CardOrganization::query()
+        $academicOptions = $this->academicOptionsForBulkEdit();
+
+        $batchOptions = Student::query()
+            ->where('member_type', 'student')
+            ->whereNotNull('batch')
+            ->where('batch', '!=', '')
+            ->distinct()
+            ->orderBy('batch')
+            ->pluck('batch');
+
+        return view('hr.members.bulk-edit', compact('academicOptions', 'batchOptions'));
+    }
+
+    // Dedicated "Assign Lab Group" page — same student search as Bulk Edit,
+    // but the only action available is assigning the group of the currently
+    // filtered section (no organization/class/section re-selection needed).
+    public function labGroupAssign()
+    {
+        $academicOptions = $this->academicOptionsForBulkEdit();
+
+        return view('hr.members.lab-groups', compact('academicOptions'));
+    }
+
+    private function academicOptionsForBulkEdit(): array
+    {
+        return CardOrganization::query()
             ->with('departments.sections')
             ->where('is_active', true)
             ->orderBy('name')
@@ -456,16 +481,15 @@ class MemberController extends Controller
                 ],
             ])
             ->all();
+    }
 
-        $batchOptions = Student::query()
-            ->where('member_type', 'student')
-            ->whereNotNull('batch')
-            ->where('batch', '!=', '')
-            ->distinct()
-            ->orderBy('batch')
-            ->pluck('batch');
-
-        return view('hr.members.bulk-edit', compact('academicOptions', 'batchOptions'));
+    // Groups are defined per section (Student Settings) — this feeds the
+    // dynamic "Set Lab Group" dropdown on the Bulk Edit page.
+    public function bulkEditLabGroups(CardSection $section)
+    {
+        return response()->json([
+            'groups' => $section->labGroups()->get(['id', 'name']),
+        ]);
     }
 
     public function bulkEditSearch(Request $request)
@@ -502,7 +526,8 @@ class MemberController extends Controller
             })
             ->orderBy('first_name')
             ->limit(250)
-            ->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number', 'member_type', 'stream', 'section', 'batch', 'photo'])
+            ->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number', 'member_type', 'stream', 'section', 'section_id', 'batch', 'gender', 'lab_group_id', 'photo'])
+            ->load('labGroup')
             ->map(fn (Student $s) => [
                 'id'          => $s->id,
                 'name'        => trim("{$s->first_name} {$s->middle_name} {$s->last_name}"),
@@ -510,8 +535,11 @@ class MemberController extends Controller
                 'member_type' => $s->member_type,
                 'stream'      => $s->stream,
                 'section'     => $s->section,
+                'section_id'  => $s->section_id,
                 'batch'       => $s->batch,
                 'gender'      => $s->gender,
+                'lab_group_id'   => $s->lab_group_id,
+                'lab_group_name' => $s->labGroup?->name,
                 'photo_url'   => $s->photo_url,
             ]);
 
@@ -527,10 +555,19 @@ class MemberController extends Controller
             'gender'     => ['nullable', Rule::in(['Male', 'Female', 'Other'])],
             'batch'      => ['nullable', 'string', 'max:20'],
             'valid_till' => 'nullable|date',
-            'section_id' => 'nullable|integer|exists:sections,id',
+            'section_id'  => 'nullable|integer|exists:sections,id',
+            'lab_group_id' => ['nullable', function ($attr, $value, $fail) {
+                if ($value !== '__clear__' && ! \App\Models\Card\SectionLabGroup::whereKey($value)->exists()) {
+                    $fail('The selected lab group is invalid.');
+                }
+            }],
         ]);
 
         $data = array_filter($request->only(['gender', 'batch', 'valid_till']), fn ($value) => filled($value));
+
+        if ($request->filled('lab_group_id')) {
+            $data['lab_group_id'] = $request->input('lab_group_id') === '__clear__' ? null : (int) $request->input('lab_group_id');
+        }
 
         if ($request->filled('batch')) {
             $containsNonStudents = Student::whereIn('id', $request->ids)
