@@ -126,7 +126,7 @@ class RoutineBuilderController extends Controller
                 'section_ids' => $sectionIds,
             ];
         })->filter(fn ($row) => $row['section_ids']->isNotEmpty())->values();
-        $teachers = User::role('teacher')->where('is_active', true)->orderBy('name')->limit(12)->get(['id', 'name'])->map(fn ($teacher) => [
+        $teachers = User::role(['teacher', 'staff'])->where('is_active', true)->orderBy('name')->limit(12)->get(['id', 'name'])->map(fn ($teacher) => [
             'id' => $teacher->id, 'name' => $teacher->name, 'initials' => $this->initials($teacher->name),
         ]);
         $rooms = RoutineRoom::where('organization_id', $routinePlan->organization_id)->where('is_active', true)->orderBy('type')->orderBy('name')->get();
@@ -193,7 +193,7 @@ class RoutineBuilderController extends Controller
         ]);
         $search = trim((string) ($data['q'] ?? ''));
         $selectedIds = collect($data['ids'] ?? [])->map(fn ($id) => (int) $id)->unique();
-        $base = fn () => User::role('teacher')->where('is_active', true);
+        $base = fn () => User::role(['teacher', 'staff'])->where('is_active', true);
         $selected = $selectedIds->isEmpty() ? collect() : $base()->whereIn('id', $selectedIds)->get(['id', 'name']);
         $matches = $base()->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
             ->orderBy('name')->limit(20)->get(['id', 'name']);
