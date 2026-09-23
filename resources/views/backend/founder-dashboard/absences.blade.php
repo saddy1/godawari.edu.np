@@ -16,15 +16,19 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <h2 class="text-2xl font-black text-gray-900">Absence Explorer</h2>
-            <p class="text-sm font-semibold text-gray-500">{{ $date->format('l, d M Y') }}</p>
+            <p class="text-sm font-semibold text-gray-500">
+                {{ $date->format('l, d M Y') }}
+                @if($dateBsLabel)
+                    <span class="text-gray-300">·</span> {{ $dateBsLabel }}
+                @endif
+            </p>
         </div>
-        <form method="GET" class="flex items-center gap-2">
+        <form method="GET" onchange="this.submit()" class="flex items-end gap-2">
             @foreach(array_filter(['organization_id' => $organization?->id, 'department_id' => $department?->id, 'section_id' => $section?->id, 'min_streak' => $minStreak]) as $key => $value)
                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
             @endforeach
-            <input type="date" name="date" value="{{ $date->toDateString() }}" onchange="this.form.submit()"
-                   class="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold">
-            <button class="rounded-xl bg-[#1a5632] px-4 py-2 text-sm font-extrabold text-white hover:bg-[#0b2415]">Go</button>
+            <x-nepali-date-input name="date" :value="$date" class="w-36 rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold" />
+            <button class="mb-0.5 shrink-0 rounded-xl bg-[#1a5632] px-4 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Go</button>
         </form>
     </div>
 

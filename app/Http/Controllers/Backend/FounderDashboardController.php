@@ -266,6 +266,7 @@ class FounderDashboardController extends Controller
     {
         $date = $request->filled('date') ? Carbon::parse($request->get('date')) : Carbon::today();
         $minStreak = $request->filled('min_streak') ? max(1, $request->integer('min_streak')) : null;
+        $dateBsLabel = $this->bsDateLabel($date);
 
         $organizations = Organization::with(['departments' => fn ($query) => $query->where('is_active', true)
             ->with(['sections' => fn ($sections) => $sections->where('is_active', true)->orderBy('name')])])
@@ -352,7 +353,7 @@ class FounderDashboardController extends Controller
         }
 
         return view('backend.founder-dashboard.absences', compact(
-            'date', 'minStreak', 'hasReason', 'organizations', 'organization', 'department', 'section',
+            'date', 'dateBsLabel', 'minStreak', 'hasReason', 'organizations', 'organization', 'department', 'section',
             'orgSummaries', 'deptSummaries', 'sectionSummaries', 'studentRows', 'reasonSuggestions'
         ));
     }
@@ -695,6 +696,20 @@ class FounderDashboardController extends Controller
         }
 
         return trim(($section->department->name ?? '').' - '.$section->name, ' -');
+    }
+
+    // e.g. "Wednesday, 6 असोज 2083 BS" — reuses the same AD↔BS converter the
+    // rest of the app already uses (Hajiri module, <x-nepali-date-input>).
+    private function bsDateLabel(Carbon $date): ?string
+    {
+        $converter = new \App\Http\Controllers\Hajiri\NepaliCalendarController();
+        $bs = $converter->ad_2_bs($date->year, $date->month, $date->day);
+
+        if (! $bs) {
+            return null;
+        }
+
+        return "{$bs['day']}, {$bs['date']} {$bs['nmonth']} {$bs['year']} BS";
     }
 
     /**
