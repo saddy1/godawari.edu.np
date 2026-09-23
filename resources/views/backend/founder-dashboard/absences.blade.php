@@ -22,7 +22,7 @@
             @foreach(array_filter(['organization_id' => $organization?->id, 'department_id' => $department?->id, 'section_id' => $section?->id, 'min_streak' => $minStreak]) as $key => $value)
                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
             @endforeach
-            <input type="date" name="date" value="{{ $date->toDateString() }}"
+            <input type="date" name="date" value="{{ $date->toDateString() }}" onchange="this.form.submit()"
                    class="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold">
             <button class="rounded-xl bg-[#1a5632] px-4 py-2 text-sm font-extrabold text-white hover:bg-[#0b2415]">Go</button>
         </form>

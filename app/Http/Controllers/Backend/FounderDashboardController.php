@@ -270,9 +270,9 @@ class FounderDashboardController extends Controller
         $department = $organization?->departments->firstWhere('id', $request->integer('department_id'));
         $section = $department?->sections->firstWhere('id', $request->integer('section_id'));
 
-        $absentStudents = collect($this->dailyAggregate($date)->statuses)
-            ->filter(fn ($row) => $row->status === 'absent' && $row->student)
-            ->pluck('student');
+        $absentStatuses = collect($this->dailyAggregate($date)->statuses)->filter(fn ($row) => $row->status === 'absent');
+        $absentStudentIds = $absentStatuses->keys();
+        $absentStudents = Student::whereIn('id', $absentStudentIds)->get();
 
         $orgCounts = $absentStudents->groupBy('organization')->map->count();
         $orgSummaries = $organizations->map(fn ($org) => (object) [
@@ -676,13 +676,42 @@ class FounderDashboardController extends Controller
      */
     private function dailyStudentStatuses(Carbon $date, bool $includeStudent = false): array
     {
-        return $this->dailyAggregate($date)->statuses;
+        $statuses = $this->dailyAggregate($date)->statuses;
+
+        return $includeStudent ? $this->attachStudents($statuses) : $statuses;
+    }
+
+    /**
+     * Full Student models only for the specific student IDs given — resolved
+     * once per call, never cached across dates. Kept separate from
+     * dailyAggregate()'s cache so that cache stays cheap to hold for many days
+     * at once (trend/heatmap/streaks) without also retaining full models +
+     * their relations in memory for every one of those days simultaneously.
+     */
+    private function attachStudents(array $statuses): array
+    {
+        if (empty($statuses)) {
+            return [];
+        }
+
+        $students = Student::whereIn('id', array_keys($statuses))->get()->keyBy('id');
+
+        return collect($statuses)->map(fn ($row, $id) => (object) [
+            'status' => $row->status,
+            'section_label' => $row->section_label,
+            'student' => $students->get($id),
+        ])->all();
     }
 
     /**
      * One cached fetch per date backing dailyStudentStatuses() AND trend()'s
      * compliance rate — both used to be computed independently per date across
      * several methods, multiplying the same queries many times over.
+     *
+     * Deliberately lightweight (status + a section label string, no Eloquent
+     * models) so caching many days at once — trend() covers up to 30 — doesn't
+     * also mean holding that many days' worth of full Student/session/lesson
+     * relation chains in memory simultaneously.
      */
     private function dailyAggregate(Carbon $date): object
     {
@@ -691,22 +720,26 @@ class FounderDashboardController extends Controller
             return $this->dailyAggregateCache[$key];
         }
 
-        $lessonIds = $this->lessonsForDate($date)->pluck('id');
+        $lessons = $this->lessonsForDate($date);
+        $lessonIds = $lessons->pluck('id');
 
         if ($lessonIds->isEmpty()) {
             return $this->dailyAggregateCache[$key] = (object) ['statuses' => [], 'scheduled' => 0, 'taken' => 0];
         }
 
+        $sectionLabelByLesson = $lessons->mapWithKeys(fn ($lesson) => [$lesson->id => $this->sectionLabel($lesson->section)]);
+
         $taken = $this->sessionsForDate($lessonIds, $date)->whereNotNull('submitted_at')->count();
 
         $rows = RoutineStudentAttendance::query()
-            ->with('student', 'session.lesson.section.department')
+            ->select('student_id', 'status', 'routine_attendance_session_id')
+            ->with('session:id,routine_lesson_id')
             ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $date)
                 ->whereNotNull('submitted_at')
                 ->whereIn('routine_lesson_id', $lessonIds))
             ->get();
 
-        $statuses = $rows->groupBy('student_id')->map(function (Collection $studentRows) {
+        $statuses = $rows->groupBy('student_id')->map(function (Collection $studentRows) use ($sectionLabelByLesson) {
             $counted = $studentRows->where('status', '!=', 'excused');
             $absentCount = $counted->where('status', 'absent')->count();
             $status = $counted->isNotEmpty() && $absentCount > $counted->count() / 2 ? 'absent' : 'present';
@@ -715,8 +748,7 @@ class FounderDashboardController extends Controller
 
             return (object) [
                 'status' => $status,
-                'section_label' => $this->sectionLabel($first->session->lesson->section ?? null),
-                'student' => $first->student,
+                'section_label' => $sectionLabelByLesson->get($first->session->routine_lesson_id),
             ];
         })->all();
 
@@ -736,7 +768,9 @@ class FounderDashboardController extends Controller
         $dailyRollups = [];
         for ($i = 0; $i < self::STREAK_LOOKBACK_DAYS && count($dailyRollups) < self::STREAK_SCHOOL_DAYS; $i++) {
             $date = $today->copy()->subDays($i);
-            $rollup = $this->dailyStudentStatuses($date, includeStudent: true);
+            // Lightweight (no student models) — only the final candidates below
+            // get their Student resolved, not every student on every scanned day.
+            $rollup = $this->dailyAggregate($date)->statuses;
             if (! empty($rollup)) {
                 $dailyRollups[$date->toDateString()] = $rollup;
             }
@@ -751,11 +785,10 @@ class FounderDashboardController extends Controller
             ->filter(fn ($row) => $row->status === 'absent')
             ->keys();
 
-        $result = collect();
+        $streakData = [];
         foreach ($candidateStudentIds as $studentId) {
             $days = 0;
             $lastPresentDate = null;
-            $student = null;
             $sectionLabel = null;
 
             foreach ($dailyRollups as $date => $rollup) {
@@ -763,7 +796,6 @@ class FounderDashboardController extends Controller
                     continue;
                 }
                 $row = $rollup[$studentId];
-                $student ??= $row->student;
                 $sectionLabel ??= $row->section_label;
 
                 if ($row->status === 'absent') {
@@ -776,16 +808,24 @@ class FounderDashboardController extends Controller
                 break;
             }
 
-            if ($days >= 2 && $student) {
-                $result->push((object) [
-                    'student' => $student,
-                    'section_label' => $sectionLabel,
-                    'days' => $days,
-                    'last_present' => $lastPresentDate,
-                    'severity' => $days >= 5 ? 'red' : ($days >= 3 ? 'orange' : 'yellow'),
-                ]);
+            if ($days >= 2) {
+                $streakData[$studentId] = ['section_label' => $sectionLabel, 'days' => $days, 'last_present' => $lastPresentDate];
             }
         }
+
+        if (empty($streakData)) {
+            return collect();
+        }
+
+        $students = Student::whereIn('id', array_keys($streakData))->get()->keyBy('id');
+
+        $result = collect($streakData)->map(fn ($data, $studentId) => (object) [
+            'student' => $students->get($studentId),
+            'section_label' => $data['section_label'],
+            'days' => $data['days'],
+            'last_present' => $data['last_present'],
+            'severity' => $data['days'] >= 5 ? 'red' : ($data['days'] >= 3 ? 'orange' : 'yellow'),
+        ])->filter(fn ($row) => $row->student)->values();
 
         return $result->sortByDesc('days')->values();
     }

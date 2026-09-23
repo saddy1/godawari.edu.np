@@ -31,28 +31,28 @@
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div>
                     <label class="{{ $label }}">Organization</label>
-                    <select name="organization_id" x-model="organizationId" @change="departmentId=''; sectionId=''" class="{{ $input }}">
+                    <select name="organization_id" x-model="organizationId" @change="departmentId=''; sectionId=''; $el.form.submit()" class="{{ $input }}">
                         <option value="">All organizations</option>
                         <template x-for="item in organizations" :key="item.id"><option :value="String(item.id)" x-text="item.name"></option></template>
                     </select>
                 </div>
                 <div>
                     <label class="{{ $label }}">Faculty / class</label>
-                    <select name="department_id" x-model="departmentId" @change="sectionId=''" :disabled="!organizationId" class="{{ $input }}">
+                    <select name="department_id" x-model="departmentId" @change="sectionId=''; $el.form.submit()" :disabled="!organizationId" class="{{ $input }}">
                         <option value="">All faculties / classes</option>
                         <template x-for="item in departments" :key="item.id"><option :value="String(item.id)" x-text="item.name"></option></template>
                     </select>
                 </div>
                 <div>
                     <label class="{{ $label }}">Section</label>
-                    <select name="section_id" x-model="sectionId" :disabled="!departmentId" class="{{ $input }}">
+                    <select name="section_id" x-model="sectionId" @change="$el.form.submit()" :disabled="!departmentId" class="{{ $input }}">
                         <option value="">All sections</option>
                         <template x-for="item in sections" :key="item.id"><option :value="String(item.id)" x-text="item.name + (item.group_name ? ' · '+item.group_name : '')"></option></template>
                     </select>
                 </div>
                 <div>
                     <label class="{{ $label }}">Subject</label>
-                    <select name="subject_id" class="{{ $input }}">
+                    <select name="subject_id" onchange="this.form.submit()" class="{{ $input }}">
                         <option value="">All subjects</option>
                         @foreach($subjects as $subject)
                             <option value="{{ $subject->id }}" @selected($subjectId === $subject->id)>{{ $subject->name }}</option>
@@ -64,7 +64,7 @@
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div>
                     <label class="{{ $label }}">Teacher</label>
-                    <select name="teacher_id" class="{{ $input }}">
+                    <select name="teacher_id" onchange="this.form.submit()" class="{{ $input }}">
                         <option value="">All teachers</option>
                         @foreach($teachers as $teacher)
                             <option value="{{ $teacher->id }}" @selected($teacherId === $teacher->id)>{{ $teacher->name }}</option>
