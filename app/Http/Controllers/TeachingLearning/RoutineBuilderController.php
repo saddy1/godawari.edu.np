@@ -358,39 +358,52 @@ class RoutineBuilderController extends Controller
             ->where('is_active', true)->orderBy('name')->get();
 
         $section = null;
-        $routinePlan = null;
-        $days = [];
-        $cellLessons = collect();
+        $panels = collect();
 
         if ($request->filled('section_id')) {
             $section = Section::with('department.organization')->find($request->integer('section_id'));
         }
 
         if ($section) {
-            $routinePlan = RoutinePlan::with(['academicYear', 'organization', 'department', 'shift.periods'])
-                ->whereHas('sections', fn ($query) => $query->where('sections.id', $section->id))
-                ->orderByRaw("status = 'published' desc")
-                ->latest('id')
-                ->first();
-        }
+            $academicSystem = $section->department?->academic_system;
+            $semester = ($academicSystem === 'semester' && $request->filled('semester')) ? $request->integer('semester') : null;
+            $yearLevel = ($academicSystem === 'year' && $request->filled('year_level')) ? $request->integer('year_level') : null;
 
-        if ($routinePlan) {
-            $days = $routinePlan->shift->working_days ?? [];
-            $lessons = RoutineLesson::with(['period', 'endPeriod', 'groups.offering.subject', 'groups.teachers', 'groups.room'])
-                ->where('routine_plan_id', $routinePlan->id)
-                ->where('section_id', $section->id)
-                ->get();
-            foreach ($lessons as $lesson) {
-                $startPosition = $lesson->period?->position;
-                $endPosition = $lesson->endPeriod?->position ?? $startPosition;
-                if ($startPosition === null) continue;
-                foreach ($routinePlan->shift->periods->where('is_break', false)->whereBetween('position', [$startPosition, $endPosition]) as $covered) {
-                    $cellLessons->put($lesson->day_of_week.':'.$covered->id, $lesson);
+            $query = RoutinePlan::with(['academicYear', 'organization', 'department', 'shift.periods'])
+                ->whereHas('sections', fn ($q) => $q->where('sections.id', $section->id));
+            if ($semester) $query->where('semester', $semester);
+            if ($yearLevel) $query->where('year_level', $yearLevel);
+
+            // A section is reused across every semester/year of its programme, so
+            // more than one RoutinePlan can target it (one per semester/year level).
+            // Without an explicit choice, show every semester's/year's routine
+            // stacked; pick the published plan over a stray draft within the same one.
+            $plans = $query->orderByRaw("status = 'published' desc")->get()
+                ->groupBy(fn ($plan) => ($plan->semester ?? 0).'-'.($plan->year_level ?? 0))
+                ->map(fn ($group) => $group->first())
+                ->sortBy(fn ($plan) => $plan->semester ?? $plan->year_level ?? 0)
+                ->values();
+
+            $panels = $plans->map(function (RoutinePlan $plan) use ($section) {
+                $days = $plan->shift->working_days ?? [];
+                $cellLessons = collect();
+                $lessons = RoutineLesson::with(['period', 'endPeriod', 'groups.offering.subject', 'groups.teachers', 'groups.room'])
+                    ->where('routine_plan_id', $plan->id)
+                    ->where('section_id', $section->id)
+                    ->get();
+                foreach ($lessons as $lesson) {
+                    $startPosition = $lesson->period?->position;
+                    $endPosition = $lesson->endPeriod?->position ?? $startPosition;
+                    if ($startPosition === null) continue;
+                    foreach ($plan->shift->periods->where('is_break', false)->whereBetween('position', [$startPosition, $endPosition]) as $covered) {
+                        $cellLessons->put($lesson->day_of_week.':'.$covered->id, $lesson);
+                    }
                 }
-            }
+                return (object) ['plan' => $plan, 'days' => $days, 'cellLessons' => $cellLessons];
+            });
         }
 
-        return view('teaching_learning.routine-builder.weekly', compact('organizations', 'section', 'routinePlan', 'days', 'cellLessons'));
+        return view('teaching_learning.routine-builder.weekly', compact('organizations', 'section', 'panels'));
     }
 
     public function print(Request $request, RoutinePlan $routinePlan)
