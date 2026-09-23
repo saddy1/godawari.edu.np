@@ -17,6 +17,64 @@
         <a href="{{ url()->previous() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-extrabold text-gray-600 hover:bg-gray-50">← Back</a>
     </div>
 
+    @if(session('success'))
+        <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ session('error') }}</div>
+    @endif
+
+    {{-- Attendance history --}}
+    <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h3 class="text-sm font-black uppercase tracking-wide text-gray-900">Attendance History</h3>
+            <div class="flex gap-1.5">
+                @foreach(['week' => 'Last 7 days', 'month' => 'Last 30 days'] as $value => $label)
+                    <a href="{{ route('admin.founder.students.show', [$student, 'range' => $value]) }}"
+                       class="rounded-full border px-3 py-1.5 text-[11px] font-extrabold {{ $range === $value ? 'border-[#1a5632] bg-[#1a5632] text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300' }}">
+                        {{ $label }}
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+            <div class="rounded-xl bg-gray-50 p-3"><p class="text-2xl font-black text-gray-900">{{ $recordedCount }}</p><p class="text-[10px] font-extrabold uppercase text-gray-400">Days Recorded</p></div>
+            <div class="rounded-xl bg-emerald-50 p-3"><p class="text-2xl font-black text-emerald-700">{{ $presentCount }}</p><p class="text-[10px] font-extrabold uppercase text-emerald-600">Present</p></div>
+            <div class="rounded-xl bg-red-50 p-3"><p class="text-2xl font-black text-red-700">{{ $absentCount }}</p><p class="text-[10px] font-extrabold uppercase text-red-600">Absent</p></div>
+        </div>
+
+        @if($streakDays >= 2)
+            <div class="mt-3 rounded-xl {{ $streakDays >= 5 ? 'bg-red-50 text-red-700' : ($streakDays >= 3 ? 'bg-amber-50 text-amber-700' : 'bg-yellow-50 text-yellow-700') }} px-4 py-2.5 text-sm font-extrabold">
+                ⚠ Currently on a {{ $streakDays }}-day absence streak
+            </div>
+        @endif
+
+        <div class="mt-4 flex flex-wrap gap-1.5">
+            @foreach($attendanceRows as $row)
+                <div title="{{ $row->date->format('d M Y') }} · {{ $row->status ? ucfirst($row->status) : 'No record' }}"
+                     class="flex h-9 w-9 items-center justify-center rounded-lg text-[10px] font-black {{ match($row->status) { 'present' => 'bg-emerald-500 text-white', 'absent' => 'bg-red-500 text-white', default => 'bg-gray-100 text-gray-300' } }}">
+                    {{ $row->date->format('j') }}
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    {{-- Absence remarks --}}
+    @if($recentRemarks->isNotEmpty())
+    <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-gray-900">Absence Remarks</h3>
+        <div class="space-y-2">
+            @foreach($recentRemarks as $remark)
+                <div class="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+                    <span class="font-semibold text-gray-700">{{ $remark->remarks }}</span>
+                    <span class="shrink-0 text-xs font-bold text-gray-400">{{ $remark->session?->attendance_date?->format('d M Y') }}</span>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-gray-900">Basic Information</h3>
@@ -42,7 +100,21 @@
             <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-gray-900">Contact and Address</h3>
             <dl class="grid grid-cols-2 gap-4 text-sm">
                 <div><dt class="text-gray-400">Mobile</dt><dd class="mt-1 font-bold text-gray-800">{{ $student->mobile ?: '—' }}</dd></div>
-                <div><dt class="text-gray-400">Guardian / Parent Contact</dt><dd class="mt-1 font-bold text-gray-800">{{ $student->guardian_contact ?: ($student->parent_contact ?: '—') }}</dd></div>
+                <div>
+                    <dt class="text-gray-400">Guardian / Parent Contact</dt>
+                    @if($student->guardian_contact ?: $student->parent_contact)
+                        <dd class="mt-1 font-bold text-gray-800">{{ $student->guardian_contact ?: $student->parent_contact }}</dd>
+                    @else
+                        <dd class="mt-1">
+                            <form method="POST" action="{{ route('admin.founder.students.contact', $student) }}" class="flex gap-2">
+                                @csrf @method('PATCH')
+                                <input type="text" name="guardian_contact" placeholder="Add contact no." required
+                                       class="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold">
+                                <button class="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-amber-700">Save</button>
+                            </form>
+                        </dd>
+                    @endif
+                </div>
                 <div><dt class="text-gray-400">Email</dt><dd class="mt-1 font-bold text-gray-800">{{ $student->email ?: '—' }}</dd></div>
                 <div><dt class="text-gray-400">Province</dt><dd class="mt-1 font-bold text-gray-800">{{ $student->zone ?: '—' }}</dd></div>
                 <div><dt class="text-gray-400">District</dt><dd class="mt-1 font-bold text-gray-800">{{ $student->district ?: '—' }}</dd></div>

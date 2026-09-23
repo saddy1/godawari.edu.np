@@ -31,6 +31,13 @@ class FounderDashboardController extends Controller
     private const STREAK_LOOKBACK_DAYS = 21;
     private const STREAK_SCHOOL_DAYS = 12;
 
+    // day_of_week only takes 7 values, and the same date's aggregate is asked
+    // for repeatedly across trend()/heatmap()/absenceStreaks()/analysis() —
+    // these two caches turn what was 150-200+ queries per page load into a
+    // handful, without changing what's computed.
+    private array $lessonsByWeekdayCache = [];
+    private array $dailyAggregateCache = [];
+
     public function index(Request $request, AttendanceSessionCloser $sessionCloser)
     {
         // Self-heals sessions left "pending" after their class period ended, in
@@ -182,9 +189,163 @@ class FounderDashboardController extends Controller
         ));
     }
 
-    public function showStudent(Student $student)
+    public function showStudent(Request $request, Student $student)
     {
-        return view('backend.founder-dashboard.students.show', compact('student'));
+        $range = in_array($request->get('range'), ['week', 'month'], true) ? $request->get('range') : 'week';
+        $days = $range === 'month' ? 30 : 7;
+        $today = Carbon::today();
+
+        $attendanceRows = collect();
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = $today->copy()->subDays($i);
+            $attendanceRows->push((object) [
+                'date' => $date,
+                'status' => $this->dailyAggregate($date)->statuses[$student->id]->status ?? null,
+            ]);
+        }
+
+        $presentCount = $attendanceRows->where('status', 'present')->count();
+        $absentCount = $attendanceRows->where('status', 'absent')->count();
+        $recordedCount = $presentCount + $absentCount;
+        $streakDays = $this->studentAbsenceStreak($student, $today);
+
+        $recentRemarks = RoutineStudentAttendance::where('student_id', $student->id)
+            ->whereNotNull('remarks')->where('remarks', '!=', '')
+            ->with('session')
+            ->get()
+            ->unique(fn ($row) => $row->session?->attendance_date?->toDateString())
+            ->sortByDesc(fn ($row) => $row->session?->attendance_date)
+            ->take(20)
+            ->values();
+
+        return view('backend.founder-dashboard.students.show', compact(
+            'student', 'range', 'attendanceRows', 'presentCount', 'absentCount', 'recordedCount', 'streakDays', 'recentRemarks'
+        ));
+    }
+
+    public function updateStudentContact(Request $request, Student $student)
+    {
+        $data = $request->validate([
+            'guardian_contact' => ['required', 'string', 'max:30'],
+        ]);
+
+        $student->update(['guardian_contact' => $data['guardian_contact']]);
+
+        return back()->with('success', 'Contact number saved.');
+    }
+
+    public function saveAbsenceRemark(Request $request, Student $student)
+    {
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'remark' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $updated = RoutineStudentAttendance::where('student_id', $student->id)
+            ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $data['date']))
+            ->update(['remarks' => $data['remark']]);
+
+        if ($updated === 0) {
+            return back()->with('error', 'No attendance record found for that date to attach a remark to.');
+        }
+
+        return back()->with('success', 'Remark saved.');
+    }
+
+    /**
+     * Organization → Class → Section → Student drill-down of who's absent on a
+     * given date. State lives entirely in the query string so a refresh (or a
+     * shared link) reopens exactly the same view.
+     */
+    public function absences(Request $request)
+    {
+        $date = $request->filled('date') ? Carbon::parse($request->get('date')) : Carbon::today();
+        $minStreak = $request->filled('min_streak') ? max(1, $request->integer('min_streak')) : null;
+
+        $organizations = Organization::with(['departments' => fn ($query) => $query->where('is_active', true)
+            ->with(['sections' => fn ($sections) => $sections->where('is_active', true)->orderBy('name')])])
+            ->where('is_active', true)->orderBy('name')->get();
+
+        $organization = $organizations->firstWhere('id', $request->integer('organization_id'));
+        $department = $organization?->departments->firstWhere('id', $request->integer('department_id'));
+        $section = $department?->sections->firstWhere('id', $request->integer('section_id'));
+
+        $absentStudents = collect($this->dailyAggregate($date)->statuses)
+            ->filter(fn ($row) => $row->status === 'absent' && $row->student)
+            ->pluck('student');
+
+        $orgCounts = $absentStudents->groupBy('organization')->map->count();
+        $orgSummaries = $organizations->map(fn ($org) => (object) [
+            'organization' => $org,
+            'count' => $orgCounts->get($org->slug, 0),
+        ])->sortByDesc('count')->values();
+
+        $deptSummaries = collect();
+        $sectionSummaries = collect();
+        $studentRows = collect();
+
+        if ($organization) {
+            $orgAbsentStudents = $absentStudents->where('organization', $organization->slug);
+            $deptCounts = $orgAbsentStudents->groupBy('stream')->map->count();
+            $deptSummaries = $organization->departments->map(fn ($dept) => (object) [
+                'department' => $dept,
+                'count' => $deptCounts->get($dept->name, 0),
+            ])->sortByDesc('count')->values();
+        }
+
+        if ($department) {
+            $deptAbsentStudents = $absentStudents
+                ->where('organization', $organization->slug)
+                ->where('stream', $department->name);
+
+            $sectionSummaries = $department->sections->map(function ($sec) use ($deptAbsentStudents) {
+                $count = $deptAbsentStudents->filter(fn ($s) => $s->section_id
+                    ? (int) $s->section_id === $sec->id
+                    : $s->section === $sec->name)->count();
+
+                return (object) ['section' => $sec, 'count' => $count];
+            })->sortByDesc('count')->values();
+        }
+
+        if ($section) {
+            $streaks = $this->absenceStreaks($date)->keyBy(fn ($row) => $row->student->id);
+
+            $studentRows = $absentStudents
+                ->where('organization', $organization->slug)
+                ->where('stream', $department->name)
+                ->filter(fn ($s) => $s->section_id ? (int) $s->section_id === $section->id : $s->section === $section->name)
+                ->map(fn ($student) => (object) [
+                    'student' => $student,
+                    'streak_days' => $streaks->get($student->id)?->days ?? 1,
+                ])
+                ->when($minStreak, fn ($rows) => $rows->filter(fn ($row) => $row->streak_days >= $minStreak))
+                ->sortByDesc('streak_days')
+                ->values();
+        }
+
+        return view('backend.founder-dashboard.absences', compact(
+            'date', 'minStreak', 'organizations', 'organization', 'department', 'section',
+            'orgSummaries', 'deptSummaries', 'sectionSummaries', 'studentRows'
+        ));
+    }
+
+    private function studentAbsenceStreak(Student $student, Carbon $asOf): int
+    {
+        $days = 0;
+        for ($i = 0; $i < self::STREAK_LOOKBACK_DAYS; $i++) {
+            $status = $this->dailyAggregate($asOf->copy()->subDays($i))->statuses[$student->id]->status ?? null;
+            if ($status === null) {
+                continue;
+            }
+            if ($status === 'absent') {
+                $days++;
+
+                continue;
+            }
+            break;
+        }
+
+        return $days;
     }
 
     public function classAttendance(Request $request)
@@ -475,9 +636,11 @@ class FounderDashboardController extends Controller
 
     private function lessonsForDate(Carbon $date): Collection
     {
-        return RoutineLesson::query()
+        $weekday = $date->format('l');
+
+        return $this->lessonsByWeekdayCache[$weekday] ??= RoutineLesson::query()
             ->with(['section.department', 'period', 'endPeriod', 'groups.teachers', 'groups.offering.subject'])
-            ->where('day_of_week', $date->format('l'))
+            ->where('day_of_week', $weekday)
             ->whereHas('plan', fn ($query) => $query->where('status', 'published'))
             ->get()
             ->sortBy(fn ($lesson) => $lesson->period->starts_at)
@@ -513,24 +676,37 @@ class FounderDashboardController extends Controller
      */
     private function dailyStudentStatuses(Carbon $date, bool $includeStudent = false): array
     {
-        $lessonIds = RoutineLesson::query()
-            ->where('day_of_week', $date->format('l'))
-            ->whereHas('plan', fn ($query) => $query->where('status', 'published'))
-            ->pluck('id');
+        return $this->dailyAggregate($date)->statuses;
+    }
 
-        if ($lessonIds->isEmpty()) {
-            return [];
+    /**
+     * One cached fetch per date backing dailyStudentStatuses() AND trend()'s
+     * compliance rate — both used to be computed independently per date across
+     * several methods, multiplying the same queries many times over.
+     */
+    private function dailyAggregate(Carbon $date): object
+    {
+        $key = $date->toDateString();
+        if (isset($this->dailyAggregateCache[$key])) {
+            return $this->dailyAggregateCache[$key];
         }
 
+        $lessonIds = $this->lessonsForDate($date)->pluck('id');
+
+        if ($lessonIds->isEmpty()) {
+            return $this->dailyAggregateCache[$key] = (object) ['statuses' => [], 'scheduled' => 0, 'taken' => 0];
+        }
+
+        $taken = $this->sessionsForDate($lessonIds, $date)->whereNotNull('submitted_at')->count();
+
         $rows = RoutineStudentAttendance::query()
-            ->when($includeStudent, fn ($query) => $query->with('student'))
-            ->with('session.lesson.section.department')
+            ->with('student', 'session.lesson.section.department')
             ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $date)
                 ->whereNotNull('submitted_at')
                 ->whereIn('routine_lesson_id', $lessonIds))
             ->get();
 
-        return $rows->groupBy('student_id')->map(function (Collection $studentRows) use ($includeStudent) {
+        $statuses = $rows->groupBy('student_id')->map(function (Collection $studentRows) {
             $counted = $studentRows->where('status', '!=', 'excused');
             $absentCount = $counted->where('status', 'absent')->count();
             $status = $counted->isNotEmpty() && $absentCount > $counted->count() / 2 ? 'absent' : 'present';
@@ -540,9 +716,15 @@ class FounderDashboardController extends Controller
             return (object) [
                 'status' => $status,
                 'section_label' => $this->sectionLabel($first->session->lesson->section ?? null),
-                'student' => $includeStudent ? $first->student : null,
+                'student' => $first->student,
             ];
         })->all();
+
+        return $this->dailyAggregateCache[$key] = (object) [
+            'statuses' => $statuses,
+            'scheduled' => $lessonIds->count(),
+            'taken' => $taken,
+        ];
     }
 
     /**
@@ -665,21 +847,11 @@ class FounderDashboardController extends Controller
             $date = $today->copy()->subDays($i);
             $labels[] = $date->format('D');
 
-            $statuses = $this->dailyStudentStatuses($date);
-            $present = collect($statuses)->where('status', 'present')->count();
-            $total = count($statuses);
+            $aggregate = $this->dailyAggregate($date);
+            $present = collect($aggregate->statuses)->where('status', 'present')->count();
+            $total = count($aggregate->statuses);
             $attendanceRate[] = $total > 0 ? round($present / $total * 100, 1) : null;
-
-            $lessonIds = RoutineLesson::where('day_of_week', $date->format('l'))
-                ->whereHas('plan', fn ($query) => $query->where('status', 'published'))
-                ->pluck('id');
-            if ($lessonIds->isEmpty()) {
-                $complianceRate[] = null;
-                continue;
-            }
-            $taken = RoutineAttendanceSession::whereIn('routine_lesson_id', $lessonIds)
-                ->whereDate('attendance_date', $date)->whereNotNull('submitted_at')->count();
-            $complianceRate[] = round($taken / $lessonIds->count() * 100, 1);
+            $complianceRate[] = $aggregate->scheduled > 0 ? round($aggregate->taken / $aggregate->scheduled * 100, 1) : null;
         }
 
         return ['labels' => $labels, 'attendance' => $attendanceRate, 'compliance' => $complianceRate];

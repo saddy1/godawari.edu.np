@@ -75,14 +75,12 @@
             <p class="mt-1 text-2xl font-black text-gray-900">{{ $kpis['students_present'] }}</p>
             @if($kpis['students_present'] > 0)<p class="mt-1 text-[10px] font-bold text-gray-500 underline">View list →</p>@endif
         </button>
-        <button type="button" @click="absentModalOpen = true"
-                class="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left shadow-sm transition-colors hover:bg-amber-100">
+        <a href="{{ route('admin.founder.absences') }}"
+                class="block rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left shadow-sm transition-colors hover:bg-amber-100">
             <p class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Students Absent Today</p>
             <p class="mt-1 text-2xl font-black text-amber-700">{{ $kpis['students_absent'] }}</p>
-            @if($kpis['students_absent'] > 0)
-                <p class="mt-1 text-[10px] font-bold text-amber-600 underline">View list →</p>
-            @endif
-        </button>
+            <p class="mt-1 text-[10px] font-bold text-amber-600 underline">Explore by class & section →</p>
+        </a>
     </div>
 
     {{-- All classes / compliance modal --}}

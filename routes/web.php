@@ -292,6 +292,9 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
         Route::get('/founder-dashboard/analysis', [FounderDashboardController::class, 'analysis'])->name('admin.founder.analysis');
         Route::get('/founder-dashboard/students', [FounderDashboardController::class, 'students'])->name('admin.founder.students.index');
         Route::get('/founder-dashboard/students/{student}', [FounderDashboardController::class, 'showStudent'])->name('admin.founder.students.show');
+        Route::patch('/founder-dashboard/students/{student}/contact', [FounderDashboardController::class, 'updateStudentContact'])->name('admin.founder.students.contact');
+        Route::post('/founder-dashboard/students/{student}/remark', [FounderDashboardController::class, 'saveAbsenceRemark'])->name('admin.founder.students.remark');
+        Route::get('/founder-dashboard/absences', [FounderDashboardController::class, 'absences'])->name('admin.founder.absences');
     });
 
     Route::middleware('super_admin')->group(function () {
