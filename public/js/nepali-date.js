@@ -82,8 +82,14 @@ function bsDateInput(initVal) {
             if (!target) return;
             const complete = normalized(input.value);
             const converted = complete ? bsToAd(complete) : '';
-            target.value = converted;
             input.setCustomValidity(input.value.length === 10 && !converted ? 'Choose a valid Nepali calendar date.' : '');
+            // Only touch + notify listeners when the AD value actually changes.
+            // Init (and blur/typing re-checks) call this with the value already
+            // correct, and dispatching 'change' unconditionally there would
+            // bubble into any auto-submitting <form onchange="..."> and cause
+            // an infinite reload loop on page load.
+            if (target.value === converted) return;
+            target.value = converted;
             target.dispatchEvent(new Event('change', { bubbles: true }));
         };
         const boundary = (input, key) => {
