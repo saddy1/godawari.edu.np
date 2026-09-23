@@ -61,6 +61,12 @@
                 <span class="flex-1 truncate">Routine Builder</span>
                 <span class="rounded bg-amber-400/20 px-1.5 py-0.5 text-[8px] font-black text-amber-300">NEW</span>
             </a>
+            <a href="{{ route('admin.teaching-learning.routine-builder.weekly') }}"
+               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.teaching-learning.routine-builder.weekly') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3M5 11h14M6 5h12a2 2 0 012 2v12H4V7a2 2 0 012-2zm3 6h2m2 0h2m-6 3h2"/></svg>
+                <span class="flex-1 truncate">Weekly Routine</span>
+                <span class="rounded bg-emerald-400/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-300">PRINT</span>
+            </a>
             @endcan
             <a href="{{ route('admin.teaching-learning.attendance-sheets.index') }}"
                class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.teaching-learning.attendance-sheets.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">

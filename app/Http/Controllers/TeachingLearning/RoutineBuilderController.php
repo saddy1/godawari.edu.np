@@ -352,6 +352,47 @@ class RoutineBuilderController extends Controller
         return back()->with('success', $routinePlan->fresh()->status === 'published' ? 'Routine published and locked.' : 'Routine returned to draft for editing.');
     }
 
+    public function weekly(Request $request)
+    {
+        $organizations = Organization::with(['departments.sections' => fn ($query) => $query->where('is_active', true)])
+            ->where('is_active', true)->orderBy('name')->get();
+
+        $section = null;
+        $routinePlan = null;
+        $days = [];
+        $cellLessons = collect();
+
+        if ($request->filled('section_id')) {
+            $section = Section::with('department.organization')->find($request->integer('section_id'));
+        }
+
+        if ($section) {
+            $routinePlan = RoutinePlan::with(['academicYear', 'organization', 'department', 'shift.periods'])
+                ->whereHas('sections', fn ($query) => $query->where('sections.id', $section->id))
+                ->orderByRaw("status = 'published' desc")
+                ->latest('id')
+                ->first();
+        }
+
+        if ($routinePlan) {
+            $days = $routinePlan->shift->working_days ?? [];
+            $lessons = RoutineLesson::with(['period', 'endPeriod', 'groups.offering.subject', 'groups.teachers', 'groups.room'])
+                ->where('routine_plan_id', $routinePlan->id)
+                ->where('section_id', $section->id)
+                ->get();
+            foreach ($lessons as $lesson) {
+                $startPosition = $lesson->period?->position;
+                $endPosition = $lesson->endPeriod?->position ?? $startPosition;
+                if ($startPosition === null) continue;
+                foreach ($routinePlan->shift->periods->where('is_break', false)->whereBetween('position', [$startPosition, $endPosition]) as $covered) {
+                    $cellLessons->put($lesson->day_of_week.':'.$covered->id, $lesson);
+                }
+            }
+        }
+
+        return view('teaching_learning.routine-builder.weekly', compact('organizations', 'section', 'routinePlan', 'days', 'cellLessons'));
+    }
+
     public function print(Request $request, RoutinePlan $routinePlan)
     {
         $routinePlan->load(['academicYear', 'organization', 'department', 'shift.periods', 'sections', 'lessons.period', 'lessons.endPeriod', 'lessons.groups.offering.subject', 'lessons.groups.teacher', 'lessons.groups.teachers', 'lessons.groups.room', 'lessons.groups.students']);
