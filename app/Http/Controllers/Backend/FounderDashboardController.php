@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\AbsenceReason;
 use App\Models\Admission;
 use App\Models\Card\CardRequest;
 use App\Models\Card\Organization;
@@ -249,6 +250,10 @@ class FounderDashboardController extends Controller
             return back()->with('error', 'No attendance record found for that date to attach a remark to.');
         }
 
+        if (filled($data['remark'] ?? null)) {
+            AbsenceReason::recordUsage($data['remark']);
+        }
+
         return back()->with('success', 'Remark saved.');
     }
 
@@ -307,25 +312,48 @@ class FounderDashboardController extends Controller
             })->sortByDesc('count')->values();
         }
 
+        $reasonSuggestions = AbsenceReason::orderByDesc('usage_count')->orderBy('label')->pluck('label');
+        $hasReason = $request->boolean('has_reason');
+
         if ($section) {
             $streaks = $this->absenceStreaks($date)->keyBy(fn ($row) => $row->student->id);
 
-            $studentRows = $absentStudents
+            $sectionStudents = $absentStudents
                 ->where('organization', $organization->slug)
                 ->where('stream', $department->name)
-                ->filter(fn ($s) => $s->section_id ? (int) $s->section_id === $section->id : $s->section === $section->name)
+                ->filter(fn ($s) => $s->section_id ? (int) $s->section_id === $section->id : $s->section === $section->name);
+
+            $studentIds = $sectionStudents->pluck('id');
+            $todayRemarks = RoutineStudentAttendance::whereIn('student_id', $studentIds)
+                ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $date))
+                ->whereNotNull('remarks')->where('remarks', '!=', '')
+                ->pluck('remarks', 'student_id');
+
+            $yesterday = $date->copy()->subDay();
+            $yesterdayAbsentIds = collect($this->dailyAggregate($yesterday)->statuses)
+                ->filter(fn ($row) => $row->status === 'absent')->keys();
+            $yesterdayRemarks = RoutineStudentAttendance::whereIn('student_id', $studentIds->intersect($yesterdayAbsentIds))
+                ->whereHas('session', fn ($query) => $query->whereDate('attendance_date', $yesterday))
+                ->whereNotNull('remarks')->where('remarks', '!=', '')
+                ->pluck('remarks', 'student_id');
+
+            $studentRows = $sectionStudents
                 ->map(fn ($student) => (object) [
                     'student' => $student,
                     'streak_days' => $streaks->get($student->id)?->days ?? 1,
+                    'remark_today' => $todayRemarks->get($student->id),
+                    'was_absent_yesterday' => $yesterdayAbsentIds->contains($student->id),
+                    'remark_yesterday' => $yesterdayRemarks->get($student->id),
                 ])
                 ->when($minStreak, fn ($rows) => $rows->filter(fn ($row) => $row->streak_days >= $minStreak))
+                ->when($hasReason, fn ($rows) => $rows->filter(fn ($row) => filled($row->remark_today)))
                 ->sortByDesc('streak_days')
                 ->values();
         }
 
         return view('backend.founder-dashboard.absences', compact(
-            'date', 'minStreak', 'organizations', 'organization', 'department', 'section',
-            'orgSummaries', 'deptSummaries', 'sectionSummaries', 'studentRows'
+            'date', 'minStreak', 'hasReason', 'organizations', 'organization', 'department', 'section',
+            'orgSummaries', 'deptSummaries', 'sectionSummaries', 'studentRows', 'reasonSuggestions'
         ));
     }
 

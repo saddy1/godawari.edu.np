@@ -109,13 +109,17 @@
         <div class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
                 <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">{{ $studentRows->count() }} absent student{{ $studentRows->count() === 1 ? '' : 's' }}</p>
-                <div class="flex gap-1.5">
-                    @foreach([null => 'All', 3 => '3+ days', 5 => '5+ days'] as $value => $label)
-                        <a href="{{ route('admin.founder.absences', array_filter(array_merge($baseParams, ['min_streak' => $value]))) }}"
+                <div class="flex flex-wrap gap-1.5">
+                    @foreach(['' => 'All', 3 => '3+ days', 5 => '5+ days'] as $value => $label)
+                        <a href="{{ route('admin.founder.absences', array_filter(array_merge($baseParams, ['min_streak' => $value, 'has_reason' => $hasReason ?: null]))) }}"
                            class="rounded-full border px-3 py-1.5 text-[11px] font-extrabold {{ (int) $minStreak === (int) $value ? 'border-[#1a5632] bg-[#1a5632] text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300' }}">
                             {{ $label }}
                         </a>
                     @endforeach
+                    <a href="{{ route('admin.founder.absences', array_filter(array_merge($baseParams, ['min_streak' => $minStreak, 'has_reason' => $hasReason ? null : '1']))) }}"
+                       class="rounded-full border px-3 py-1.5 text-[11px] font-extrabold {{ $hasReason ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300' }}">
+                        With Reason
+                    </a>
                 </div>
             </div>
 
@@ -155,13 +159,20 @@
                             </div>
 
                             {{-- Absence remark --}}
-                            <form method="POST" action="{{ route('admin.founder.students.remark', $student) }}" class="flex gap-2">
-                                @csrf
-                                <input type="hidden" name="date" value="{{ $date->toDateString() }}">
-                                <input type="text" name="remark" placeholder="Reason for absence (optional)" maxlength="255"
-                                       class="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold">
-                                <button class="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-extrabold text-gray-600 hover:bg-gray-50">Save</button>
-                            </form>
+                            <div>
+                                <form method="POST" action="{{ route('admin.founder.students.remark', $student) }}" class="flex gap-2">
+                                    @csrf
+                                    <input type="hidden" name="date" value="{{ $date->toDateString() }}">
+                                    <input type="text" name="remark" value="{{ $row->remark_today }}" list="reason-suggestions" placeholder="Reason for absence (optional)" maxlength="255"
+                                           class="w-full rounded-lg border px-3 py-1.5 text-xs font-semibold {{ $row->remark_today ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-gray-200' }}">
+                                    <button class="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-extrabold hover:bg-gray-50 {{ $row->remark_today ? 'border-emerald-300 text-emerald-700' : 'border-gray-200 text-gray-600' }}">Save</button>
+                                </form>
+                                @if($row->was_absent_yesterday)
+                                    <p class="mt-1 text-[10px] font-semibold text-gray-400">
+                                        Also absent yesterday{{ $row->remark_yesterday ? ' · Reason: '.$row->remark_yesterday : ' · no reason recorded' }}
+                                    </p>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 @empty
@@ -170,5 +181,11 @@
             </div>
         </div>
     @endif
+
+    <datalist id="reason-suggestions">
+        @foreach($reasonSuggestions as $reason)
+            <option value="{{ $reason }}">
+        @endforeach
+    </datalist>
 </div>
 @endsection
