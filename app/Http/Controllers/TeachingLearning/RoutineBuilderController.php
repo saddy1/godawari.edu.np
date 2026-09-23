@@ -309,10 +309,8 @@ class RoutineBuilderController extends Controller
                 if (! $offering->subject->has_practical) throw ValidationException::withMessages(['groups' => 'Every practical group must use a subject that has a practical component.']);
             }
         }
+        // A room is optional — some organizations don't track lab rooms at all.
         $roomIds = $groups->pluck('routine_room_id')->filter();
-        if ($data['mode'] === 'practical_split' && $roomIds->count() !== 2) {
-            throw ValidationException::withMessages(['groups' => 'Choose a laboratory for both practical groups.']);
-        }
         if ($roomIds->isNotEmpty() && RoutineRoom::whereIn('id', $roomIds)->where('organization_id', '!=', $routinePlan->organization_id)->exists()) {
             throw ValidationException::withMessages(['groups' => 'A selected room does not belong to this organization.']);
         }
