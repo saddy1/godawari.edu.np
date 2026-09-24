@@ -36,6 +36,13 @@ class RoutineLessonRosterService
             ->where('member_type', 'student')
             ->where(fn ($query) => $query->where('section_id', $section->id)
                 ->orWhere(fn ($query) => $query->whereNull('section_id')->where('section', $section->name)))
+            // A Section is reused across a programme's whole lifetime (e.g. one
+            // "ALL" section holds every batch of BCA at once) — the routine plan
+            // itself is what's tied to one semester/year, so without this, every
+            // other semester's/year's students sharing the same section would
+            // also get swept into a compulsory subject's roster.
+            ->when($plan->semester, fn ($query) => $query->where('semester', $plan->semester))
+            ->when($plan->year_level, fn ($query) => $query->where('year_level', $plan->year_level))
             ->orderByRaw('roll_number IS NULL')->orderBy('roll_number')->orderBy('first_name')->get()
             ->filter(fn ($student) => $offeringIds->contains(fn ($offeringId) => $isEligibleFor($student, $offeringId)))->values();
 
