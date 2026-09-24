@@ -10,6 +10,7 @@ use App\Models\TeachingLearning\RoutineLesson;
 use App\Models\TeachingLearning\RoutineStudentAttendance;
 use App\Models\User;
 use App\Services\ExamTeacherAssignmentService;
+use App\Services\RoutineLessonRosterService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -65,6 +66,12 @@ class TeacherWorkspaceController extends Controller
             ->whereHas('groups', fn ($groups) => $this->teacherGroupQuery($groups, $user))
             ->get()->sortBy(fn ($lesson) => $lesson->period->starts_at)->values();
 
+        // Refresh each roster snapshot so a student added to (or moved into) the
+        // section today already shows up in today's student counts below.
+        $rosterService = app(RoutineLessonRosterService::class);
+        foreach ($lessons as $lesson) $rosterService->sync($lesson);
+        $lessons->each->load(['groups.offering.subject', 'groups.teachers', 'groups.students']);
+
         $attendanceCounts = RoutineStudentAttendance::query()
             ->join('routine_attendance_sessions', 'routine_attendance_sessions.id', '=', 'routine_student_attendances.routine_attendance_session_id')
             ->whereIn('routine_attendance_sessions.routine_lesson_id', $lessons->pluck('id'))
@@ -106,7 +113,9 @@ class TeacherWorkspaceController extends Controller
 
     public function attendance(Request $request, RoutineLesson $routineLesson)
     {
-        $routineLesson->load(['plan.organization', 'plan.department', 'section', 'period', 'endPeriod', 'groups.offering.subject', 'groups.teachers', 'groups.students']);
+        $routineLesson->load(['plan.organization', 'plan.department', 'section', 'period', 'endPeriod', 'groups.offering.subject', 'groups.teachers']);
+        app(RoutineLessonRosterService::class)->sync($routineLesson);
+        $routineLesson->load(['groups.offering.subject', 'groups.teachers', 'groups.students']);
         $groups = $this->authorizeAttendance($routineLesson, $request->user(), false);
         $students = $groups->flatMap->students->unique('id')->sortBy(fn ($student) => trim($student->full_name), SORT_NATURAL | SORT_FLAG_CASE)->values();
         $session = RoutineAttendanceSession::with('attendances')->where('routine_lesson_id', $routineLesson->id)
@@ -120,7 +129,9 @@ class TeacherWorkspaceController extends Controller
 
     public function saveAttendance(Request $request, RoutineLesson $routineLesson)
     {
-        $routineLesson->load(['plan', 'period', 'endPeriod', 'groups.teachers', 'groups.students']);
+        $routineLesson->load(['plan', 'period', 'endPeriod', 'groups.teachers']);
+        app(RoutineLessonRosterService::class)->sync($routineLesson);
+        $routineLesson->load(['groups.teachers', 'groups.students']);
         $groups = $this->authorizeAttendance($routineLesson, $request->user());
         $data = $request->validate([
             'student_id' => ['required_without:all', 'nullable', 'integer'],

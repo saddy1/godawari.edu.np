@@ -76,16 +76,22 @@ class RoutineBuilderController extends Controller
 
     public function show(Request $request, RoutinePlan $routinePlan)
     {
-        // Only the current day's practical-split groups need their full student roster
-        // (for the "group rosters" panel) — every other group just needs a count, and
-        // loading full rosters for every group across the whole week (all days) is what
-        // was exhausting memory on plans with many sections/lessons.
-        $routinePlan->load(['academicYear', 'organization', 'department.sections', 'shift.periods', 'sections', 'lessons.period', 'lessons.endPeriod', 'lessons.groups.offering.subject', 'lessons.groups.teacher', 'lessons.groups.teachers', 'lessons.groups.room', 'lessons.groups' => fn ($query) => $query->withCount('students')]);
+        // Only the current day's groups need their student roster/count — every other
+        // day's lessons aren't rendered, and resyncing/loading rosters for the whole
+        // week (all days) is what was exhausting memory on plans with many sections.
+        $routinePlan->load(['academicYear', 'organization', 'department.sections', 'shift.periods', 'sections', 'lessons.period', 'lessons.endPeriod', 'lessons.groups.offering.subject', 'lessons.groups.teacher', 'lessons.groups.teachers', 'lessons.groups.room']);
         $day = in_array($request->day, $routinePlan->shift->working_days ?? [], true) ? $request->day : ($routinePlan->shift->working_days[0] ?? 'Sunday');
-        $daySplitGroups = $routinePlan->lessons->where('day_of_week', $day)->where('mode', 'practical_split')
-            ->flatMap(fn ($lesson) => $lesson->groups);
+        $dayLessons = $routinePlan->lessons->where('day_of_week', $day);
+        // The roster is a stored snapshot taken when the lesson was last saved, so a
+        // student added to (or moved into) the section afterward never appears until
+        // this resyncs it against current section/lab-group membership.
+        $rosterService = app(\App\Services\RoutineLessonRosterService::class);
+        foreach ($dayLessons as $lesson) $rosterService->sync($lesson);
+        $dayGroups = $dayLessons->flatMap(fn ($lesson) => $lesson->groups);
         // Wrap (not hydrate — must be the SAME model instances still referenced inside
-        // $routinePlan->lessons) so ->load() populates the relation on those objects.
+        // $routinePlan->lessons) so ->load()/->loadCount() populate those objects.
+        (new \Illuminate\Database\Eloquent\Collection($dayGroups->all()))->loadCount('students');
+        $daySplitGroups = $dayLessons->where('mode', 'practical_split')->flatMap(fn ($lesson) => $lesson->groups);
         (new \Illuminate\Database\Eloquent\Collection($daySplitGroups->all()))->load('students');
         $offerings = SubjectOffering::with('subject')->where('department_id', $routinePlan->department_id)
             ->when($routinePlan->semester, fn ($query) => $query->where(fn ($query) => $query->whereNull('semester')->orWhere('semester', $routinePlan->semester)))
@@ -335,7 +341,7 @@ class RoutineBuilderController extends Controller
                 $createdGroup = $lesson->groups()->create($groupData);
                 $createdGroup->teachers()->sync($teacherIds);
             }
-            $this->assignStudents($lesson->fresh('groups'), $routinePlan);
+            app(\App\Services\RoutineLessonRosterService::class)->sync($lesson->fresh('groups'));
         });
         $message = $data['mode'] === 'practical_split' ? '50/50 practical groups scheduled.' : 'Theory class scheduled.';
         return $request->expectsJson() ? response()->json(['message' => $message]) : back()->with('success', $message);
@@ -480,75 +486,4 @@ class RoutineBuilderController extends Controller
         return collect(preg_split('/\s+/', trim($name)))->filter()->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->take(3)->implode('');
     }
 
-    private function assignStudents(RoutineLesson $lesson, RoutinePlan $plan): void
-    {
-        $lesson->loadMissing('section', 'groups');
-        $offeringIds = $lesson->groups->pluck('subject_offering_id')->unique()->values();
-        $section = $lesson->section;
-        $students = Student::with(['subjectEnrollments' => fn ($query) => $query
-                ->where('academic_year', $plan->academicYear->name)
-                ->whereIn('subject_offering_id', $offeringIds), 'labGroup'])
-            ->where('member_type', 'student')
-            ->where(fn ($query) => $query->where('section_id', $section->id)
-                ->orWhere(fn ($query) => $query->whereNull('section_id')->where('section', $section->name)))
-            ->orderByRaw('roll_number IS NULL')->orderBy('roll_number')->orderBy('first_name')->get()
-            ->filter(fn ($student) => $student->subjectEnrollments->isNotEmpty())->values();
-
-        $buckets = $lesson->groups->mapWithKeys(fn ($group) => [$group->id => collect()]);
-        if ($lesson->mode === 'single' || $lesson->groups->count() === 1) {
-            // A practical lesson with only one lab group (the section has
-            // just one Lab Group defined) has nowhere else for anyone to go —
-            // every eligible student attends that one lab.
-            $group = $lesson->groups->first();
-            $buckets[$group->id] = $students->filter(fn ($student) => $student->subjectEnrollments->contains('subject_offering_id', $group->subject_offering_id))->values();
-        } elseif ($offeringIds->count() === 1 && $lesson->groups->count() === 2) {
-            // group_label holds the real Lab Group's name (e.g. "A"), except
-            // on lessons saved before this used real names, which stored the
-            // literal "Group A"/"Group B" — accept either form here.
-            $labelFor = fn ($group) => preg_replace('/^Group\s+/i', '', (string) $group->group_label);
-            [$groupOne, $groupTwo] = $lesson->groups->values()->all();
-            $nameOne = $labelFor($groupOne);
-            $nameTwo = $labelFor($groupTwo);
-            $assignedOne = $students->filter(fn ($student) => $student->labGroup?->name === $nameOne)->values();
-            $assignedTwo = $students->filter(fn ($student) => $student->labGroup?->name === $nameTwo)->values();
-
-            // Only trust declared Lab Groups when the section actually has
-            // real students in both groups — e.g. if a section only ever
-            // defined one group, every unassigned student would otherwise
-            // get dumped entirely into the always-empty second group below.
-            if (filled($nameOne) && filled($nameTwo) && $assignedOne->isNotEmpty() && $assignedTwo->isNotEmpty()) {
-                // Balance anyone left unassigned across whichever group is
-                // currently smaller.
-                $unassigned = $students->filter(fn ($student) => blank($student->labGroup?->name))->values();
-
-                foreach ($unassigned as $student) {
-                    $assignedOne->count() <= $assignedTwo->count() ? $assignedOne->push($student) : $assignedTwo->push($student);
-                }
-
-                $buckets[$groupOne->id] = $assignedOne;
-                $buckets[$groupTwo->id] = $assignedTwo;
-            } else {
-                $half = (int) ceil($students->count() / 2);
-                $buckets[$groupOne->id] = $students->take($half)->values();
-                $buckets[$groupTwo->id] = $students->slice($half)->values();
-            }
-        } else {
-            foreach ($students as $student) {
-                $eligible = $lesson->groups->filter(fn ($group) => $student->subjectEnrollments->contains('subject_offering_id', $group->subject_offering_id));
-                if ($eligible->isEmpty()) continue;
-                $group = $eligible->sortBy(fn ($candidate) => $buckets[$candidate->id]->count())->first();
-                $buckets[$group->id]->push($student);
-            }
-        }
-
-        $now = now();
-        $rows = $buckets->flatMap(fn ($assigned, $groupId) => $assigned->map(fn ($student) => [
-            'routine_lesson_id' => $lesson->id,
-            'routine_lesson_group_id' => $groupId,
-            'student_id' => $student->id,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]))->values()->all();
-        if ($rows) DB::table('routine_lesson_group_students')->insert($rows);
-    }
 }
