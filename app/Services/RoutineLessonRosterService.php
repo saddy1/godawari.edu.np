@@ -17,7 +17,7 @@ class RoutineLessonRosterService
     // enrollment data and refresh the snapshot before reading it.
     public function sync(RoutineLesson $lesson): void
     {
-        $lesson->loadMissing('plan.academicYear', 'section', 'groups.offering');
+        $lesson->loadMissing('plan.academicYear', 'section.department', 'groups.offering');
         $plan = $lesson->plan;
         $offeringIds = $lesson->groups->pluck('subject_offering_id')->unique()->values();
         $section = $lesson->section;
@@ -36,6 +36,16 @@ class RoutineLessonRosterService
             ->where('member_type', 'student')
             ->where(fn ($query) => $query->where('section_id', $section->id)
                 ->orWhere(fn ($query) => $query->whereNull('section_id')->where('section', $section->name)))
+            // A section NAME (e.g. "ALL") isn't unique across departments — a
+            // different department can have its own, unrelated section that
+            // happens to share the same name. Students only have a section_id/
+            // section string, no department_id, so `stream` (set to the
+            // department's name whenever HR assigns a section) is what confirms
+            // this student actually belongs to THIS section's department, not a
+            // same-named one elsewhere. Blank/legacy `stream` is let through
+            // rather than excluded, since older records may predate that field.
+            ->where(fn ($query) => $query->whereNull('stream')->orWhere('stream', '')
+                ->orWhere('stream', $section->department?->name))
             // A Section is reused across a programme's whole lifetime (e.g. one
             // "ALL" section holds every batch of BCA at once) — the routine plan
             // itself is what's tied to one semester/year, so without this, every

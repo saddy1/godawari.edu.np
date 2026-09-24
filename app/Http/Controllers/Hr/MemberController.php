@@ -589,6 +589,24 @@ class MemberController extends Controller
             }
 
             $section = CardSection::with('department.organization')->findOrFail($request->integer('section_id'));
+
+            // A section's name (e.g. "ALL") isn't unique across departments/faculties —
+            // two unrelated departments can each have their own section that happens to
+            // share the same display name. The "search" and "assign to" pickers on this
+            // page are independent, so nothing stops an operator from filtering students
+            // under one faculty and then assigning a same-named section that actually
+            // belongs to a completely different one. Block that instead of silently
+            // moving students into the wrong department; a real cross-department
+            // transfer should go through each student's own Edit form.
+            $mismatched = Student::whereIn('id', $request->ids)
+                ->where('member_type', 'student')
+                ->whereNotNull('stream')->where('stream', '!=', '')
+                ->where('stream', '!=', $section->department->name)
+                ->get()->pluck('full_name');
+            if ($mismatched->isNotEmpty()) {
+                return back()->with('error', "Cannot assign this section: {$mismatched->implode(', ')} currently belong to a different faculty/class ({$section->department->name} was chosen). Move students between faculties from each student's own Edit page instead.");
+            }
+
             $data['organization'] = $section->department->organization->slug;
             $data['stream'] = $section->department->name;
             $data['section'] = $section->name;
