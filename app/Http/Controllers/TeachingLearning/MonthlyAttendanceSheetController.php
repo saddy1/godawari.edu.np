@@ -78,10 +78,12 @@ class MonthlyAttendanceSheetController extends Controller
             }
         }
 
-        $sheets = $targetSections->map(function (Section $targetSection) use ($organization, $gender, $sort, $content, $academicYear, $days) {
+        $semester = $request->integer('semester') ?: null;
+        $yearLevel = $request->integer('year_level') ?: null;
+        $sheets = $targetSections->map(function (Section $targetSection) use ($organization, $gender, $sort, $content, $academicYear, $days, $semester, $yearLevel) {
             $targetDepartment = $targetSection->department
                 ?? $organization->departments->firstWhere('id', $targetSection->department_id);
-            $sectionStudents = $this->studentsForSection($organization, $targetDepartment, $targetSection, $gender, $sort);
+            $sectionStudents = $this->studentsForSection($organization, $targetDepartment, $targetSection, $gender, $sort, $semester, $yearLevel);
             $sectionAttendance = $content === 'recorded' && $sectionStudents->isNotEmpty()
                 ? $this->recordedAttendance($sectionStudents->pluck('id'), $targetSection, $academicYear, $days)
                 : collect();
@@ -109,13 +111,22 @@ class MonthlyAttendanceSheetController extends Controller
         );
     }
 
-    private function studentsForSection(Organization $organization, Department $department, Section $section, string $gender, string $sort)
+    private function studentsForSection(Organization $organization, Department $department, Section $section, string $gender, string $sort, ?int $semester = null, ?int $yearLevel = null)
     {
         return Student::query()
             ->where('member_type', 'student')
             ->where('organization', $organization->slug)
             ->where(fn ($query) => $query->where('section_id', $section->id)
                 ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('stream', $department->name)->where('section', $section->name)))
+            // A section name isn't unique across departments (e.g. two different
+            // departments each with a section called "ALL") — confirm the student's
+            // own recorded department actually matches this one, not just the section.
+            ->where(fn ($query) => $query->whereNull('stream')->orWhere('stream', '')->orWhere('stream', $department->name))
+            // A section is reused across a whole programme's lifetime — the
+            // semester/year is what actually distinguishes one batch from another
+            // sharing it, so without this every batch's students would appear together.
+            ->when($department->academic_system === 'semester', fn ($query) => $query->when($semester, fn ($q) => $q->where('semester', $semester)))
+            ->when($department->academic_system === 'year', fn ($query) => $query->when($yearLevel, fn ($q) => $q->where('year_level', $yearLevel)))
             ->when($gender, fn ($query) => $query->whereRaw('LOWER(gender) = ?', [$gender]))
             ->when($sort === 'name', fn ($query) => $query->orderBy('first_name')->orderBy('middle_name')->orderBy('last_name'),
                 fn ($query) => $query->orderByRaw('roll_number IS NULL')->orderBy('roll_number')->orderBy('first_name'))

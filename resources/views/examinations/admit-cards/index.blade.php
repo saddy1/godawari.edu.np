@@ -23,10 +23,20 @@
             <button class="rounded-xl bg-[#1a5632] px-5 py-2.5 text-xs font-black text-white">Assign symbol numbers</button>
         </form>
     </section>
+    @elseif($examination->symbol_numbers_locked)
+    <section class="overflow-hidden rounded-2xl border border-red-200 bg-red-50/40 shadow-sm">
+        <header class="flex items-center gap-2 border-b border-red-200 px-4 py-3">
+            <span class="text-lg">🔒</span>
+            <div>
+                <h2 class="text-sm font-black text-red-900">Symbol numbers are locked</h2>
+                <p class="text-[10px] font-semibold text-red-700">Locked {{ $examination->symbol_numbers_locked_at->format('d M Y, h:i A') }}{{ $examination->symbolNumbersLockedBy?->name ? ' by '.$examination->symbolNumbersLockedBy->name : '' }}. Bulk regeneration is disabled — a student added after locking can still be given a number individually using "Set" in the roster below.</p>
+            </div>
+        </header>
+    </section>
     @else
     <section class="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 shadow-sm">
         <header class="border-b border-amber-200 px-4 py-3"><h2 class="text-sm font-black text-amber-900">Regenerate symbol numbers</h2><p class="text-[10px] font-semibold text-amber-700">Symbol numbers are already assigned. Regenerating replaces every number using the current roster, sorted alphabetically by name within each faculty/section — any admit cards or marksheets already printed with the old numbers become invalid.</p></header>
-        <form method="POST" action="{{ route('admin.examinations.admit-cards.assign', $examination) }}" onsubmit="return confirm('This deletes every existing symbol number for this exam and reassigns fresh ones for all '+{{ $totalStudents }}+' students. Previously printed admit cards / marksheets will no longer match. Continue?')" class="flex flex-wrap items-end gap-3 p-4">
+        <form method="POST" action="{{ route('admin.examinations.admit-cards.assign', $examination) }}" onsubmit="return confirm('This deletes every existing symbol number for this exam and reassigns fresh ones for all '+{{ $totalStudents }}+' students. Previously printed admit cards / marksheets will no longer match. Continue?')" class="flex flex-wrap items-end gap-3 border-b border-amber-200 p-4">
             @csrf
             <input type="hidden" name="regenerate" value="1">
             @if($examination->organization->type !== 'school')
@@ -34,6 +44,25 @@
             @endif
             <button class="rounded-xl bg-amber-600 px-5 py-2.5 text-xs font-black text-white hover:bg-amber-700">Regenerate symbol numbers</button>
         </form>
+        <div x-data="{ open: @js($errors->has('confirm')), confirmText: '' }" class="p-4">
+            <button type="button" @click="open = true" class="rounded-xl border border-red-300 bg-white px-4 py-2.5 text-xs font-black text-red-700 hover:bg-red-50">🔒 Lock symbol numbers</button>
+            <p class="mt-1.5 text-[10px] font-semibold text-gray-400">Locking cannot be undone — regeneration stays disabled afterward. Do this once admit cards start going out.</p>
+            <div x-show="open" x-cloak x-transition class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/60 p-4" @keydown.escape.window="open = false">
+                <div @click.outside="open = false" class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+                    <h3 class="text-sm font-black text-gray-950">Lock symbol numbers?</h3>
+                    <p class="mt-1.5 text-xs font-semibold text-gray-500">This permanently disables regeneration for this exam. Type <b class="text-red-600">LOCK</b> to confirm.</p>
+                    <form method="POST" action="{{ route('admin.examinations.admit-cards.lock', $examination) }}" class="mt-3 space-y-3">
+                        @csrf
+                        <input type="text" name="confirm" x-model="confirmText" autocomplete="off" placeholder="Type LOCK" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-black uppercase tracking-widest outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/15">
+                        @error('confirm')<p class="text-[10px] font-bold text-red-600">{{ $message }}</p>@enderror
+                        <div class="flex justify-end gap-2">
+                            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 px-4 py-2 text-xs font-bold">Cancel</button>
+                            <button type="submit" :disabled="confirmText.trim() !== 'LOCK'" class="rounded-lg bg-red-600 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">Lock permanently</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </section>
     @endif
 
@@ -76,8 +105,16 @@
                     <option value="">All sections</option>
                     <template x-for="name in sections" :key="name"><option :value="name" x-text="name"></option></template>
                 </select></label>
+                <input type="hidden" name="missing_symbol" :value="missingSymbol ? '1' : ''">
+                <button type="button" @click="missingSymbol = !missingSymbol; search()"
+                        :class="missingSymbol ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-700'"
+                        class="flex items-center gap-1.5 self-end rounded-lg border px-3 py-2.5 text-xs font-bold transition">
+                    <svg x-show="missingSymbol" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    <span>Missing symbol no. only</span>
+                    @if($missingCount)<span :class="missingSymbol ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700'" class="rounded-full px-1.5 py-0.5 text-[9px] font-black">{{ $missingCount }}</span>@endif
+                </button>
                 <button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-bold text-white">Search</button>
-                <button type="button" @click="query = ''; schoolClass = ''; faculty = ''; section = ''; search()" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-bold">Clear filters</button>
+                <button type="button" @click="query = ''; schoolClass = ''; faculty = ''; section = ''; missingSymbol = false; search()" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-bold">Clear filters</button>
                 <span x-show="loading" x-cloak role="status" class="self-center text-xs text-gray-500">Searching…</span>
                 <span x-show="error" x-cloak x-text="error" role="alert" class="self-center text-xs text-red-600"></span>
             </form>
@@ -92,6 +129,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('admitRosterSearch', () => ({
         query: @js(request('q', '')), schoolClass: @js(request('school_class', '')),
         faculty: @js(request('faculty', '')), section: @js(request('section', '')),
+        missingSymbol: @js(request()->boolean('missing_symbol')),
         options: @js($filterOptions),
         get faculties() {
             return [...new Set(this.options.filter(row => !this.schoolClass || String(row.school_class) === this.schoolClass).map(row => row.faculty).filter(Boolean))].sort();
@@ -109,6 +147,7 @@ document.addEventListener('alpine:init', () => {
             target.searchParams.set('school_class', this.schoolClass);
             target.searchParams.set('faculty', this.faculty);
             target.searchParams.set('section', this.section);
+            target.searchParams.set('missing_symbol', this.missingSymbol ? '1' : '');
             this.loading = true; this.error = '';
             try {
                 const searchTarget = new URL(@js(route('admin.examinations.admit-cards.search', $examination)), window.location.origin);

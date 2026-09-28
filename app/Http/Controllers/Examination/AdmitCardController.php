@@ -24,7 +24,7 @@ class AdmitCardController extends Controller
 {
     public function index(Request $request, Examination $examination, ExamRosterService $roster)
     {
-        $request->validate(['q' => 'nullable|string|max:150', 'school_class' => 'nullable|in:11,12', 'page' => 'nullable|integer|min:1']);
+        $request->validate(['q' => 'nullable|string|max:150', 'school_class' => 'nullable|in:11,12', 'page' => 'nullable|integer|min:1', 'missing_symbol' => 'nullable|boolean']);
         $examination->load(['organization', 'academicYear', 'departments', 'sections']);
         $students = $this->studentsWithClass($examination, $roster);
         $totalStudents = $students->count();
@@ -34,9 +34,10 @@ class AdmitCardController extends Controller
             'faculty' => $student->stream,
             'section' => $student->academicSection?->name ?? $student->section,
         ])->unique(fn ($row) => json_encode($row))->values();
+        $missingCount = $students->reject(fn ($student) => $symbolNumbers->has($student->id))->count();
         $students = $this->filterStudents($request, $students, $symbolNumbers);
         $students = new LengthAwarePaginator($students->forPage($request->integer('page', 1), 30), $students->count(), 30, $request->integer('page', 1), ['path' => $request->url(), 'query' => $request->query()]);
-        $data = compact('examination', 'students', 'symbolNumbers', 'totalStudents', 'filterOptions');
+        $data = compact('examination', 'students', 'symbolNumbers', 'totalStudents', 'filterOptions', 'missingCount');
         if ($request->routeIs('admin.examinations.admit-cards.search')) {
             return response()->json(['html' => view('examinations.admit-cards._roster', $data)->render()])
                 ->header('Cache-Control', 'private, no-store, max-age=0');
@@ -107,12 +108,15 @@ class AdmitCardController extends Controller
         $request->validate([
             'q' => 'nullable|string|max:150', 'school_class' => 'nullable|in:11,12',
             'faculty' => 'nullable|string|max:150', 'section' => 'nullable|string|max:150',
+            'missing_symbol' => 'nullable|boolean',
         ]);
         $query = mb_strtolower(trim((string) $request->input('q', '')));
-        return $students->filter(function ($student) use ($query, $request, $symbolNumbers) {
+        $missingOnly = $request->boolean('missing_symbol');
+        return $students->filter(function ($student) use ($query, $request, $symbolNumbers, $missingOnly) {
             return (! $request->filled('school_class') || $student->school_class === $request->integer('school_class'))
                 && (! $request->filled('faculty') || $student->stream === $request->input('faculty'))
                 && (! $request->filled('section') || ($student->academicSection?->name ?? $student->section) === $request->input('section'))
+                && (! $missingOnly || ! $symbolNumbers->has($student->id))
                 && ($query === '' || str_contains(mb_strtolower(implode(' ', [
                     $student->full_name, $student->roll_number, $student->stream,
                     $student->academicSection?->name ?? $student->section, $symbolNumbers->get($student->id),
@@ -122,12 +126,16 @@ class AdmitCardController extends Controller
 
     public function assignSymbolNumbers(Request $request, Examination $examination, ExamRosterService $roster, ExamSymbolNumberService $symbols)
     {
+        abort_if($examination->symbol_numbers_locked, 422, 'Symbol numbers are locked for this exam and cannot be regenerated. Use "Set symbol no." on an individual student instead.');
         $data = $examination->organization->type === 'school'
             ? ['start_number' => 1]
             : $request->validate(['start_number' => ['required', 'integer', 'min:1', 'max:1000000000']]);
         $regenerate = $request->boolean('regenerate');
         $count = DB::transaction(function () use ($roster, $examination, $data, $symbols, $regenerate) {
-            Examination::whereKey($examination->id)->lockForUpdate()->firstOrFail();
+            $locked = Examination::whereKey($examination->id)->lockForUpdate()->value('symbol_numbers_locked_at');
+            if ($locked) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['symbol_numbers' => 'Symbol numbers are locked for this exam and cannot be regenerated.']);
+            }
             $exists = ExaminationSymbolNumber::where('examination_id', $examination->id)->exists();
             if ($exists && ! $regenerate) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['symbol_numbers' => 'Symbol numbers have already been assigned for this exam.']);
@@ -144,6 +152,41 @@ class AdmitCardController extends Controller
             return $students->count();
         });
         return back()->with('success', ($regenerate ? 'Symbol numbers regenerated for ' : 'Symbol numbers assigned to ').$count.' student(s).');
+    }
+
+    // Locking is one-way by design — no unlock action exists. Once admit cards
+    // start going out with a set of numbers, silently letting someone regenerate
+    // them (even briefly) invalidates cards already in students' hands. A new
+    // student added afterward is handled through setSymbolNumber() below instead.
+    public function lockSymbolNumbers(Request $request, Examination $examination)
+    {
+        $request->validate(['confirm' => ['required', 'string']]);
+        abort_if($examination->symbol_numbers_locked, 422, 'Symbol numbers are already locked.');
+        abort_unless(ExaminationSymbolNumber::where('examination_id', $examination->id)->exists(), 422, 'Assign symbol numbers before locking them.');
+        if (trim($request->input('confirm')) !== 'LOCK') {
+            return back()->withErrors(['confirm' => 'Type LOCK exactly to confirm.'])->withInput();
+        }
+        $examination->update(['symbol_numbers_locked_at' => now(), 'symbol_numbers_locked_by' => auth()->id()]);
+        return back()->with('success', 'Symbol numbers are now locked. They can no longer be regenerated in bulk — use "Set symbol no." on an individual student for late additions.');
+    }
+
+    // Manual per-student override — works regardless of lock state, since its
+    // whole purpose is covering a student added after the roster was locked.
+    public function setSymbolNumber(Request $request, Examination $examination, Student $student)
+    {
+        $data = $request->validate(['symbol_no' => ['required', 'integer', 'min:1', 'max:1000000000']]);
+        $taken = ExaminationSymbolNumber::where('examination_id', $examination->id)
+            ->where('symbol_no', $data['symbol_no'])
+            ->where('student_id', '!=', $student->id)
+            ->exists();
+        if ($taken) {
+            return back()->withErrors(['symbol_no' => "Symbol number {$data['symbol_no']} is already assigned to another student."])->withInput();
+        }
+        ExaminationSymbolNumber::updateOrCreate(
+            ['examination_id' => $examination->id, 'student_id' => $student->id],
+            ['symbol_no' => $data['symbol_no']]
+        );
+        return back()->with('success', "Symbol number {$data['symbol_no']} set for {$student->full_name}.");
     }
 
     private function studentsWithClass(Examination $examination, ExamRosterService $roster): Collection

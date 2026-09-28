@@ -14,7 +14,11 @@
                                     <a target="_blank" rel="noopener" href="{{ route('admin.examinations.admit-cards.print-one', [$examination, $student]) }}" class="rounded-lg bg-[#1a5632] px-2.5 py-1.5 text-[10px] font-black text-white">Print</a>
                                     <a href="{{ route('admin.examinations.admit-cards.download-one', [$examination, $student]) }}" class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[10px] font-black text-gray-600 hover:border-[#1a5632]/30 hover:text-[#1a5632]">Download</a>
                                 @else
-                                    <span class="text-[10px] font-semibold text-gray-300">Assign symbol no. first</span>
+                                    <form method="POST" action="{{ route('admin.examinations.admit-cards.symbol-number.set', [$examination, $student]) }}" class="inline-flex items-center justify-end gap-1.5">
+                                        @csrf @method('PUT')
+                                        <input type="number" name="symbol_no" min="1" required placeholder="Symbol no." class="w-24 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-bold text-amber-900 outline-none focus:border-amber-500">
+                                        <button class="rounded-lg bg-amber-600 px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-amber-700">Set</button>
+                                    </form>
                                 @endif
                             </td>
                         </tr>

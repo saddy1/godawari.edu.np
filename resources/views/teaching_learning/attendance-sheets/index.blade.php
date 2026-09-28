@@ -11,6 +11,8 @@
     'organization_id' => (string) request('organization_id', ''),
     'department_id' => (string) request('department_id', ''),
     'section_id' => (string) request('section_id', ''),
+    'semester' => (string) request('semester', ''),
+    'year_level' => (string) request('year_level', ''),
 ]))">
     <section class="flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-[#0b2415] to-[#1a5632] p-5 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div><p class="text-[10px] font-black uppercase tracking-[.2em] text-amber-300">Printable class register</p><h1 class="mt-1 text-2xl font-black">Monthly Attendance Sheet</h1><p class="mt-1 text-xs font-semibold text-white/65">Choose a class and Nepali month. Student rows and BS dates are prepared automatically.</p></div>
@@ -19,9 +21,11 @@
 
     <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <form method="GET" action="{{ route('admin.teaching-learning.attendance-sheets.index') }}" class="space-y-4">
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div><label class="{{$label}}">Organization</label><select name="organization_id" x-model="organizationId" @change="departmentId=''; sectionId=''" required class="{{$input}}"><option value="">Choose organization</option><template x-for="item in organizations" :key="item.id"><option :value="String(item.id)" x-text="item.name"></option></template></select></div>
-                <div><label class="{{$label}}">Faculty / class</label><select name="department_id" x-model="departmentId" @change="sectionId=''" :disabled="!organizationId" class="{{$input}}"><option value="">All faculties / classes</option><template x-for="item in departments" :key="item.id"><option :value="String(item.id)" x-text="item.name"></option></template></select></div>
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <div><label class="{{$label}}">Organization</label><select name="organization_id" x-model="organizationId" @change="departmentId=''; sectionId=''; semester=''; yearLevel=''" required class="{{$input}}"><option value="">Choose organization</option><template x-for="item in organizations" :key="item.id"><option :value="String(item.id)" x-text="item.name"></option></template></select></div>
+                <div><label class="{{$label}}">Faculty / class</label><select name="department_id" x-model="departmentId" @change="sectionId=''; semester=''; yearLevel=''" :disabled="!organizationId" class="{{$input}}"><option value="">All faculties / classes</option><template x-for="item in departments" :key="item.id"><option :value="String(item.id)" x-text="item.name"></option></template></select></div>
+                <div x-show="academicSystem === 'semester'"><label class="{{$label}}">Semester</label><select name="semester" x-model="semester" class="{{$input}}"><option value="">All semesters</option><template x-for="s in 8" :key="s"><option :value="String(s)" x-text="'Semester '+s"></option></template></select></div>
+                <div x-show="academicSystem === 'year'"><label class="{{$label}}">Study year</label><select name="year_level" x-model="yearLevel" class="{{$input}}"><option value="">All years</option><template x-for="y in 6" :key="y"><option :value="String(y)" x-text="'Year '+y"></option></template></select></div>
                 <div><label class="{{$label}}">Section</label><select name="section_id" x-model="sectionId" :disabled="!departmentId" class="{{$input}}"><option value="">All sections</option><template x-for="item in sections" :key="item.id"><option :value="String(item.id)" x-text="item.name + (item.group_name ? ' · '+item.group_name : '')"></option></template></select></div>
                 <div><label class="{{$label}}">Academic year</label><select name="academic_year_id" class="{{$input}}">@foreach($academicYears as $year)<option value="{{$year->id}}" @selected($academicYear?->id===$year->id)>{{$year->name}}{{$year->is_active?' · Active':''}}</option>@endforeach</select></div>
             </div>
@@ -101,12 +105,21 @@ function attendanceSheetFilters(organizations, initial) {
         organizationId: initial.organization_id,
         departmentId: initial.department_id,
         sectionId: initial.section_id,
+        semester: initial.semester,
+        yearLevel: initial.year_level,
         get organization() { return this.organizations.find(item => String(item.id) === this.organizationId) },
         get departments() { return this.organization?.departments || [] },
         get department() { return this.departments.find(item => String(item.id) === this.departmentId) },
+        get academicSystem() { return this.department?.academic_system || 'none' },
         get sections() { return this.department?.sections || [] },
         get section() { return this.sections.find(item => String(item.id) === this.sectionId) },
-        get summary() { if (!this.organization) return 'Choose an organization to begin.'; if (!this.department) return `${this.organization.name} · all faculties and all sections`; if (!this.section) return `${this.organization.name} · ${this.department.name} · all sections`; return `${this.organization.name} · ${this.department.name} · ${this.section.name}` }
+        get summary() {
+            if (!this.organization) return 'Choose an organization to begin.';
+            if (!this.department) return `${this.organization.name} · all faculties and all sections`;
+            const period = this.academicSystem === 'semester' && this.semester ? ` · Semester ${this.semester}` : (this.academicSystem === 'year' && this.yearLevel ? ` · Year ${this.yearLevel}` : '');
+            if (!this.section) return `${this.organization.name} · ${this.department.name}${period} · all sections`;
+            return `${this.organization.name} · ${this.department.name}${period} · ${this.section.name}`;
+        }
     }
 }
 </script>

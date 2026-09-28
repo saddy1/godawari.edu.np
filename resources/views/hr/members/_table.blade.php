@@ -62,6 +62,9 @@
                             <span class="inline-flex rounded-full border px-3 py-1 text-xs font-extrabold {{ $typeStyles[$member->member_type] ?? 'bg-gray-50 text-gray-600 border-gray-100' }}" data-highlight>
                                 {{ $typeLabels[$member->member_type] ?? ucfirst($member->member_type) }}
                             </span>
+                            @unless($member->is_active)
+                                <span class="ml-1 inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-extrabold text-red-700">Inactive</span>
+                            @endunless
                         </td>
                         <td class="px-5 py-4" data-highlight>
                             <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-bold {{ $member->gender === 'Female' ? 'border-pink-100 bg-pink-50 text-pink-700' : ($member->gender === 'Male' ? 'border-sky-100 bg-sky-50 text-sky-700' : 'border-gray-200 bg-gray-50 text-gray-500') }}">

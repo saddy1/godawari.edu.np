@@ -39,6 +39,7 @@ Route::prefix('admin/hr')
         Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->middleware('permission:hr.members.edit')->name('members.edit');
         Route::put('/members/{member}', [MemberController::class, 'update'])->middleware('permission:hr.members.edit')->name('members.update');
         Route::patch('/members/{member}/password', [MemberController::class, 'resetPassword'])->middleware('permission:hr.members.edit')->name('members.reset-password');
+        Route::patch('/members/{member}/toggle-active', [MemberController::class, 'toggleActive'])->middleware('permission:hr.members.edit')->name('members.toggle-active');
         Route::delete('/members/{member}', [MemberController::class, 'destroy'])->middleware('permission:hr.members.delete')->name('members.destroy');
 
         // Designations (moved from Hajiri)

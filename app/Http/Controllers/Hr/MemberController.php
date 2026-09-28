@@ -44,7 +44,14 @@ class MemberController extends Controller
         }
 
         $academicYear = AcademicYear::orderByDesc('is_active')->latest('starts_on')->latest('id')->first();
-        $query = Student::query()->with([
+        // The model's global scope already excludes inactive members by default.
+        // Explicitly asking for them (or "all") bypasses it for this listing only —
+        // every other page that reads Student still never sees them.
+        $status = $request->input('status');
+        $query = Student::query()
+            ->when($status === 'inactive', fn ($q) => $q->withInactive()->where('is_active', false))
+            ->when($status === 'all', fn ($q) => $q->withInactive())
+            ->with([
             'user.roles',
             'academicSection',
             'subjectEnrollments' => fn ($query) => $query
@@ -81,9 +88,13 @@ class MemberController extends Controller
                         ->orWhereHas('user', fn ($userQuery) => $userQuery->where('email', 'like', "%{$search}%"));
                 });
             })
+            ->when($request->filled('organization'), fn ($q) => $q->where('organization', $request->organization))
             ->when($request->filled('stream'), fn ($q) => $q->where('stream', $request->stream))
             ->when($request->filled('gender'), fn ($q) => $q->where('gender', $request->gender))
             ->when($request->filled('section'), fn ($q) => $q->where('section', $request->section))
+            ->when($request->filled('semester'), fn ($q) => $q->where('semester', $request->integer('semester')))
+            ->when($request->filled('year_level'), fn ($q) => $q->where('year_level', $request->integer('year_level')))
+            ->when($request->filled('batch'), fn ($q) => $q->where('batch', $request->batch))
             ->when($request->filled('permanent_district'), fn ($q) => $q->where('permanent_district', $request->permanent_district))
             ->when($request->filled('permanent_municipality'), fn ($q) => $q->where('permanent_municipality', $request->permanent_municipality));
 
@@ -126,18 +137,14 @@ class MemberController extends Controller
             : collect();
         $this->attachLibraryClearanceStatus($orphanUsers, true);
 
-        // Filter options for the UI
-        $streams = Student::query()->whereNotNull('stream')->where('stream', '!=', '')->distinct()->orderBy('stream')->pluck('stream');
-        $sections = CardSection::query()
-            ->when($request->filled('stream'), fn ($q) => $q->whereHas('department', fn ($d) => $d->where('name', $request->stream)))
-            ->orderBy('name')
-            ->pluck('name')
-            ->unique()
-            ->values();
+        // Filter options for the UI — same Organization → Department (stream) → Section
+        // tree, with each department's semester/year system, as the Add/Edit form uses.
+        $formOptions = $this->buildFormOptions();
         $districts = Student::query()->whereNotNull('permanent_district')->where('permanent_district', '!=', '')->distinct()->orderBy('permanent_district')->pluck('permanent_district');
         $municipalities = Student::query()->whereNotNull('permanent_municipality')->where('permanent_municipality', '!=', '')->distinct()->orderBy('permanent_municipality')->pluck('permanent_municipality');
+        $batches = Student::query()->where('member_type', 'student')->whereNotNull('batch')->where('batch', '!=', '')->distinct()->orderByDesc('batch')->pluck('batch');
 
-        return view('hr.members.index', compact('members', 'counts', 'orphanUsers', 'streams', 'sections', 'districts', 'municipalities'));
+        return view('hr.members.index', compact('members', 'counts', 'orphanUsers', 'formOptions', 'districts', 'municipalities', 'batches'));
     }
 
     public function create(Request $request)
@@ -348,6 +355,20 @@ class MemberController extends Controller
         $user->saveQuietly();
 
         return back()->with('success', $member->full_name . "'s password has been reset successfully.");
+    }
+
+    // Marking a member inactive hides them everywhere the Student model is
+    // queried (a global scope on the model does the hiding) — HR search,
+    // routine rosters, attendance, subject assignments, dashboards — without
+    // deleting anything. Their own profile page stays reachable by direct URL
+    // so this can be reversed.
+    public function toggleActive(Student $member)
+    {
+        $member->update(['is_active' => ! $member->is_active]);
+
+        return back()->with('success', $member->is_active
+            ? "{$member->full_name} is active again and will reappear in listings, routines and attendance."
+            : "{$member->full_name} is now inactive and will no longer appear in listings, routines or attendance.");
     }
 
     private function preserveOmittedDateFields(Request $request, Student $member, array &$data): void

@@ -28,6 +28,7 @@ protected $fillable = [
         'temporary_province', 'temporary_district', 'temporary_municipality', 'temporary_ward', 'temporary_tole',
         'bus_route', 'bus_stop', 'has_bus_pass',
         'library_id', 'has_library_card', 'profile_completed_at', 'card_printed_at',
+        'is_active',
     ];
     protected $casts = [
         'dob'          => 'date',
@@ -38,7 +39,30 @@ protected $fillable = [
         'has_library_card' => 'boolean',
         'profile_completed_at' => 'datetime',
         'card_printed_at'      => 'datetime',
+        'is_active'    => 'boolean',
     ];
+
+    // Applied to every query built through this model — routine rosters,
+    // attendance, HR search, subject assignments, dashboards — so marking a
+    // member inactive removes them everywhere at once instead of requiring
+    // every call site to remember an extra `where('is_active', true)`.
+    // `resolveRouteBinding()` below deliberately bypasses this so an inactive
+    // member's own HR profile page — the one place with the toggle to
+    // reactivate them — stays reachable by direct URL.
+    protected static function booted(): void
+    {
+        static::addGlobalScope('active', fn ($query) => $query->where('is_active', true));
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->withoutGlobalScope('active')->where($field ?? $this->getRouteKeyName(), $value)->first();
+    }
+
+    public function scopeWithInactive($query)
+    {
+        return $query->withoutGlobalScope('active');
+    }
 
     public function getFullNameAttribute(): string
     {

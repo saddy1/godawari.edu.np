@@ -19,6 +19,8 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::get('/{examination}/admit-cards', [AdmitCardController::class, 'index'])->middleware('permission:examinations.manage')->name('admit-cards.index');
     Route::get('/{examination}/admit-cards/search', [AdmitCardController::class, 'index'])->middleware('permission:examinations.manage')->name('admit-cards.search');
     Route::post('/{examination}/admit-cards/assign', [AdmitCardController::class, 'assignSymbolNumbers'])->middleware('permission:examinations.manage')->name('admit-cards.assign');
+    Route::post('/{examination}/admit-cards/lock', [AdmitCardController::class, 'lockSymbolNumbers'])->middleware('permission:examinations.manage')->name('admit-cards.lock');
+    Route::put('/{examination}/admit-cards/{student}/symbol-number', [AdmitCardController::class, 'setSymbolNumber'])->middleware('permission:examinations.manage')->name('admit-cards.symbol-number.set');
     Route::get('/{examination}/admit-cards/print', [AdmitCardController::class, 'print'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.print');
     Route::get('/{examination}/admit-cards/download', [AdmitCardController::class, 'downloadAll'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.download');
     Route::get('/{examination}/admit-cards/export', [AdmitCardController::class, 'exportExcel'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.export');

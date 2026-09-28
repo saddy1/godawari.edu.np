@@ -20,25 +20,25 @@
                     <template x-for="dept in departments" :key="dept.id"><option :value="String(dept.id)" x-text="dept.name"></option></template>
                 </select>
             </div>
-            <div>
-                <label class="text-[9px] font-black uppercase text-gray-500">Section</label>
-                <select name="section_id" x-model="sectionId" @change="onSectionChange()" :disabled="!departmentId" class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
-                    <option value="">Choose section</option>
-                    <template x-for="sec in sections" :key="sec.id"><option :value="String(sec.id)" x-text="sec.name"></option></template>
-                </select>
-            </div>
             <div x-show="academicSystem==='semester'">
                 <label class="text-[9px] font-black uppercase text-gray-500">Semester</label>
-                <select name="semester" x-model="semester" @change="$el.form.submit()" :disabled="!sectionId" class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
+                <select name="semester" x-model="semester" @change="if(sectionId)$el.form.submit()" :disabled="!departmentId" class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
                     <option value="">All semesters</option>
                     <template x-for="i in 8" :key="i"><option :value="String(i)" x-text="'Semester '+i"></option></template>
                 </select>
             </div>
             <div x-show="academicSystem==='year'">
                 <label class="text-[9px] font-black uppercase text-gray-500">Study Year</label>
-                <select name="year_level" x-model="yearLevel" @change="$el.form.submit()" :disabled="!sectionId" class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
+                <select name="year_level" x-model="yearLevel" @change="if(sectionId)$el.form.submit()" :disabled="!departmentId" class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
                     <option value="">All years</option>
                     <template x-for="i in 6" :key="i"><option :value="String(i)" x-text="'Year '+i"></option></template>
+                </select>
+            </div>
+            <div>
+                <label class="text-[9px] font-black uppercase text-gray-500">Section</label>
+                <select name="section_id" x-model="sectionId" @change="onSectionChange()" :disabled="!departmentId" class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold outline-none transition-colors duration-300 hover:border-gray-300 focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
+                    <option value="">Choose section</option>
+                    <template x-for="sec in sections" :key="sec.id"><option :value="String(sec.id)" x-text="sec.name"></option></template>
                 </select>
             </div>
         </form>

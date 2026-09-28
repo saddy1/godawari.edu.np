@@ -28,6 +28,9 @@
                         <span>{{ $member->roll_number }}</span>
                         <span class="text-white/30">/</span>
                         <span>{{ $typeLabels[$member->member_type] ?? ucfirst($member->member_type) }}</span>
+                        @unless($member->is_active)
+                            <span class="rounded-full border border-red-300/40 bg-red-500/20 px-2 py-0.5 text-xs font-extrabold text-red-100">Inactive</span>
+                        @endunless
                         @if($member->stream)
                             <span class="text-white/30">/</span>
                             <span>{{ $member->stream }}{{ $member->section ? ' - ' . $member->section : '' }}</span>
@@ -46,6 +49,13 @@
                     <a href="{{ route('admin.hr.members.edit', $member) }}" class="inline-flex items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-extrabold text-[#1a5632] hover:bg-gray-100">
                         Edit
                     </a>
+                    <form method="POST" action="{{ route('admin.hr.members.toggle-active', $member) }}"
+                          onsubmit="return confirm('{{ $member->is_active ? 'Mark '.$member->full_name.' inactive? They will stop appearing in listings, routines and attendance.' : 'Reactivate '.$member->full_name.'?' }}')">
+                        @csrf @method('PATCH')
+                        <button type="submit" class="inline-flex items-center justify-center rounded-xl border px-4 py-3 text-sm font-extrabold {{ $member->is_active ? 'border-red-300/40 bg-red-500/10 text-red-100 hover:bg-red-500/20' : 'border-emerald-300/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20' }}">
+                            {{ $member->is_active ? 'Mark Inactive' : 'Reactivate' }}
+                        </button>
+                    </form>
                 @endif
             </div>
         </div>

@@ -30,9 +30,17 @@
         @endforeach
     </div>
 
-    <form id="hr-member-filter-form" method="GET" action="{{ route('admin.hr.members.index') }}" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" x-data="districtFilter()">
+    <form id="hr-member-filter-form" method="GET" action="{{ route('admin.hr.members.index') }}" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+          x-data="memberFilter(@js($formOptions ?? []), {
+              organization: @js(request('organization', '')),
+              stream: @js(request('stream', '')),
+              section: @js(request('section', '')),
+              semester: @js(request('semester', '')),
+              yearLevel: @js(request('year_level', '')),
+              showMore: @js(request()->hasAny(['gender', 'permanent_district', 'permanent_municipality'])),
+          })">
         <div class="grid gap-3">
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.6fr_repeat(5,minmax(0,1fr))]">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <input name="search" value="{{ request('search') }}" placeholder="Search name, ID, email, login email, mobile..." autocomplete="off" data-ajax-search class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
 
                 <select name="type" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
@@ -42,24 +50,16 @@
                     @endforeach
                 </select>
 
-                <select name="gender" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
-                    <option value="">All genders</option>
-                    @foreach($genderOptions as $gender)
-                        <option value="{{ $gender }}" @selected(request('gender') === $gender)>{{ $gender }}</option>
-                    @endforeach
+                <select name="status" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    <option value="" @selected(!in_array(request('status'), ['inactive', 'all']))>Active only</option>
+                    <option value="inactive" @selected(request('status') === 'inactive')>Inactive only</option>
+                    <option value="all" @selected(request('status') === 'all')>Active + Inactive</option>
                 </select>
 
-                <select name="stream" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15" @change="loadSections($el.value)">
-                    <option value="">All classes</option>
-                    @foreach($streams ?? [] as $stream)
-                        <option value="{{ $stream }}" @selected(request('stream') === $stream)>{{ $stream }}</option>
-                    @endforeach
-                </select>
-
-                <select name="section" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15" x-ref="section">
-                    <option value="">All sections</option>
-                    @foreach($sections ?? [] as $section)
-                        <option value="{{ $section }}" @selected(request('section') === $section)>{{ $section }}</option>
+                <select name="organization" x-model="organization" @change="stream = ''; section = ''; semester = ''; yearLevel = ''" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    <option value="">All organizations</option>
+                    @foreach($formOptions ?? [] as $orgValue => $orgData)
+                        <option value="{{ $orgValue }}">{{ $orgData['label'] ?? $orgValue }}</option>
                     @endforeach
                 </select>
 
@@ -70,7 +70,69 @@
                 </select>
             </div>
 
-            <div class="grid gap-3 md:grid-cols-3">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                    <select name="stream" x-model="stream" @change="section = ''; semester = ''; yearLevel = ''" :disabled="!organization" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
+                        <option value="" x-text="organization ? 'All faculties / classes' : 'Choose organization first'"></option>
+                        <template x-for="item in streamOptions" :key="item">
+                            <option :value="item" :selected="item === stream" x-text="item"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div x-show="academicSystem === 'semester'">
+                    <select name="semester" x-model="semester" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                        <option value="">All semesters</option>
+                        @for($s = 1; $s <= 8; $s++)
+                            <option value="{{ $s }}">Semester {{ $s }}</option>
+                        @endfor
+                    </select>
+                </div>
+
+                <div x-show="academicSystem === 'year'">
+                    <select name="year_level" x-model="yearLevel" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                        <option value="">All years</option>
+                        @for($y = 1; $y <= 6; $y++)
+                            <option value="{{ $y }}">Year {{ $y }}</option>
+                        @endfor
+                    </select>
+                </div>
+
+                <div>
+                    <select name="section" x-model="section" :disabled="!stream" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
+                        <option value="" x-text="stream ? 'All sections' : 'Choose faculty / class first'"></option>
+                        <template x-for="item in sectionOptions" :key="item">
+                            <option :value="item" :selected="item === section" x-text="item"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div>
+                    <select name="batch" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                        <option value="">All batches</option>
+                        @foreach($batches ?? [] as $b)
+                            <option value="{{ $b }}" @selected(request('batch') === $b)>{{ $b }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <button type="button" @click="showMore = !showMore" class="inline-flex items-center gap-1.5 text-xs font-extrabold text-gray-500 hover:text-gray-700">
+                    <span x-text="showMore ? 'Hide more filters' : 'More filters (gender, district, municipality)'"></span>
+                    <svg :class="showMore ? 'rotate-180' : ''" class="h-3.5 w-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <button class="rounded-xl bg-[#1a5632] px-5 py-2.5 text-sm font-extrabold text-white">Filter</button>
+            </div>
+
+            <div x-show="showMore" x-transition x-cloak class="grid gap-3 md:grid-cols-3">
+                <select name="gender" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
+                    <option value="">All genders</option>
+                    @foreach($genderOptions as $gender)
+                        <option value="{{ $gender }}" @selected(request('gender') === $gender)>{{ $gender }}</option>
+                    @endforeach
+                </select>
+
                 <select name="permanent_district" class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15" @change="loadMunicipalities($el.value)" x-ref="district">
                     <option value="">All districts</option>
                     @foreach($districts ?? [] as $d)
@@ -84,15 +146,29 @@
                         <option value="{{ $m }}" @selected(request('permanent_municipality') === $m)>{{ $m }}</option>
                     @endforeach
                 </select>
-
-                <button class="w-full rounded-xl bg-[#1a5632] px-4 py-3 text-sm font-extrabold text-white">Filter</button>
             </div>
         </div>
     </form>
 
     <script>
-        function districtFilter() {
+        function memberFilter(cardOptions, initial) {
             return {
+                cardOptions: cardOptions || {},
+                organization: initial.organization || '',
+                stream: initial.stream || '',
+                section: initial.section || '',
+                semester: initial.semester || '',
+                yearLevel: initial.yearLevel || '',
+                showMore: !!initial.showMore,
+                get streamOptions() {
+                    return Object.keys(this.cardOptions[this.organization]?.streams || {});
+                },
+                get sectionOptions() {
+                    return this.cardOptions[this.organization]?.streams?.[this.stream] || [];
+                },
+                get academicSystem() {
+                    return this.cardOptions[this.organization]?.academic_systems?.[this.stream] || 'none';
+                },
                 loadMunicipalities(district) {
                     if (!district) {
                         this.$refs.municipality.innerHTML = '<option value="">All municipalities</option>';
@@ -110,24 +186,6 @@
                             this.$refs.municipality.innerHTML = options;
                         })
                         .catch(err => console.error('Error loading municipalities:', err));
-                },
-                loadSections(stream) {
-                    if (!stream) {
-                        this.$refs.section.innerHTML = '<option value="">All sections</option>';
-                        return;
-                    }
-
-                    fetch(`/api/hr/sections-by-stream/${encodeURIComponent(stream)}`)
-                        .then(res => res.json())
-                        .then(sections => {
-                            let options = '<option value="">All sections</option>';
-                            sections.forEach(s => {
-                                const selected = '{{ request("section") }}' === s ? ' selected' : '';
-                                options += `<option value="${s}"${selected}>${s}</option>`;
-                            });
-                            this.$refs.section.innerHTML = options;
-                        })
-                        .catch(err => console.error('Error loading sections:', err));
                 }
             };
         }

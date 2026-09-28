@@ -89,10 +89,12 @@ class RoutineBuilderController extends Controller
         foreach ($dayLessons as $lesson) $rosterService->sync($lesson);
         $dayGroups = $dayLessons->flatMap(fn ($lesson) => $lesson->groups);
         // Wrap (not hydrate — must be the SAME model instances still referenced inside
-        // $routinePlan->lessons) so ->load()/->loadCount() populate those objects.
-        (new \Illuminate\Database\Eloquent\Collection($dayGroups->all()))->loadCount('students');
-        $daySplitGroups = $dayLessons->where('mode', 'practical_split')->flatMap(fn ($lesson) => $lesson->groups);
-        (new \Illuminate\Database\Eloquent\Collection($daySplitGroups->all()))->load('students');
+        // $routinePlan->lessons) so ->load() populates those objects. The full roster
+        // (not just a count) is loaded for every group scheduled today — small,
+        // one-day-at-a-time — so the grid's "N students" badge can open a roll
+        // number / name popup for any lesson, not only practical splits.
+        (new \Illuminate\Database\Eloquent\Collection($dayGroups->all()))
+            ->load(['students' => fn ($query) => $query->orderByRaw('roll_number IS NULL')->orderBy('roll_number')->orderBy('first_name')]);
         $offerings = SubjectOffering::with('subject')->where('department_id', $routinePlan->department_id)
             ->when($routinePlan->semester, fn ($query) => $query->where(fn ($query) => $query->whereNull('semester')->orWhere('semester', $routinePlan->semester)))
             ->when($routinePlan->year_level, fn ($query) => $query->where(fn ($query) => $query->whereNull('year_level')->orWhere('year_level', $routinePlan->year_level)))
@@ -175,7 +177,7 @@ class RoutineBuilderController extends Controller
                     'teacher_ids' => $group->teachers->pluck('id')->map(fn ($id) => (string) $id)->values(),
                     'routine_room_id' => $group->routine_room_id ? (string) $group->routine_room_id : '',
                     'group_label' => $group->group_label,
-                    'student_count' => $group->students_count,
+                    'student_count' => $group->students->count(),
                 ])->values(),
             ];
             $coveredPeriods = $routinePlan->shift->periods->filter(fn ($period) => ! $period->is_break && $period->position >= $start->position && $period->position <= $end->position);
