@@ -259,36 +259,29 @@
     @if($genderTotal > 0)
         <div class="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <h3 class="mb-1 text-sm font-black text-gray-900">Attendance at a Glance — by Gender</h3>
-            <p class="mb-4 text-[10px] font-semibold text-gray-400">Present vs absent today, so the overall picture reads in one look</p>
-            <div class="space-y-4">
+            <p class="mb-4 text-[10px] font-semibold text-gray-400">Present vs absent today, broken down by gender</p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach(['male' => 'Male', 'female' => 'Female', 'other' => 'Other'] as $genderKey => $genderLabel)
                     @php
                         $bucket = $genderBreakdown[$genderKey];
                         $bucketTotal = $bucket['present'] + $bucket['absent'];
                         $presentPct = $bucketTotal > 0 ? round($bucket['present'] / $bucketTotal * 100) : 0;
-                        $absentPct = $bucketTotal > 0 ? 100 - $presentPct : 0;
                     @endphp
                     @if($bucketTotal > 0)
-                        <div>
-                            <div class="mb-1 flex items-center justify-between text-xs font-bold text-gray-600">
-                                <span>{{ $genderLabel }}</span>
-                                <span class="text-gray-400">{{ $bucketTotal }} total · {{ $presentPct }}% present</span>
-                            </div>
-                            <div class="flex h-6 w-full overflow-hidden rounded-lg bg-gray-100">
-                                @if($bucket['present'] > 0)
-                                    <div class="flex items-center justify-center bg-emerald-500 text-[10px] font-black text-white" style="width: {{ $presentPct }}%">{{ $bucket['present'] }}</div>
-                                @endif
-                                @if($bucket['absent'] > 0)
-                                    <div class="flex items-center justify-center bg-red-500 text-[10px] font-black text-white" style="width: {{ $absentPct }}%">{{ $bucket['absent'] }}</div>
-                                @endif
-                            </div>
+                        <div class="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-gray-500">{{ $genderLabel }}</p>
+                            <p class="mt-2 flex items-baseline gap-2">
+                                <span class="text-2xl font-black text-emerald-600">{{ $bucket['present'] }}</span>
+                                <span class="text-[10px] font-bold text-gray-400">present</span>
+                            </p>
+                            <p class="mt-1 flex items-baseline gap-2">
+                                <span class="text-2xl font-black text-red-600">{{ $bucket['absent'] }}</span>
+                                <span class="text-[10px] font-bold text-gray-400">absent</span>
+                            </p>
+                            <p class="mt-2 text-[10px] font-bold text-gray-400">{{ $bucketTotal }} total · {{ $presentPct }}% present</p>
                         </div>
                     @endif
                 @endforeach
-            </div>
-            <div class="mt-4 flex items-center gap-4 text-[10px] font-bold text-gray-500">
-                <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded bg-emerald-500"></span> Present</span>
-                <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded bg-red-500"></span> Absent</span>
             </div>
         </div>
     @endif
@@ -298,10 +291,13 @@
 
         {{-- Teachers who haven't marked attendance --}}
         <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:col-span-1">
-            <h3 class="mb-3 flex items-center gap-2 text-sm font-black text-gray-900">
-                <span class="grid h-7 w-7 place-items-center rounded-lg bg-red-50 text-red-600">⚠</span>
-                Teachers Who Haven't Marked Attendance
-            </h3>
+            <a href="{{ route('admin.founder.teacher-attendance') }}" class="mb-3 flex items-center justify-between gap-2 hover:opacity-80">
+                <h3 class="flex items-center gap-2 text-sm font-black text-gray-900">
+                    <span class="grid h-7 w-7 place-items-center rounded-lg bg-red-50 text-red-600">⚠</span>
+                    Teachers Who Haven't Marked Attendance
+                </h3>
+                <span class="shrink-0 text-xs font-black text-[#1a5632]">Explore →</span>
+            </a>
             <div class="max-h-96 space-y-2 overflow-y-auto pr-1">
                 @forelse($notTakenRows as $row)
                     @php $badge = $row->status === 'pending' ? ['Pending', 'bg-amber-100 text-amber-800'] : ['Not Taken', 'bg-red-100 text-red-700']; @endphp

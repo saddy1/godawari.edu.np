@@ -49,24 +49,7 @@ class FounderDashboardController extends Controller
         $chartDays = $range === 'month' ? 30 : 7;
         $today = Carbon::today();
 
-        $lessons = $this->lessonsForDate($today);
-        $sessionsByLesson = $this->sessionsForDate($lessons->pluck('id'), $today);
-
-        $lessonRows = $lessons->map(function (RoutineLesson $lesson) use ($sessionsByLesson, $today) {
-            $session = $sessionsByLesson->get($lesson->id);
-            $periodStart = Carbon::parse($today->toDateString().' '.$lesson->period->starts_at)->subMinutes(self::OPENS_BEFORE_MINUTES);
-            $started = now()->gte($periodStart);
-            $taken = (bool) $session?->submitted_at;
-
-            return (object) [
-                'lesson' => $lesson,
-                'session' => $session,
-                'started' => $started,
-                'taken' => $taken,
-                'status' => $taken ? 'taken' : ($session ? 'pending' : ($started ? 'not_taken' : 'upcoming')),
-                'overdue_minutes' => $started && ! $taken ? max(0, now()->diffInMinutes($periodStart)) : 0,
-            ];
-        });
+        $lessonRows = $this->lessonRowsForDate($today);
 
         $startedRows = $lessonRows->where('started', true);
         $notTakenRows = $startedRows->where('taken', false)->sortByDesc('overdue_minutes')->values();
@@ -109,17 +92,23 @@ class FounderDashboardController extends Controller
             ->take(10)
             ->values();
 
+        // Blank/unset gender is missing data, not a third gender — counting it as
+        // "Other" made that bucket show up even for schools with only male/female
+        // students on file. Skip it here instead of miscategorizing it.
         $normalizeGender = fn (?string $gender) => match (mb_strtolower((string) $gender)) {
             'male', 'm' => 'male',
             'female', 'f' => 'female',
-            default => 'other',
+            'other', 'o' => 'other',
+            default => null,
         };
         $genderBreakdown = ['male' => ['present' => 0, 'absent' => 0], 'female' => ['present' => 0, 'absent' => 0], 'other' => ['present' => 0, 'absent' => 0]];
         foreach (collect($todayStatuses)->unique(fn ($row) => $row->student?->id) as $row) {
             if (! $row->student || ! in_array($row->status, ['present', 'absent'], true)) {
                 continue;
             }
-            $genderBreakdown[$normalizeGender($row->student->gender)][$row->status]++;
+            $gender = $normalizeGender($row->student->gender);
+            if ($gender === null) continue;
+            $genderBreakdown[$gender][$row->status]++;
         }
 
         $formatLessonRow = fn ($row) => (object) [
@@ -661,6 +650,95 @@ class FounderDashboardController extends Controller
             (object) ['label' => 'Purchase Orders Awaiting Approval', 'icon' => '🧾', 'count' => StorePurchaseOrder::where('status', 'draft')->count(), 'items' => $purchaseOrders],
             (object) ['label' => 'Exam Mark Unlock Requests', 'icon' => '🔓', 'count' => ExaminationMarkSubmission::whereNotNull('unlock_requested_at')->whereNull('unlocked_at')->count(), 'items' => $markUnlocks],
         ]);
+    }
+
+    // Real-time "overdue" only makes sense for today — a past day is simply
+    // over, so every one of its lessons counts as started once we're looking
+    // back at it, and a future day can't be judged at all.
+    private function lessonRowsForDate(Carbon $date): Collection
+    {
+        $lessons = $this->lessonsForDate($date);
+        $sessionsByLesson = $this->sessionsForDate($lessons->pluck('id'), $date);
+        $isToday = $date->isToday();
+
+        return $lessons->map(function (RoutineLesson $lesson) use ($sessionsByLesson, $date, $isToday) {
+            $session = $sessionsByLesson->get($lesson->id);
+            $periodStart = Carbon::parse($date->toDateString().' '.$lesson->period->starts_at)->subMinutes(self::OPENS_BEFORE_MINUTES);
+            $started = $isToday ? now()->gte($periodStart) : true;
+            $taken = (bool) $session?->submitted_at;
+
+            return (object) [
+                'lesson' => $lesson,
+                'session' => $session,
+                'started' => $started,
+                'taken' => $taken,
+                'status' => $taken ? 'taken' : ($session ? 'pending' : ($started ? 'not_taken' : 'upcoming')),
+                'overdue_minutes' => $isToday && $started && ! $taken ? max(0, now()->diffInMinutes($periodStart)) : 0,
+            ];
+        });
+    }
+
+    // Drill-down for "why didn't this teacher take attendance" — same spirit as
+    // absences() for students: pick a date, see who missed marking, click into
+    // one teacher for their specific missed lessons plus a cheap 7-day pattern
+    // check (scoped to just that teacher, so it stays cheap regardless of
+    // school size, unlike a whole-school streak scan).
+    public function teacherAttendance(Request $request)
+    {
+        $date = $request->filled('date') ? Carbon::parse($request->date) : Carbon::today();
+        $dateBsLabel = $this->bsDateLabel($date);
+
+        $lessonRows = $this->lessonRowsForDate($date);
+        $missedRows = $lessonRows->where('started', true)->where('taken', false);
+
+        // A lesson's groups can each have a different teacher (e.g. a practical
+        // split), so one missed lesson can belong to more than one teacher.
+        $teacherMisses = $missedRows->flatMap(function ($row) {
+            $teachers = $row->lesson->groups->flatMap->teachers->unique('id');
+
+            return $teachers->isEmpty()
+                ? [(object) ['teacher' => null, 'row' => $row]]
+                : $teachers->map(fn ($teacher) => (object) ['teacher' => $teacher, 'row' => $row]);
+        });
+
+        $teacherSummaries = $teacherMisses->filter(fn ($item) => $item->teacher)
+            ->groupBy(fn ($item) => $item->teacher->id)
+            ->map(fn ($items) => (object) [
+                'teacher' => $items->first()->teacher,
+                'missed_count' => $items->count(),
+                'rows' => $items->pluck('row')->sortBy(fn ($row) => $row->lesson->period->position)->values(),
+            ])
+            ->sortByDesc('missed_count')
+            ->values();
+
+        $unassignedMisses = $teacherMisses->filter(fn ($item) => ! $item->teacher)->pluck('row')->values();
+
+        $selectedTeacherId = $request->integer('teacher_id') ?: null;
+        $selectedSummary = $selectedTeacherId
+            ? $teacherSummaries->first(fn ($summary) => (int) $summary->teacher->id === $selectedTeacherId)
+            : null;
+
+        $weeklyPattern = null;
+        if ($selectedSummary) {
+            $teacherId = $selectedSummary->teacher->id;
+            $weeklyPattern = collect(range(0, 6))->map(function ($offset) use ($teacherId, $date) {
+                $day = $date->copy()->subDays($offset);
+                $dayRows = $this->lessonRowsForDate($day)
+                    ->filter(fn ($row) => $row->lesson->groups->flatMap->teachers->contains('id', $teacherId));
+                $started = $dayRows->where('started', true);
+
+                return (object) [
+                    'date' => $day,
+                    'bs_label' => $this->bsDateLabel($day),
+                    'scheduled' => $dayRows->count(),
+                    'missed' => $started->where('taken', false)->count(),
+                ];
+            })->reverse()->values();
+        }
+
+        return view('backend.founder-dashboard.teacher-attendance', compact(
+            'date', 'dateBsLabel', 'teacherSummaries', 'unassignedMisses', 'selectedSummary', 'weeklyPattern'
+        ));
     }
 
     private function lessonsForDate(Carbon $date): Collection
