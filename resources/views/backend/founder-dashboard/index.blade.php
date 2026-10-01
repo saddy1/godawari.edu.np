@@ -300,15 +300,20 @@
             </a>
             <div class="max-h-96 space-y-2 overflow-y-auto pr-1">
                 @forelse($notTakenRows as $row)
-                    @php $badge = $row->status === 'pending' ? ['Pending', 'bg-amber-100 text-amber-800'] : ['Not Taken', 'bg-red-100 text-red-700']; @endphp
-                    <div class="flex items-center gap-2.5 rounded-xl border-l-4 {{ $row->status === 'pending' ? 'border-l-amber-400' : 'border-l-red-500' }} bg-gray-50 px-3 py-2.5">
+                    @php
+                        $badge = $row->status === 'pending' ? ['Pending', 'bg-amber-100 text-amber-800'] : ['Not Taken', 'bg-red-100 text-red-700'];
+                        $rowTeacher = $row->lesson->groups->flatMap->teachers->first();
+                    @endphp
+                    <a href="{{ $rowTeacher ? route('admin.founder.teacher-attendance', ['teacher_id' => $rowTeacher->id]) : route('admin.founder.teacher-attendance') }}"
+                       class="flex items-center gap-2.5 rounded-xl border-l-4 {{ $row->status === 'pending' ? 'border-l-amber-400' : 'border-l-red-500' }} bg-gray-50 px-3 py-2.5 transition hover:bg-gray-100">
                         <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-200 text-[10px] font-black text-gray-600">{{ $initials($teacherNamesFor($row->lesson)) }}</span>
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-extrabold text-gray-900">{{ $teacherNamesFor($row->lesson) }}</p>
                             <p class="truncate text-[10px] font-semibold text-gray-400">{{ $sectionLabelFor($row->lesson) }} · Period {{ $row->lesson->period->position }} · {{ $row->overdue_minutes }} min overdue</p>
                         </div>
                         <span class="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black {{ $badge[1] }}">{{ $badge[0] }}</span>
-                    </div>
+                        <span class="shrink-0 text-gray-300">→</span>
+                    </a>
                 @empty
                     <p class="rounded-xl bg-emerald-50 px-3 py-4 text-center text-xs font-bold text-emerald-700">All started classes have marked attendance ✓</p>
                 @endforelse

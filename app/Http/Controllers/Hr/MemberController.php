@@ -898,6 +898,19 @@ class MemberController extends Controller
                 $data['semester'] = null;
                 $data['year_level'] = null;
             }
+
+            // The form only ever collects plain-text organization/stream/section —
+            // section_id was never resolved from it, so every student relied on a
+            // later Bulk Edit pass to get one. Resolving it here (scoped to this
+            // organization, so a same-named section in a different department can't
+            // match) means every save gets a correct section_id, not just ones that
+            // happened to go through Bulk Edit.
+            $data['section_id'] = $section
+                ? CardSection::where('name', $section)
+                    ->whereHas('department', fn ($query) => $query->where('name', $stream)
+                        ->whereHas('organization', fn ($query) => $query->where('slug', $org)))
+                    ->value('id')
+                : null;
         } else {
             $data['semester'] = null;
             $data['year_level'] = null;

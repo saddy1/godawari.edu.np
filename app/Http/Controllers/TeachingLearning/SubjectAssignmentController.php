@@ -53,7 +53,12 @@ class SubjectAssignmentController extends Controller
                 ->where('stream', $selectedDepartment->name)
                 ->when($semester, fn ($query) => $query->where('semester', $semester))
                 ->when($yearLevel, fn ($query) => $query->where('year_level', $yearLevel))
-                ->when($selectedSection, fn ($query) => $query->where('section_id', $selectedSection->id))
+                // A student added through the normal Add Student form never gets
+                // section_id populated (only Bulk Edit sets it) — only the legacy
+                // text `section` field. Matching on section_id alone silently drops
+                // every such student until someone runs them through Bulk Edit.
+                ->when($selectedSection, fn ($query) => $query->where(fn ($query) => $query->where('section_id', $selectedSection->id)
+                    ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $selectedSection->name))))
                 ->orderByRaw('roll_number IS NULL')->orderBy('roll_number')->orderBy('first_name')
                 ->get(['id', 'roll_number', 'first_name', 'middle_name', 'last_name', 'section', 'section_id', 'semester', 'year_level']);
 
