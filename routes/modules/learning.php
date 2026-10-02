@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Learning\AdminChapterController;
+use App\Http\Controllers\Learning\CounsellingRequestController;
 use App\Http\Controllers\Learning\AdminQuizController;
 use App\Http\Controllers\Learning\QuizController;
 use App\Http\Controllers\Learning\AdminClassController;
@@ -29,6 +30,9 @@ Route::prefix('learning')
         Route::get('/quiz/{quiz}', [QuizController::class, 'show'])->name('quizzes.show');
         Route::post('/quiz/{quiz}/submit', [QuizController::class, 'submit'])->name('quizzes.submit');
         Route::get('/quiz/{quiz}/result/{attempt}', [QuizController::class, 'result'])->name('quizzes.result');
+
+        Route::get('/counselling', [CounsellingRequestController::class, 'index'])->middleware(['permission:counselling.request', 'module.enabled:counselling'])->name('counselling.index');
+        Route::post('/counselling', [CounsellingRequestController::class, 'store'])->middleware(['permission:counselling.request', 'module.enabled:counselling'])->name('counselling.store');
     });
 
 Route::prefix('admin/learning')

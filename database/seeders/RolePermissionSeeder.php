@@ -153,6 +153,14 @@ class RolePermissionSeeder extends Seeder
             'work-tasks.review' => 'Review work task submissions',
             'work-groups.manage' => 'Manage work groups and committees',
             'work-checklists.manage' => 'Manage reusable work checklists',
+
+            // Counselling — appended at the end deliberately: this seeder
+            // truncates and recreates every role/permission row on each run,
+            // and Spatie links them by auto-incrementing ID, so inserting a
+            // new entry anywhere but the end would shift every ID after it
+            // and silently reassign existing users' roles/permissions.
+            'counselling.manage' => 'Book and manage counselling sessions',
+            'counselling.request' => 'Request a counselling session',
         ];
 
         // Create all permissions
@@ -238,6 +246,7 @@ class RolePermissionSeeder extends Seeder
                 'work-tasks.review' => 'Review work task submissions',
                 'work-groups.manage' => 'Manage work groups and committees',
                 'work-checklists.manage' => 'Manage reusable work checklists',
+                'counselling.manage' => 'Book and manage counselling sessions',
             ],
             'accountant' => [
                 'users.view' => 'View users',
@@ -337,6 +346,7 @@ class RolePermissionSeeder extends Seeder
                 'work-tasks.review' => 'Review work task submissions',
                 'work-groups.manage' => 'Manage work groups and committees',
                 'work-checklists.manage' => 'Manage reusable work checklists',
+                'counselling.manage' => 'Book and manage counselling sessions',
             ],
             'store-keeper' => [
                 'dashboard.admin' => 'View admin dashboard',
@@ -409,6 +419,14 @@ class RolePermissionSeeder extends Seeder
                 'learning.resources.view' => 'View learning resources',
                 'learning.quizzes.view' => 'View mock tests',
                 'library.view' => 'View library',
+                'counselling.request' => 'Request a counselling session',
+            ],
+            // Appended last for the same ID-stability reason noted above this
+            // array — a counsellor's access to a specific session's private
+            // report is checked per-record (are they the assigned counsellor)
+            // in the controller, not granted broadly by a permission here.
+            'counsellor' => [
+                'dashboard.view' => 'View dashboard',
             ],
         ];
 

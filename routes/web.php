@@ -480,3 +480,4 @@ require __DIR__.'/modules/learning.php';
 require __DIR__.'/modules/library.php';
 require __DIR__.'/modules/teaching_learning.php';
 require __DIR__.'/modules/examinations.php';
+require __DIR__.'/modules/counselling.php';

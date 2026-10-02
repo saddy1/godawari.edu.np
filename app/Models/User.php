@@ -94,6 +94,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasRole('teacher');
     }
 
+    public function isCounsellor(): bool
+    {
+        return $this->hasRole('counsellor');
+    }
+
     // Authoritative check for staff-portal (Hajiri/admin) access — keyed off the
     // actual HR profile rather than Spatie role names, which can drift out of
     // sync (e.g. a linked staff member with no literal 'teacher'/'staff' role).

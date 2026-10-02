@@ -59,12 +59,18 @@
                             <p class="text-[10px] font-black uppercase tracking-widest text-[#1a5632]">{{ $selectedDepartment->name }} · Section {{ $selectedSection->name }}</p>
                             <h2 class="text-sm font-black text-gray-900">{{ $roster->count() }} student{{ $roster->count() === 1 ? '' : 's' }} with an exam on {{ $date->format('d M Y') }}</h2>
                         </div>
-                        <p class="text-xs font-bold text-gray-400"><span x-text="absentIds.length"></span> marked absent</p>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700"><span x-text="{{ $roster->count() }} - absentIds.length"></span> present</span>
+                            <span class="rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-700"><span x-text="absentIds.length"></span> absent</span>
+                        </div>
                     </header>
+                    <div class="border-b border-gray-100 px-5 py-3">
+                        <input type="text" x-model="query" placeholder="Search by name or roll no." class="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 sm:w-64">
+                    </div>
 
                     <div class="divide-y divide-gray-50">
                         @foreach($roster as $row)
-                            <div class="flex flex-wrap items-center gap-3 p-4 sm:p-5">
+                            <div x-show="matches({{ \Illuminate\Support\Js::from(Str::lower($row->student->full_name.' '.$row->student->roll_number)) }})" class="flex flex-wrap items-center gap-3 p-4 sm:p-5">
                                 <div class="min-w-0 flex-1">
                                     <p class="font-extrabold text-gray-900">{{ $row->student->full_name }}</p>
                                     <p class="text-xs font-semibold text-gray-400">{{ $row->student->roll_number ?: '—' }} · {{ $row->subject_name }}</p>
@@ -100,7 +106,9 @@
 function examAttendance(initial) {
     return {
         saving: false,
+        query: '',
         statuses: Object.fromEntries((initial || []).map(row => [row.id, { absent: row.status === 'absent', reason: row.reason || '' }])),
+        matches(haystack) { return !this.query.trim() || haystack.includes(this.query.trim().toLowerCase()) },
         get absentIds() { return Object.keys(this.statuses).filter(id => this.statuses[id].absent).map(Number) },
         isAbsent(id) { return !!this.statuses[id]?.absent },
         reasonFor(id) { return this.statuses[id]?.reason || '' },
