@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Examination\AdmitCardController;
+use App\Http\Controllers\Examination\ExamAttendanceController;
 use App\Http\Controllers\Examination\ExaminationController;
 use App\Http\Controllers\Examination\MarkEntryController;
 use App\Http\Controllers\Examination\MarksheetController;
@@ -26,6 +27,9 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::get('/{examination}/admit-cards/export', [AdmitCardController::class, 'exportExcel'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.export');
     Route::get('/{examination}/admit-cards/{student}/print', [AdmitCardController::class, 'printOne'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.print-one');
     Route::get('/{examination}/admit-cards/{student}/download', [AdmitCardController::class, 'downloadOne'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.download-one');
+
+    Route::get('/{examination}/attendance', [ExamAttendanceController::class, 'index'])->middleware('permission:examinations.manage')->name('attendance.index');
+    Route::post('/{examination}/attendance', [ExamAttendanceController::class, 'store'])->middleware('permission:examinations.manage')->name('attendance.store');
 
     Route::get('/{examination}/marksheets', [MarksheetController::class, 'index'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.index');
     Route::get('/{examination}/marksheets/print', [MarksheetController::class, 'print'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.print');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Auth\Concerns\ForgetsStaleIntendedUrl;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\DeviceRememberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -24,7 +25,7 @@ class AuthController extends Controller
     /**
      * Handle the login request.
      */
-    public function login(Request $request)
+    public function login(Request $request, DeviceRememberService $deviceRemember)
     {
         $credentials = $request->validate([
             'login' => ['required', 'string'],
@@ -70,6 +71,12 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $user = Auth::user();
         $this->forgetStaleAdminIntendedUrl($request, $user);
+
+        // Remember this device for 30 days so this user's next visit from the
+        // same browser skips the login form entirely — particularly aimed at
+        // the teacher PWA, where re-typing a password every time the app was
+        // backgrounded for a while was the actual complaint.
+        $deviceRemember->remember($user, $request);
 
         if ($user->isStudent()) {
             return redirect()->intended(route('learning.dashboard'));
@@ -119,9 +126,10 @@ class AuthController extends Controller
     /**
      * Log the user out of the application.
      */
-    public function logout(Request $request)
+    public function logout(Request $request, DeviceRememberService $deviceRemember)
     {
         Auth::logout();
+        $deviceRemember->forget($request);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
