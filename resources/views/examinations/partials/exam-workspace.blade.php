@@ -78,3 +78,22 @@
 
 @if($examination->subjects->isNotEmpty())<section class="rounded-2xl border bg-white p-4 shadow-sm"><div class="mb-3 flex items-end justify-between"><div><p class="text-[10px] font-black uppercase text-emerald-700">Live evaluation</p><h2 class="text-base font-black">Result overview</h2></div><span class="text-[10px] font-semibold text-gray-400">Updates from entered marks</span></div><div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">@foreach([['Students',$analytics['students'],'gray'],['Pass %',$analytics['pass_rate'].'%','emerald'],['Fail %',$analytics['fail_rate'].'%','red'],['Average',$analytics['average'].'%','blue'],['Passed',$analytics['passed'],'emerald'],['Failed',$analytics['failed'],'red'],['Absent',$analytics['absent'],'amber'],['Incomplete',$analytics['incomplete'],'gray']] as [$text,$number,$color])<div class="rounded-xl border border-{{$color}}-100 bg-{{$color}}-50 p-3"><p class="text-lg font-black text-{{$color}}-700">{{$number}}</p><p class="text-[8px] font-black uppercase text-{{$color}}-600">{{$text}}</p></div>@endforeach</div></section>@endif
 
+@if($canManage && ($attendanceSummary['present'] + $attendanceSummary['absent']) > 0)
+<section class="rounded-2xl border bg-white p-4 shadow-sm">
+    <div class="mb-3 flex items-end justify-between">
+        <div><p class="text-[10px] font-black uppercase text-blue-700">Sit-in attendance</p><h2 class="text-base font-black">Exam Attendance</h2></div>
+        <a href="{{route('admin.examinations.attendance.report',$examination)}}" class="text-[10px] font-black text-[#1a5632] hover:underline">See detail →</a>
+    </div>
+    <div class="grid grid-cols-3 gap-2">
+        <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-3"><p class="text-lg font-black text-emerald-700">{{$attendanceSummary['present']}}</p><p class="text-[8px] font-black uppercase text-emerald-600">Present</p></div>
+        <div class="rounded-xl border border-red-100 bg-red-50 p-3"><p class="text-lg font-black text-red-700">{{$attendanceSummary['absent']}}</p><p class="text-[8px] font-black uppercase text-red-600">Absent</p></div>
+        <div class="rounded-xl border border-gray-100 bg-gray-50 p-3"><p class="text-lg font-black text-gray-700">{{$attendanceSummary['dates_recorded']}}</p><p class="text-[8px] font-black uppercase text-gray-500">Dates recorded</p></div>
+    </div>
+</section>
+@elseif($canManage)
+<section class="rounded-2xl border border-dashed bg-white p-4 text-center">
+    <p class="text-xs font-semibold text-gray-400">No exam attendance has been marked yet.</p>
+    <a href="{{route('admin.examinations.attendance.index',$examination)}}" class="mt-1 inline-block text-xs font-black text-[#1a5632] hover:underline">Take attendance →</a>
+</section>
+@endif
+

@@ -15,6 +15,41 @@ use Illuminate\Support\Facades\DB;
 
 class ExamAttendanceController extends Controller
 {
+    // Read-only, exam-wide view — "where are the absent/present counts shown,
+    // and the detail behind them" — as opposed to index()/store() above, which
+    // mark attendance for one date/section at a time.
+    public function report(Request $request, Examination $examination)
+    {
+        $examination->load(['organization', 'academicYear']);
+
+        $dateFilter = $request->filled('date') ? Carbon::parse($request->date) : null;
+
+        $base = ExaminationAttendance::where('examination_id', $examination->id)
+            ->when($dateFilter, fn ($q) => $q->whereDate('exam_date', $dateFilter));
+
+        $stats = [
+            'present' => (clone $base)->where('status', 'present')->count(),
+            'absent' => (clone $base)->where('status', 'absent')->count(),
+        ];
+
+        $dates = ExaminationAttendance::where('examination_id', $examination->id)
+            ->distinct()->orderByDesc('exam_date')->pluck('exam_date');
+
+        $absentees = (clone $base)->where('status', 'absent')
+            ->with(['student', 'examinationSubject.offering.subject', 'examinationSubject.offering.department'])
+            ->orderByDesc('exam_date')
+            ->get()
+            ->map(fn (ExaminationAttendance $row) => (object) [
+                'student' => $row->student,
+                'date' => $row->exam_date,
+                'subject_name' => $row->examinationSubject->offering->subject->name ?? '—',
+                'department_name' => $row->examinationSubject->offering->department->name ?? '—',
+                'reason' => $row->reason,
+            ]);
+
+        return view('examinations.attendance.report', compact('examination', 'stats', 'dates', 'dateFilter', 'absentees'));
+    }
+
     public function index(Request $request, Examination $examination)
     {
         $examination->load(['organization', 'academicYear', 'sections.department']);

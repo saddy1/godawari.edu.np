@@ -8,6 +8,7 @@ use App\Models\Card\Organization;
 use App\Models\Card\Section;
 use App\Models\Card\SubjectOffering;
 use App\Models\Examination\Examination;
+use App\Models\Examination\ExaminationAttendance;
 use App\Models\Examination\ExaminationSubject;
 use App\Models\Examination\ExaminationMarkSubmission;
 use App\Models\TeachingLearning\AcademicYear;
@@ -183,10 +184,28 @@ class ExaminationController extends Controller
             'markAccess' => $markAccess,
             'unlockRequests' => $unlockRequests,
             'analytics' => $analytics->forExam($examination),
+            'attendanceSummary' => $this->attendanceSummary($examination),
             'markEntryOpen' => $examination->status === 'ongoing'
                 && (! $examination->starts_on || now()->startOfDay()->gte($examination->starts_on))
                 && (! $examination->ends_on || now()->startOfDay()->lte($examination->ends_on)),
             'canManage' => auth()->user()->canAccess('examinations.manage'),
+        ];
+    }
+
+    // Separate from $analytics above — that's marks-based (theory/practical
+    // "absent" flags entered alongside a score). This is the actual sit-in
+    // attendance recorded via the Exam Attendance tool, date by date.
+    private function attendanceSummary(Examination $examination): array
+    {
+        $counts = ExaminationAttendance::where('examination_id', $examination->id)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return [
+            'present' => (int) ($counts['present'] ?? 0),
+            'absent' => (int) ($counts['absent'] ?? 0),
+            'dates_recorded' => ExaminationAttendance::where('examination_id', $examination->id)->distinct('exam_date')->count('exam_date'),
         ];
     }
 

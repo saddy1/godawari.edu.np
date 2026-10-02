@@ -30,6 +30,7 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
 
     Route::get('/{examination}/attendance', [ExamAttendanceController::class, 'index'])->middleware('permission:examinations.manage')->name('attendance.index');
     Route::get('/{examination}/attendance/search', [ExamAttendanceController::class, 'index'])->middleware('permission:examinations.manage')->name('attendance.search');
+    Route::get('/{examination}/attendance/report', [ExamAttendanceController::class, 'report'])->middleware('permission:examinations.manage,examinations.reports')->name('attendance.report');
     Route::post('/{examination}/attendance', [ExamAttendanceController::class, 'store'])->middleware('permission:examinations.manage')->name('attendance.store');
 
     Route::get('/{examination}/marksheets', [MarksheetController::class, 'index'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.index');
