@@ -42,16 +42,24 @@
         </form>
     </section>
 
-    <section x-data="examStudentSearch(@js($query))" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    {{-- Once a section is open, the in-roster search below already covers
+         finding a student — this cross-faculty finder is only useful before
+         you've drilled into one, so it clears and disappears once you have. --}}
+    @unless($selectedSection)
+    <section x-data="examStudentSearch(@js($query))" @click.outside="open = false" @keydown.escape="open = false" class="relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <label class="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-gray-500">Find a student directly (today's exam faculties — no need to pick a section first)</label>
         <div class="relative w-full">
             <svg class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300 transition-colors duration-300" :class="loading ? 'text-[#1a5632]' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m1.85-5.65a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z"/></svg>
-            <input type="text" x-model="query" @input.debounce.300ms="search()" placeholder="Type a name or roll no. — results update as you type" autocomplete="off"
+            <input type="text" x-model="query" @input.debounce.300ms="search()" @focus="if(query) open = true" placeholder="Type a name or roll no. — results update as you type" autocomplete="off"
                    class="search-glow w-full rounded-2xl border-2 border-gray-200 bg-white py-3.5 pl-11 pr-4 text-sm font-semibold text-gray-900 outline-none transition-all duration-300 focus:border-[#1a5632] focus:shadow-[0_0_0_6px_rgba(26,86,50,0.12)]">
             <span x-show="loading" x-cloak class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase tracking-wider text-[#1a5632]">Searching…</span>
         </div>
-        <div x-ref="results">
-            @include('examinations.attendance._search-results')
+        {{-- Floating overlay dropdown — positioned over the page instead of
+             pushing content down, scrolls internally past a handful of hits. --}}
+        <div x-show="open" x-cloak x-transition class="absolute inset-x-4 top-full z-40 mt-1.5 max-h-80 overflow-y-auto rounded-2xl border border-gray-100 bg-white shadow-2xl">
+            <div x-ref="results">
+                @include('examinations.attendance._search-results')
+            </div>
         </div>
     </section>
 
@@ -62,6 +70,7 @@
             50% { border-color: #4fae78; }
         }
     </style>
+    @endunless
 
     @if($selectedDepartment && $selectedSection)
         @if($roster->isEmpty())
@@ -129,8 +138,15 @@ function examStudentSearch(initialQuery) {
     return {
         query: initialQuery || '',
         loading: false,
+        open: !!initialQuery,
         controller: null,
         async search() {
+            if (!this.query.trim()) {
+                this.open = false;
+                this.$refs.results.innerHTML = '';
+                return;
+            }
+            this.open = true;
             if (this.controller) this.controller.abort();
             const controller = new AbortController();
             this.controller = controller;
@@ -143,6 +159,7 @@ function examStudentSearch(initialQuery) {
                 const data = await response.json();
                 if (controller.signal.aborted) return;
                 this.$refs.results.innerHTML = data.html;
+                this.open = true;
                 const url = new URL(window.location);
                 url.searchParams.set('q', this.query);
                 history.replaceState(null, '', url);
