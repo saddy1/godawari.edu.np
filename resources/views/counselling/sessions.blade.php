@@ -10,60 +10,23 @@
     ];
 @endphp
 <div class="space-y-4">
-    <div>
-        <h1 class="text-2xl font-black text-gray-900">{{ $canManage ? 'Counselling Sessions' : 'My Counselling Sessions' }}</h1>
-        <p class="text-sm font-semibold text-gray-500">{{ $canManage ? 'Book sessions, assign counsellors, and track status.' : 'Sessions assigned to you — open one to write a report.' }}</p>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-black text-gray-900">{{ $canManage ? 'Counselling Sessions' : 'My Counselling Sessions' }}</h1>
+            <p class="text-sm font-semibold text-gray-500">{{ $canManage ? 'Assign counsellors and track status.' : 'Sessions assigned to you — open one to write a report.' }}</p>
+        </div>
+        <a href="{{ route('admin.counselling.index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-black text-gray-700 hover:border-[#1a5632]/40 hover:text-[#1a5632]">← Dashboard</a>
     </div>
 
     @if(session('success'))<div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">@foreach($errors->all() as $error)<p>• {{ $error }}</p>@endforeach</div>@endif
-
-    @if($canManage)
-    <section x-data="{ open: false }" class="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <button type="button" @click="open = !open" class="flex w-full items-center justify-between px-5 py-4 text-left">
-            <h2 class="text-sm font-black text-gray-900">Book a counselling session</h2>
-            <span class="text-xs font-black text-[#1a5632]" x-text="open ? 'Hide' : 'Book new →'"></span>
-        </button>
-        <form x-show="open" x-cloak method="POST" action="{{ route('admin.counselling.store') }}" class="grid gap-3 border-t border-gray-100 p-5 sm:grid-cols-2 lg:grid-cols-4">
-            @csrf
-            <div>
-                <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Student</label>
-                <select name="student_id" required class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
-                    <option value="">Choose student</option>
-                    @foreach($students as $student)
-                        <option value="{{ $student->id }}">{{ $student->full_name }}{{ $student->roll_number ? ' · '.$student->roll_number : '' }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Counsellor</label>
-                <select name="counsellor_id" required class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
-                    <option value="">Choose counsellor</option>
-                    @foreach($counsellors as $counsellor)
-                        <option value="{{ $counsellor->id }}">{{ $counsellor->name }}</option>
-                    @endforeach
-                </select>
-                @if($counsellors->isEmpty())<p class="mt-1 text-[10px] font-semibold text-amber-600">No one has the Counsellor role yet — assign it to a staff account first.</p>@endif
-            </div>
-            <div>
-                <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Date &amp; time</label>
-                <input type="datetime-local" name="scheduled_at" required class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
-            </div>
-            <div>
-                <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Topic (optional)</label>
-                <input type="text" name="topic" maxlength="255" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
-            </div>
-            <div class="sm:col-span-2 lg:col-span-4"><button class="rounded-xl bg-[#1a5632] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Book session</button></div>
-        </form>
-    </section>
-    @endif
 
     <section class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
             <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">{{ $sessions->total() }} session{{ $sessions->total() === 1 ? '' : 's' }}</p>
             <div class="flex flex-wrap gap-1.5">
                 @foreach(['' => 'All', 'requested' => 'Requested', 'scheduled' => 'Scheduled', 'completed' => 'Completed', 'cancelled' => 'Cancelled'] as $value => $label)
-                    <a href="{{ route('admin.counselling.index', array_filter(['status' => $value])) }}" class="rounded-full border px-3 py-1.5 text-[11px] font-extrabold {{ ($status ?: '') === $value ? 'border-[#1a5632] bg-[#1a5632] text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300' }}">{{ $label }}</a>
+                    <a href="{{ route('admin.counselling.sessions', array_filter(['status' => $value])) }}" class="rounded-full border px-3 py-1.5 text-[11px] font-extrabold {{ ($status ?: '') === $value ? 'border-[#1a5632] bg-[#1a5632] text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300' }}">{{ $label }}</a>
                 @endforeach
             </div>
         </div>
@@ -81,7 +44,7 @@
                     <span class="shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase {{ $statusStyles[$session->status] }}">{{ $session->status }}</span>
 
                     @if($canManage && $session->status === 'requested')
-                        <form method="POST" action="{{ route('admin.counselling.assign', $session) }}" class="flex shrink-0 flex-wrap items-center gap-1.5" onsubmit="return true">
+                        <form method="POST" action="{{ route('admin.counselling.assign', $session) }}" class="flex shrink-0 flex-wrap items-center gap-1.5">
                             @csrf @method('PATCH')
                             <select name="counsellor_id" required class="rounded-lg border border-gray-300 px-2 py-1.5 text-[11px] font-bold">
                                 <option value="">Counsellor</option>

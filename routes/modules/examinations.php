@@ -29,6 +29,7 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::get('/{examination}/admit-cards/{student}/download', [AdmitCardController::class, 'downloadOne'])->middleware('permission:examinations.manage,examinations.reports')->name('admit-cards.download-one');
 
     Route::get('/{examination}/attendance', [ExamAttendanceController::class, 'index'])->middleware('permission:examinations.manage')->name('attendance.index');
+    Route::get('/{examination}/attendance/search', [ExamAttendanceController::class, 'index'])->middleware('permission:examinations.manage')->name('attendance.search');
     Route::post('/{examination}/attendance', [ExamAttendanceController::class, 'store'])->middleware('permission:examinations.manage')->name('attendance.store');
 
     Route::get('/{examination}/marksheets', [MarksheetController::class, 'index'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.index');

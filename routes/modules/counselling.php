@@ -10,7 +10,8 @@ Route::prefix('admin/counselling')
     ->name('admin.counselling.')
     ->middleware(['auth', 'module.enabled:counselling'])
     ->group(function () {
-        Route::get('/', [CounsellingController::class, 'index'])->name('index');
+        Route::get('/', [CounsellingController::class, 'dashboard'])->name('index');
+        Route::get('/sessions', [CounsellingController::class, 'sessions'])->name('sessions');
         Route::post('/', [CounsellingController::class, 'store'])->name('store');
         Route::get('/{counsellingSession}', [CounsellingController::class, 'show'])->name('show');
         Route::patch('/{counsellingSession}/assign', [CounsellingController::class, 'assign'])->name('assign');

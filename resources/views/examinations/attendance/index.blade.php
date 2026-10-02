@@ -42,31 +42,26 @@
         </form>
     </section>
 
-    <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <form method="GET" action="{{ route('admin.examinations.attendance.index', $examination) }}" class="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="date" value="{{ $date->toDateString() }}">
-            <div class="flex-1">
-                <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Find a student directly (today's exam faculties — no need to pick a section first)</label>
-                <input type="text" name="q" value="{{ $query }}" placeholder="Name or roll no." class="w-full max-w-sm rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
-            </div>
-            <button class="rounded-xl bg-[#1a5632] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Search</button>
-        </form>
-        @if($query !== '')
-            <div class="mt-3 divide-y divide-gray-50 border-t border-gray-100">
-                @forelse($searchResults as $result)
-                    <a href="{{ route('admin.examinations.attendance.index', ['examination' => $examination, 'date' => $date->toDateString(), 'department_id' => $result->department->id, 'section_id' => $result->section->id, 'q' => $query]) }}" class="flex items-center justify-between gap-3 py-3 hover:bg-gray-50">
-                        <div>
-                            <p class="font-extrabold text-gray-900">{{ $result->student->full_name }}</p>
-                            <p class="text-xs font-semibold text-gray-400">{{ $result->student->roll_number ?: '—' }} · {{ $result->department->name }} · Section {{ $result->section->name }} · {{ $result->subject_name }}</p>
-                        </div>
-                        <span class="shrink-0 text-xs font-black text-[#1a5632]">Open section →</span>
-                    </a>
-                @empty
-                    <p class="py-6 text-center text-sm text-gray-400">No student with an exam on this date matches "{{ $query }}".</p>
-                @endforelse
-            </div>
-        @endif
+    <section x-data="examStudentSearch(@js($query))" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <label class="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-gray-500">Find a student directly (today's exam faculties — no need to pick a section first)</label>
+        <div class="relative w-full">
+            <svg class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300 transition-colors duration-300" :class="loading ? 'text-[#1a5632]' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m1.85-5.65a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z"/></svg>
+            <input type="text" x-model="query" @input.debounce.300ms="search()" placeholder="Type a name or roll no. — results update as you type" autocomplete="off"
+                   class="search-glow w-full rounded-2xl border-2 border-gray-200 bg-white py-3.5 pl-11 pr-4 text-sm font-semibold text-gray-900 outline-none transition-all duration-300 focus:border-[#1a5632] focus:shadow-[0_0_0_6px_rgba(26,86,50,0.12)]">
+            <span x-show="loading" x-cloak class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase tracking-wider text-[#1a5632]">Searching…</span>
+        </div>
+        <div x-ref="results">
+            @include('examinations.attendance._search-results')
+        </div>
     </section>
+
+    <style>
+        .search-glow:focus { animation: exam-search-glow 1.6s ease-in-out infinite; }
+        @keyframes exam-search-glow {
+            0%, 100% { border-color: #1a5632; }
+            50% { border-color: #4fae78; }
+        }
+    </style>
 
     @if($selectedDepartment && $selectedSection)
         @if($roster->isEmpty())
@@ -130,6 +125,36 @@
 @endsection
 @push('scripts')
 <script>
+function examStudentSearch(initialQuery) {
+    return {
+        query: initialQuery || '',
+        loading: false,
+        controller: null,
+        async search() {
+            if (this.controller) this.controller.abort();
+            const controller = new AbortController();
+            this.controller = controller;
+            this.loading = true;
+            try {
+                const target = new URL(@js(route('admin.examinations.attendance.search', $examination)), window.location.origin);
+                target.searchParams.set('date', @js($date->toDateString()));
+                target.searchParams.set('q', this.query);
+                const response = await fetch(target, { cache: 'no-store', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, signal: controller.signal });
+                const data = await response.json();
+                if (controller.signal.aborted) return;
+                this.$refs.results.innerHTML = data.html;
+                const url = new URL(window.location);
+                url.searchParams.set('q', this.query);
+                history.replaceState(null, '', url);
+            } catch (error) {
+                if (error.name !== 'AbortError') console.error('Student search failed', error);
+            } finally {
+                if (this.controller === controller) this.loading = false;
+            }
+        },
+    }
+}
+
 function examAttendance(initial, initialQuery) {
     return {
         saving: false,

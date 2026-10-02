@@ -11,6 +11,7 @@
         request()->is('admin/learning*') => 'learning',
         request()->is('admin/library*') => 'library',
         request()->is('admin/work-tasks*') => 'work-tasks',
+        request()->is('admin/counselling*') => 'counselling',
         request()->is('admin/store*') => 'store',
         request()->is('admin/billing*') => 'billing',
         default => 'website',
@@ -46,6 +47,7 @@
         ['key' => 'library', 'category' => 'Library', 'label' => 'Library', 'sub' => 'Books & issue', 'url' => route('admin.library.dashboard'), 'show' => $isAdmin && $user?->canAccess(['library.view', 'library.create', 'library.edit', 'library.issue', 'library.reports']) && \App\Services\ModuleService::enabled('library')],
         ['key' => 'billing', 'category' => 'Administration', 'label' => 'Salary / Pay Slip', 'sub' => 'Payroll & slips', 'url' => $salaryUrl, 'show' => (($isAdmin && $user?->canAccess(['billing.view', 'billing.create', 'billing.delete'])) || ($isStaffEmployee && $user?->device_id)) && \App\Services\ModuleService::enabled('billing')],
         ['key' => 'work-tasks', 'category' => 'People', 'label' => 'Work Tasks', 'sub' => 'Performance', 'url' => route('admin.work-tasks.index'), 'show' => $isAdmin && $user?->canAccess(['work-tasks.view', 'work-tasks.create', 'work-tasks.submit', 'work-tasks.review']) && \App\Services\ModuleService::enabled('work_tasks')],
+        ['key' => 'counselling', 'category' => 'People', 'label' => 'Counselling', 'sub' => 'Student support', 'url' => route('admin.counselling.index'), 'show' => ($isAdmin || $user?->isCounsellor()) && ($user?->canAccess('counselling.manage') || $user?->isCounsellor()) && \App\Services\ModuleService::enabled('counselling')],
     ];
     $visibleModuleLinks = collect($moduleLinks)->filter(fn($module) => $module['show'])->values();
     $categorizedModuleLinks = $visibleModuleLinks->groupBy('category');
@@ -78,6 +80,19 @@
         }
     }
 
+    // Admins see unassigned requests waiting on them; a counsellor sees how
+    // many of their own scheduled sessions are still open.
+    $counsellingBadge = 0;
+    if (\App\Services\ModuleService::enabled('counselling')) {
+        try {
+            $counsellingBadge = $user?->canAccess('counselling.manage')
+                ? \App\Models\Counselling\CounsellingSession::where('status', 'requested')->count()
+                : ($user?->isCounsellor() ? \App\Models\Counselling\CounsellingSession::where('counsellor_id', $user->id)->where('status', 'scheduled')->count() : 0);
+        } catch (\Throwable) {
+            $counsellingBadge = 0;
+        }
+    }
+
     // Per-module badge counts for the switcher tabs
     $moduleBadges = [
         'hajiri'  => $notifLeaveReqs + $notifStaffCards,
@@ -91,6 +106,7 @@
         'library' => 0,
         'billing' => 0,
         'work-tasks' => $workTaskBadge,
+        'counselling' => $counsellingBadge,
     ];
 @endphp
 

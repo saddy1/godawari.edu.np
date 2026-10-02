@@ -55,6 +55,12 @@ class ExamAttendanceController extends Controller
             }
         }
 
+        if ($request->routeIs('admin.examinations.attendance.search')) {
+            return response()->json([
+                'html' => view('examinations.attendance._search-results', compact('examination', 'date', 'query', 'searchResults'))->render(),
+            ])->header('Cache-Control', 'private, no-store, max-age=0');
+        }
+
         return view('examinations.attendance.index', [
             'examination' => $examination,
             'date' => $date,

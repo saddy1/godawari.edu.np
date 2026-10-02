@@ -11,7 +11,44 @@ use Illuminate\Validation\Rule;
 
 class CounsellingController extends Controller
 {
-    public function index(Request $request)
+    // The module's landing page — stats at a glance, recent activity, and (for
+    // admins) a per-counsellor breakdown. Booking a new session also lives
+    // here so it's reachable in one click rather than buried in the list page.
+    public function dashboard(Request $request)
+    {
+        $user = $request->user();
+        $canManage = $user->canAccess('counselling.manage');
+        abort_unless($canManage || $user->isCounsellor(), 403);
+
+        $base = fn () => CounsellingSession::query()->when(! $canManage, fn ($q) => $q->where('counsellor_id', $user->id));
+
+        $stats = [
+            'requested' => $base()->where('status', 'requested')->count(),
+            'scheduled' => $base()->where('status', 'scheduled')->count(),
+            'completed' => $base()->where('status', 'completed')->count(),
+            'cancelled' => $base()->where('status', 'cancelled')->count(),
+        ];
+
+        $recentSessions = $base()->with(['student', 'counsellor'])->latest()->limit(8)->get();
+
+        // Only an admin sees across the whole caseload — a lone counsellor's
+        // "breakdown" would just be their own numbers, already in $stats.
+        $counsellorBreakdown = $canManage
+            ? User::role('counsellor')->orderBy('name')->get(['id', 'name'])->map(fn (User $counsellor) => (object) [
+                'counsellor' => $counsellor,
+                'requested' => CounsellingSession::where('counsellor_id', $counsellor->id)->where('status', 'requested')->count(),
+                'scheduled' => CounsellingSession::where('counsellor_id', $counsellor->id)->where('status', 'scheduled')->count(),
+                'completed' => CounsellingSession::where('counsellor_id', $counsellor->id)->where('status', 'completed')->count(),
+            ])
+            : collect();
+
+        $students = $canManage ? Student::where('member_type', 'student')->orderBy('first_name')->limit(500)->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number']) : collect();
+        $counsellors = $canManage ? User::role('counsellor')->orderBy('name')->get(['id', 'name']) : collect();
+
+        return view('counselling.dashboard', compact('stats', 'recentSessions', 'counsellorBreakdown', 'canManage', 'students', 'counsellors'));
+    }
+
+    public function sessions(Request $request)
     {
         $user = $request->user();
         $canManage = $user->canAccess('counselling.manage');
@@ -28,11 +65,9 @@ class CounsellingController extends Controller
             $query->where('counsellor_id', $user->id);
         }
         $sessions = $query->when($status, fn ($q) => $q->where('status', $status))->paginate(25)->withQueryString();
-
-        $students = $canManage ? Student::where('member_type', 'student')->orderBy('first_name')->limit(500)->get(['id', 'first_name', 'middle_name', 'last_name', 'roll_number']) : collect();
         $counsellors = $canManage ? User::role('counsellor')->orderBy('name')->get(['id', 'name']) : collect();
 
-        return view('counselling.index', compact('sessions', 'status', 'canManage', 'students', 'counsellors'));
+        return view('counselling.sessions', compact('sessions', 'status', 'canManage', 'counsellors'));
     }
 
     public function store(Request $request)
