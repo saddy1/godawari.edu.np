@@ -15,14 +15,15 @@
     @if($errors->any())<div class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">@foreach($errors->all() as $error)<p>• {{ $error }}</p>@endforeach</div>@endif
 
     <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <form method="GET" action="{{ route('admin.examinations.attendance.index', $examination) }}" class="grid gap-3 sm:grid-cols-3">
+        <form method="GET" action="{{ route('admin.examinations.attendance.index', $examination) }}" onchange="this.submit()" class="grid gap-3 sm:grid-cols-3">
             <div>
                 <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Exam date</label>
-                <x-nepali-date-input name="date" :value="$date" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15" />
+                <x-nepali-date-input name="date" :value="$date" :max-bs="$todayBs" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15" />
+                <p class="mt-1 text-[10px] font-semibold text-gray-400">Today or earlier only.</p>
             </div>
             <div>
                 <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Faculty / class with exam this date</label>
-                <select name="department_id" onchange="this.form.submit()" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
+                <select name="department_id" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
                     <option value="">{{ $departments->isEmpty() ? 'No exams scheduled this date' : 'Choose faculty / class' }}</option>
                     @foreach($departments as $dept)
                         <option value="{{ $dept->id }}" @selected($selectedDepartment?->id === $dept->id)>{{ $dept->name }}</option>
@@ -31,7 +32,7 @@
             </div>
             <div>
                 <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Section</label>
-                <select name="section_id" onchange="this.form.submit()" @disabled($sections->isEmpty()) class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
+                <select name="section_id" @disabled($sections->isEmpty()) class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15 disabled:bg-gray-50 disabled:text-gray-400">
                     <option value="">{{ $selectedDepartment ? 'Choose section' : 'Choose faculty first' }}</option>
                     @foreach($sections as $sec)
                         <option value="{{ $sec->id }}" @selected($selectedSection?->id === $sec->id)>{{ $sec->name }}</option>
@@ -41,11 +42,37 @@
         </form>
     </section>
 
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <form method="GET" action="{{ route('admin.examinations.attendance.index', $examination) }}" class="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="date" value="{{ $date->toDateString() }}">
+            <div class="flex-1">
+                <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-gray-500">Find a student directly (today's exam faculties — no need to pick a section first)</label>
+                <input type="text" name="q" value="{{ $query }}" placeholder="Name or roll no." class="w-full max-w-sm rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-semibold outline-none focus:border-[#1a5632] focus:ring-2 focus:ring-[#1a5632]/15">
+            </div>
+            <button class="rounded-xl bg-[#1a5632] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#0b2415]">Search</button>
+        </form>
+        @if($query !== '')
+            <div class="mt-3 divide-y divide-gray-50 border-t border-gray-100">
+                @forelse($searchResults as $result)
+                    <a href="{{ route('admin.examinations.attendance.index', ['examination' => $examination, 'date' => $date->toDateString(), 'department_id' => $result->department->id, 'section_id' => $result->section->id, 'q' => $query]) }}" class="flex items-center justify-between gap-3 py-3 hover:bg-gray-50">
+                        <div>
+                            <p class="font-extrabold text-gray-900">{{ $result->student->full_name }}</p>
+                            <p class="text-xs font-semibold text-gray-400">{{ $result->student->roll_number ?: '—' }} · {{ $result->department->name }} · Section {{ $result->section->name }} · {{ $result->subject_name }}</p>
+                        </div>
+                        <span class="shrink-0 text-xs font-black text-[#1a5632]">Open section →</span>
+                    </a>
+                @empty
+                    <p class="py-6 text-center text-sm text-gray-400">No student with an exam on this date matches "{{ $query }}".</p>
+                @endforelse
+            </div>
+        @endif
+    </section>
+
     @if($selectedDepartment && $selectedSection)
         @if($roster->isEmpty())
             <div class="rounded-2xl border border-dashed bg-white p-10 text-center text-sm text-gray-400">No students in this section have an exam scheduled on this date.</div>
         @else
-            <section x-data="examAttendance(@js($roster->map(fn ($row) => ['id' => $row->student->id, 'status' => $row->status, 'reason' => $row->reason])->values()))" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <section x-data="examAttendance(@js($roster->map(fn ($row) => ['id' => $row->student->id, 'status' => $row->status, 'reason' => $row->reason])->values()), @js($query))" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <form method="POST" action="{{ route('admin.examinations.attendance.store', $examination) }}" @submit="saving = true">
                     @csrf
                     <input type="hidden" name="date" value="{{ $date->toDateString() }}">
@@ -103,10 +130,10 @@
 @endsection
 @push('scripts')
 <script>
-function examAttendance(initial) {
+function examAttendance(initial, initialQuery) {
     return {
         saving: false,
-        query: '',
+        query: initialQuery || '',
         statuses: Object.fromEntries((initial || []).map(row => [row.id, { absent: row.status === 'absent', reason: row.reason || '' }])),
         matches(haystack) { return !this.query.trim() || haystack.includes(this.query.trim().toLowerCase()) },
         get absentIds() { return Object.keys(this.statuses).filter(id => this.statuses[id].absent).map(Number) },

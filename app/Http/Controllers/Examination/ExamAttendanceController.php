@@ -19,6 +19,8 @@ class ExamAttendanceController extends Controller
     {
         $examination->load(['organization', 'academicYear', 'sections.department']);
         $date = $this->resolveDate($request);
+        $today = Carbon::today();
+        abort_if($date->gt($today), 422, 'You cannot take exam attendance for a future date.');
 
         $subjectsOnDate = $this->subjectsOnDate($examination, $date);
         $departments = $subjectsOnDate->pluck('offering.department')->filter()->unique('id')->sortBy('name')->values();
@@ -35,14 +37,35 @@ class ExamAttendanceController extends Controller
             $this->attachExistingAttendance($roster);
         }
 
+        // Find a student directly, across every faculty/section with an exam
+        // on this date, without first drilling through faculty -> section —
+        // each hit links straight to that student's own section roster.
+        $query = trim((string) $request->query('q', ''));
+        $searchResults = collect();
+        if ($query !== '') {
+            foreach ($departments as $dept) {
+                foreach ($examination->sections->where('department_id', $dept->id) as $sec) {
+                    foreach ($this->buildRoster($examination, $subjectsOnDate, $dept, $sec) as $row) {
+                        $haystack = mb_strtolower($row->student->full_name.' '.$row->student->roll_number);
+                        if (str_contains($haystack, mb_strtolower($query))) {
+                            $searchResults->push((object) ['student' => $row->student, 'department' => $dept, 'section' => $sec, 'subject_name' => $row->subject_name]);
+                        }
+                    }
+                }
+            }
+        }
+
         return view('examinations.attendance.index', [
             'examination' => $examination,
             'date' => $date,
+            'todayBs' => $this->bsDate($today),
             'departments' => $departments,
             'selectedDepartment' => $selectedDepartment,
             'sections' => $sections,
             'selectedSection' => $selectedSection,
             'roster' => $roster,
+            'query' => $query,
+            'searchResults' => $searchResults,
         ]);
     }
 
@@ -59,6 +82,7 @@ class ExamAttendanceController extends Controller
         ]);
 
         $date = Carbon::parse($data['date']);
+        abort_if($date->gt(Carbon::today()), 422, 'You cannot save exam attendance for a future date.');
         $department = \App\Models\Card\Department::find($data['department_id']);
         $section = Section::find($data['section_id']);
         abort_unless($department && $section, 404);
@@ -176,5 +200,13 @@ class ExamAttendanceController extends Controller
     private function resolveDate(Request $request): Carbon
     {
         return $request->filled('date') ? Carbon::parse($request->date) : Carbon::today();
+    }
+
+    private function bsDate(Carbon $date): ?string
+    {
+        $converter = new \App\Http\Controllers\Hajiri\NepaliCalendarController();
+        $bs = $converter->ad_2_bs($date->year, $date->month, $date->day);
+
+        return $bs ? sprintf('%04d-%02d-%02d', $bs['year'], $bs['month'], $bs['date']) : null;
     }
 }
