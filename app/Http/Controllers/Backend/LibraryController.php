@@ -85,6 +85,11 @@ class LibraryController extends Controller
                 'copies as available_copies_count' => fn ($q) => $q->where('status', 'available'),
                 'copies as issued_copies_count'    => fn ($q) => $q->where('status', 'issued'),
             ])
+            ->addSelect([
+                'min_accession_no' => LibraryBookCopy::selectRaw('MIN(CAST(accession_no AS UNSIGNED))')->whereColumn('library_book_id', 'library_books.id'),
+                'max_accession_no' => LibraryBookCopy::selectRaw('MAX(CAST(accession_no AS UNSIGNED))')->whereColumn('library_book_id', 'library_books.id'),
+                'first_added_at'   => LibraryBookCopy::selectRaw('MIN(created_at)')->whereColumn('library_book_id', 'library_books.id'),
+            ])
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->query('search'));
                 $query->where(function ($inner) use ($search) {
@@ -143,13 +148,17 @@ class LibraryController extends Controller
                 ->orderByRaw('CAST(accession_no AS UNSIGNED), accession_no')
                 ->paginate(20),
             'nextAccessionNo' => $this->nextAccessionNo(),
+            'categories'      => LibraryCategory::orderBy('name')->get(),
+            'accessionBatches' => $book->copies()
+                ->selectRaw('created_at, COUNT(*) as copy_count, MIN(CAST(accession_no AS UNSIGNED)) as min_acc, MAX(CAST(accession_no AS UNSIGNED)) as max_acc')
+                ->groupBy('created_at')
+                ->orderBy('created_at')
+                ->get(),
         ]);
     }
 
     public function editBook(LibraryBook $book): View
     {
-        $book->load('precededBy');
-
         return view('library-admin.books.form', [
             'book'           => $book,
             'categories'     => LibraryCategory::orderBy('name')->get(),
@@ -195,6 +204,33 @@ class LibraryController extends Controller
         ]);
 
         return back()->with('success', "{$created} book copy/copies added successfully.");
+    }
+
+    public function storeNewEdition(Request $request, LibraryBook $book): RedirectResponse
+    {
+        $validated = $this->validateBook($request);
+
+        $newBook = DB::transaction(function () use ($book, $validated) {
+            $edition = LibraryBook::create(collect($validated)
+                ->except(['copies_count'])
+                ->merge([
+                    'preceded_by_book_id' => $book->id,
+                    'created_by'          => auth()->id(),
+                ])
+                ->all());
+
+            $count = $this->createCopyCount($edition, (int) ($validated['copies_count'] ?? 0));
+
+            $this->logActivity('book_added', [
+                'book_id'    => $edition->id,
+                'book_title' => $edition->title,
+                'details'    => "Added new edition \"{$edition->title}\" (linked to \"{$book->title}\") with {$count} copies.",
+            ]);
+
+            return $edition;
+        });
+
+        return redirect()->route('admin.library.books.show', $newBook)->with('success', 'New edition added and linked to the previous edition.');
     }
 
     public function destroyCopy(LibraryBookCopy $copy): RedirectResponse
@@ -1464,7 +1500,7 @@ class LibraryController extends Controller
             'edition'             => ['nullable', 'string', 'max:80'],
             'volume'              => ['nullable', 'string', 'max:60'],
             'language'            => ['nullable', 'string', 'max:60'],
-            'preceded_by_book_id' => ['nullable', 'integer', 'exists:library_books,id', Rule::notIn([$book?->id])],
+            'preceded_by_book_id' => ['nullable', 'integer', 'exists:library_books,id', Rule::notIn([$book->id ?? -1])],
             'price'               => ['nullable', 'numeric', 'min:0'],
             'pages'               => ['nullable', 'integer', 'min:1'],
             'source'              => ['nullable', 'string', 'max:255'],
@@ -1474,7 +1510,7 @@ class LibraryController extends Controller
         ]);
 
         $validated['isbn'] = $validated['isbn'] ?: null;
-        $validated['preceded_by_book_id'] = $validated['preceded_by_book_id'] ?: null;
+        $validated['preceded_by_book_id'] = $validated['preceded_by_book_id'] ?? null;
 
         return $validated;
     }

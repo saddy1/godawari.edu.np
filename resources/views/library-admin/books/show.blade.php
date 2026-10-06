@@ -48,12 +48,30 @@
         </div>
     </div>
 
-    <form method="POST"
-          action="{{ route('admin.library.books.copies.store', $book) }}"
-          class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-          data-copy-confirm-form
-          data-next-accession="{{ $nextAccessionNo }}">
-        @csrf
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <p class="text-xs font-black uppercase tracking-widest text-slate-400">Accession Log</p>
+            <span class="text-xs font-bold text-slate-400">{{ $accessionBatches->count() }} batch{{ $accessionBatches->count() === 1 ? '' : 'es' }} · {{ $accessionBatches->sum('copy_count') }} total copies</span>
+        </div>
+        <div class="divide-y divide-slate-100">
+            @forelse($accessionBatches as $index => $batch)
+                <div class="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-700">{{ $index + 1 }}</span>
+                        <div>
+                            <p class="text-sm font-black text-slate-900">Acc. {{ (int) $batch->min_acc === (int) $batch->max_acc ? $batch->min_acc : $batch->min_acc.' – '.$batch->max_acc }}</p>
+                            <p class="text-xs font-semibold text-slate-400">{{ $index === 0 ? 'First entry' : 'Entry #'.($index + 1) }} · {{ $batch->copy_count }} cop{{ (int) $batch->copy_count === 1 ? 'y' : 'ies' }} added</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-bold text-slate-400">{{ \Illuminate\Support\Carbon::parse($batch->created_at)->format('d M Y, h:i A') }}</span>
+                </div>
+            @empty
+                <p class="py-6 text-center text-sm font-bold text-slate-400">No copies added yet.</p>
+            @endforelse
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <p class="text-xs font-black uppercase tracking-widest text-slate-400">Add Copies</p>
@@ -62,30 +80,106 @@
             <button type="button" data-reveal-copy-panel class="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white hover:bg-emerald-800">Add Copy</button>
         </div>
 
-        <div data-copy-panel class="mt-4 hidden rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-            <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
-                <label class="text-xs font-black uppercase tracking-widest text-emerald-900">Number of Copies
-                    <input id="copiesCountInput" name="copies_count" type="number" min="1" max="500" required placeholder="Enter copy quantity" class="mt-1.5 h-12 w-full rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
-                </label>
-                <button class="self-end rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800">Continue</button>
+        <div data-copy-panel class="mt-4 hidden">
+            <div class="flex gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
+                <button type="button" data-copy-mode-btn="same" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-black transition">Same edition</button>
+                <button type="button" data-copy-mode-btn="edition" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-black transition">New edition</button>
             </div>
 
-            <div class="mt-4 grid gap-3 text-sm font-semibold text-emerald-900 sm:grid-cols-3">
-                <div class="rounded-xl bg-white/75 p-3">
-                    <p class="text-xs font-black uppercase tracking-widest text-emerald-700">Next Acc. No.</p>
-                    <p class="mt-1 text-xl font-black text-slate-950">{{ $nextAccessionNo }}</p>
+            <form method="POST"
+                  action="{{ route('admin.library.books.copies.store', $book) }}"
+                  data-copy-mode-panel="same"
+                  data-copy-confirm-form
+                  data-next-accession="{{ $nextAccessionNo }}"
+                  class="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                @csrf
+                <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                    <label class="text-xs font-black uppercase tracking-widest text-emerald-900">Number of Copies
+                        <input id="copiesCountInput" name="copies_count" type="number" min="1" max="500" required placeholder="Enter copy quantity" class="mt-1.5 h-12 w-full rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
+                    </label>
+                    <button class="self-end rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800">Continue</button>
                 </div>
-                <div class="rounded-xl bg-white/75 p-3">
-                    <p class="text-xs font-black uppercase tracking-widest text-emerald-700">Copies</p>
-                    <p class="mt-1 text-xl font-black text-slate-950" data-copy-preview-count>0</p>
+
+                <div class="mt-4 grid gap-3 text-sm font-semibold text-emerald-900 sm:grid-cols-3">
+                    <div class="rounded-xl bg-white/75 p-3">
+                        <p class="text-xs font-black uppercase tracking-widest text-emerald-700">Next Acc. No.</p>
+                        <p class="mt-1 text-xl font-black text-slate-950">{{ $nextAccessionNo }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white/75 p-3">
+                        <p class="text-xs font-black uppercase tracking-widest text-emerald-700">Copies</p>
+                        <p class="mt-1 text-xl font-black text-slate-950" data-copy-preview-count>0</p>
+                    </div>
+                    <div class="rounded-xl bg-white/75 p-3">
+                        <p class="text-xs font-black uppercase tracking-widest text-emerald-700">Accession Range</p>
+                        <p class="mt-1 text-xl font-black text-slate-950" data-copy-preview-range>-</p>
+                    </div>
                 </div>
-                <div class="rounded-xl bg-white/75 p-3">
-                    <p class="text-xs font-black uppercase tracking-widest text-emerald-700">Accession Range</p>
-                    <p class="mt-1 text-xl font-black text-slate-950" data-copy-preview-range>-</p>
+            </form>
+
+            <form method="POST"
+                  action="{{ route('admin.library.books.editions.store', $book) }}"
+                  data-copy-mode-panel="edition"
+                  class="mt-4 hidden rounded-xl border border-amber-100 bg-amber-50 p-4">
+                @csrf
+                <p class="mb-3 text-sm font-semibold leading-6 text-amber-900">This creates a <span class="font-black">new, separate catalog record</span> linked to this one as its previous edition. Fields below are pre-filled from the current record — edit whatever changed (ISBN, edition, author, etc.).</p>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900 md:col-span-2">Book Title
+                        <input name="title" required value="{{ $book->title }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Author
+                        <input name="author" required value="{{ $book->author }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Category
+                        <select name="library_category_id" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                            <option value="">No category</option>
+                            @foreach($categories ?? [] as $category)
+                                <option value="{{ $category->id }}" @selected($book->library_category_id === $category->id)>{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">ISBN
+                        <input name="isbn" value="{{ $book->isbn }}" placeholder="New ISBN, if any" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Edition
+                        <input name="edition" value="{{ $book->edition }}" placeholder="Example: 2nd" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Volume
+                        <input name="volume" value="{{ $book->volume }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Language
+                        <input name="language" value="{{ $book->language }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Publisher
+                        <input name="publisher" value="{{ $book->publisher }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Publication Year
+                        <input name="publication_year" type="number" min="1000" max="{{ now()->year + 1 }}" value="{{ $book->publication_year }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Pages
+                        <input name="pages" type="number" min="1" value="{{ $book->pages }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Price
+                        <input name="price" type="number" step="0.01" min="0" value="{{ $book->price }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Shelf Location
+                        <input name="shelf_location" value="{{ $book->shelf_location }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Source
+                        <input name="source" value="{{ $book->source }}" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900 md:col-span-2">Description
+                        <textarea name="description" rows="3" class="mt-1.5 w-full rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">{{ $book->description }}</textarea>
+                    </label>
+                    <label class="text-xs font-black uppercase tracking-widest text-amber-900">Number of Copies
+                        <input name="copies_count" type="number" min="1" max="500" required value="1" class="mt-1.5 h-12 w-full rounded-xl border border-amber-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-amber-700 focus:ring-4 focus:ring-amber-100">
+                    </label>
                 </div>
-            </div>
+
+                <button class="mt-4 w-full rounded-xl bg-amber-600 px-5 py-3 text-sm font-black text-white hover:bg-amber-700">Add as New Edition</button>
+            </form>
         </div>
-    </form>
+    </div>
 
     <div data-copy-confirm-modal class="fixed inset-0 z-[80] hidden items-center justify-center bg-slate-950/60 p-4">
         <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl">
@@ -234,6 +328,24 @@ revealCopyPanelButton?.addEventListener('click', function () {
     copyInput?.focus();
     refreshCopyPreview();
 });
+
+const copyModeButtons = [...document.querySelectorAll('[data-copy-mode-btn]')];
+const copyModePanels = [...document.querySelectorAll('[data-copy-mode-panel]')];
+
+function setCopyMode(mode) {
+    copyModePanels.forEach(panel => panel.classList.toggle('hidden', panel.dataset.copyModePanel !== mode));
+    copyModeButtons.forEach(button => {
+        const active = button.dataset.copyModeBtn === mode;
+        button.classList.toggle('bg-white', active);
+        button.classList.toggle('shadow-sm', active);
+        button.classList.toggle('text-slate-950', active);
+        button.classList.toggle('text-slate-500', !active);
+    });
+    if (mode === 'same') copyInput?.focus();
+}
+
+copyModeButtons.forEach(button => button.addEventListener('click', () => setCopyMode(button.dataset.copyModeBtn)));
+setCopyMode('same');
 
 copyInput?.addEventListener('input', refreshCopyPreview);
 refreshCopyPreview();

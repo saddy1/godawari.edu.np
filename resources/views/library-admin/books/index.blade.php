@@ -39,6 +39,12 @@
                         <td class="px-5 py-3">
                             <p class="font-black text-slate-950">{{ $book->title }}</p>
                             <p class="text-xs font-semibold text-slate-500">{{ $book->author }} @if($book->isbn) · ISBN {{ $book->isbn }} @endif</p>
+                            @if($book->min_accession_no !== null)
+                                <p class="mt-1 text-xs font-bold text-emerald-700">
+                                    Acc. {{ (int) $book->min_accession_no === (int) $book->max_accession_no ? $book->min_accession_no : $book->min_accession_no.' – '.$book->max_accession_no }}
+                                    <span class="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-600">1st added {{ \Illuminate\Support\Carbon::parse($book->first_added_at)->format('d M Y') }}</span>
+                                </p>
+                            @endif
                         </td>
                         <td class="px-5 py-3 font-semibold text-slate-600">{{ $book->category?->name ?: 'No category' }}</td>
                         <td class="px-5 py-3 text-right font-black text-emerald-700">{{ $book->available_copies_count }}</td>

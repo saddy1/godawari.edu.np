@@ -35,6 +35,7 @@ Route::prefix('admin/library')
         Route::put('/books/{book}', [LibraryController::class, 'updateBook'])->middleware('permission:library.edit')->name('books.update');
         Route::delete('/books/{book}', [LibraryController::class, 'destroyBook'])->middleware('permission:library.edit')->name('books.destroy');
         Route::post('/books/{book}/copies', [LibraryController::class, 'addCopies'])->middleware('permission:library.edit')->name('books.copies.store');
+        Route::post('/books/{book}/editions', [LibraryController::class, 'storeNewEdition'])->middleware('permission:library.create')->name('books.editions.store');
         Route::delete('/copies/{copy}', [LibraryController::class, 'destroyCopy'])->middleware('permission:library.edit')->name('copies.destroy');
 
         // Circulation
