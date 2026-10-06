@@ -134,7 +134,7 @@ class LibraryController extends Controller
 
     public function showBook(LibraryBook $book): View
     {
-        $book->load('category');
+        $book->load(['category', 'precededBy', 'laterEditions']);
 
         return view('library-admin.books.show', [
             'book'           => $book,
@@ -148,6 +148,8 @@ class LibraryController extends Controller
 
     public function editBook(LibraryBook $book): View
     {
+        $book->load('precededBy');
+
         return view('library-admin.books.form', [
             'book'           => $book,
             'categories'     => LibraryCategory::orderBy('name')->get(),
@@ -1449,12 +1451,20 @@ class LibraryController extends Controller
     {
         $validated = $request->validate([
             'library_category_id' => ['nullable', 'exists:library_categories,id'],
+            // A new edition sharing an old ISBN (publisher reuse, or a
+            // cataloger working from the old ISBN) is a real scenario, not a
+            // data error — so this is no longer a hard uniqueness rule. The
+            // existing duplicate-detection autosuggest (searchBooks()) still
+            // warns staff before they save, it just no longer blocks them.
+            'isbn'                => ['nullable', 'string', 'max:80'],
             'title'               => ['required', 'string', 'max:255'],
             'author'              => ['required', 'string', 'max:255'],
-            'isbn'                => ['nullable', 'string', 'max:80', Rule::unique('library_books', 'isbn')->ignore($book)],
             'publisher'           => ['nullable', 'string', 'max:255'],
             'publication_year'    => ['nullable', 'integer', 'between:1800,' . ((int) date('Y') + 1)],
             'edition'             => ['nullable', 'string', 'max:80'],
+            'volume'              => ['nullable', 'string', 'max:60'],
+            'language'            => ['nullable', 'string', 'max:60'],
+            'preceded_by_book_id' => ['nullable', 'integer', 'exists:library_books,id', Rule::notIn([$book?->id])],
             'price'               => ['nullable', 'numeric', 'min:0'],
             'pages'               => ['nullable', 'integer', 'min:1'],
             'source'              => ['nullable', 'string', 'max:255'],
@@ -1464,6 +1474,7 @@ class LibraryController extends Controller
         ]);
 
         $validated['isbn'] = $validated['isbn'] ?: null;
+        $validated['preceded_by_book_id'] = $validated['preceded_by_book_id'] ?: null;
 
         return $validated;
     }

@@ -23,8 +23,24 @@
     <div class="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div>
             <h2 class="text-2xl font-black text-slate-950">{{ $book->title }}</h2>
-            <p class="mt-1 text-sm font-semibold text-slate-500">{{ $book->author }} @if($book->isbn) · ISBN {{ $book->isbn }} @endif</p>
+            <p class="mt-1 text-sm font-semibold text-slate-500">{{ $book->author }} @if($book->isbn) · ISBN {{ $book->isbn }} @endif @if($book->edition) · Edition {{ $book->edition }} @endif @if($book->volume) · {{ $book->volume }} @endif @if($book->language) · {{ $book->language }} @endif</p>
             <p class="mt-1 text-sm font-semibold text-slate-500">{{ $book->category?->name ?: 'No category' }} · {{ $book->shelf_location ?: 'No shelf location' }}</p>
+
+            @if($book->precededBy)
+                <p class="mt-2 text-sm font-semibold text-amber-700">New edition of
+                    <a href="{{ route('admin.library.books.show', $book->precededBy) }}" class="underline hover:no-underline">{{ $book->precededBy->title }}</a>
+                    @if($book->precededBy->edition) (Edition {{ $book->precededBy->edition }}) @endif
+                </p>
+            @endif
+
+            @if($book->laterEditions->isNotEmpty())
+                <div class="mt-2 text-sm font-semibold text-emerald-700">
+                    Other editions in catalog:
+                    @foreach($book->laterEditions as $later)
+                        <a href="{{ route('admin.library.books.show', $later) }}" class="underline hover:no-underline">{{ $later->title }}{{ $later->edition ? ' (Edition '.$later->edition.')' : '' }}</a>{{ !$loop->last ? ',' : '' }}
+                    @endforeach
+                </div>
+            @endif
         </div>
         <div class="flex gap-2">
             <a href="{{ route('admin.library.books.edit', $book) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">Edit</a>

@@ -105,6 +105,16 @@
                                    class="mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
                         </label>
 
+                        <label class="text-xs font-black uppercase tracking-widest text-slate-500">Volume
+                            <input name="volume" value="{{ old('volume', $book->volume) }}" placeholder="Example: Vol. 2"
+                                   class="mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
+                        </label>
+
+                        <label class="text-xs font-black uppercase tracking-widest text-slate-500">Language
+                            <input name="language" value="{{ old('language', $book->language) }}" placeholder="Example: English"
+                                   class="mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
+                        </label>
+
                         <label class="text-xs font-black uppercase tracking-widest text-slate-500">Pages
                             <input name="pages" value="{{ old('pages', $book->pages) }}" type="number" min="1" placeholder="Total pages"
                                    class="mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
@@ -113,6 +123,24 @@
                         <label class="text-xs font-black uppercase tracking-widest text-slate-500">Price
                             <input name="price" value="{{ old('price', $book->price) }}" type="number" step="0.01" min="0" placeholder="0.00"
                                    class="mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
+                        </label>
+                    </div>
+                </section>
+
+                <section class="space-y-4">
+                    <div class="border-b border-slate-100 pb-3">
+                        <h2 class="text-lg font-black text-slate-950">Edition Linking</h2>
+                        <p class="mt-1 text-sm font-semibold text-slate-500">If this record is a newer edition of a book already in the catalog, link it here — the old ISBN can stay as-is.</p>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <label class="relative text-xs font-black uppercase tracking-widest text-slate-500 md:col-span-2">This is a new edition of
+                            <input id="precededByInput" autocomplete="off" placeholder="Search by title, author, or ISBN to link the previous edition"
+                                   value="{{ old('preceded_by_book_id') ? '' : ($book->precededBy->title ?? '') }}"
+                                   class="mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100">
+                            <input type="hidden" id="precededById" name="preceded_by_book_id" value="{{ old('preceded_by_book_id', $book->preceded_by_book_id) }}">
+                            <div id="precededBySuggest" class="relative normal-case tracking-normal"></div>
+                            <button type="button" id="precededByClear" class="mt-2 text-xs font-bold normal-case tracking-normal text-red-600 hover:underline {{ $book->preceded_by_book_id || old('preceded_by_book_id') ? '' : 'hidden' }}">Clear link</button>
                         </label>
                     </div>
                 </section>
@@ -338,6 +366,67 @@ function setupLibraryAutoSuggest(inputId, boxId, fieldName) {
 setupLibraryAutoSuggest('titleInput', 'titleSuggest', 'title');
 setupLibraryAutoSuggest('authorInput', 'authorSuggest', 'author');
 setupLibraryAutoSuggest('publisherInput', 'publisherSuggest', 'publisher');
+
+(function setupPrecededByPicker() {
+    const input = document.getElementById('precededByInput');
+    const hiddenId = document.getElementById('precededById');
+    const box = document.getElementById('precededBySuggest');
+    const clearButton = document.getElementById('precededByClear');
+    const currentBookId = {{ $book->exists ? (int) $book->id : 'null' }};
+    if (!input || !hiddenId || !box) return;
+    box.classList.add('library-suggest-box');
+
+    box.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-edition-id]');
+        if (!button) return;
+        hiddenId.value = button.dataset.editionId;
+        input.value = button.dataset.editionTitle || '';
+        box.innerHTML = '';
+        clearButton?.classList.remove('hidden');
+    });
+
+    clearButton?.addEventListener('click', function () {
+        hiddenId.value = '';
+        input.value = '';
+        clearButton.classList.add('hidden');
+    });
+
+    input.addEventListener('input', function () {
+        hiddenId.value = '';
+        const query = this.value.trim();
+        if (query.length < 2) {
+            box.innerHTML = '';
+            return;
+        }
+
+        box.innerHTML = `<div class="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-slate-400 shadow-xl">Searching...</div>`;
+
+        fetch(`{{ route('admin.library.books.search') }}?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                const results = (data || []).filter(row => row.id !== currentBookId);
+                if (!results.length) {
+                    box.innerHTML = `<div class="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-slate-400 shadow-xl">No results found</div>`;
+                    return;
+                }
+
+                box.innerHTML = `<div class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">`
+                    + results.map(row => {
+                        const title = escapeLibraryHtml(row.title || '');
+                        const author = escapeLibraryHtml(row.author || '');
+                        const isbn = escapeLibraryHtml(row.isbn || '');
+                        return `<button type="button" data-edition-id="${row.id}" data-edition-title="${title}" class="block w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-emerald-50">${title}<span class="mt-0.5 block text-xs font-semibold text-slate-400">${author}${isbn ? ' · ISBN ' + isbn : ''}</span></button>`;
+                    }).join('')
+                    + `</div>`;
+            });
+    });
+
+    document.addEventListener('click', function (event) {
+        if (!input.contains(event.target) && !box.contains(event.target)) {
+            box.innerHTML = '';
+        }
+    });
+})();
 
 const copyForm = document.querySelector('[data-copy-confirm-form]');
 const copyInput = document.getElementById('copiesCountInput');
