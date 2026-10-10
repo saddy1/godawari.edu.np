@@ -22,7 +22,7 @@
                 }" class="w-full space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
                 <p class="text-xs font-bold uppercase tracking-wider text-emerald-800">Filter marksheets</p>
                 <div class="flex flex-wrap items-end gap-3">
-                    <label class="flex flex-col text-xs font-semibold text-gray-600">Student search<input name="q" value="{{ request('q') }}" placeholder="Name or symbol number" class="mt-1 w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-emerald-600 focus:ring-emerald-600"></label>
+                    <label class="flex flex-col text-xs font-semibold text-gray-600">Student search<input name="q" value="{{ request('q') }}" placeholder="Name, roll no. or symbol no." class="mt-1 w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-emerald-600 focus:ring-emerald-600"></label>
                     @if($examination->organization->type === 'school')
                     <label class="flex flex-col text-xs font-semibold text-gray-600">Class<select name="school_class" x-model="schoolClass" @change="faculty = ''; section = ''" class="mt-1 w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"><option value="">All classes</option><option value="11">Class 11</option><option value="12">Class 12</option></select></label>
                     @endif

@@ -87,7 +87,10 @@ class MarksheetController extends Controller
             return (! $request->filled('school_class') || $class === $request->integer('school_class'))
                 && (! $request->filled('faculty') || $student->stream === $request->input('faculty'))
                 && (! $request->filled('section') || $section === $request->input('section'))
-                && ($query === '' || str_contains(mb_strtolower(implode(' ', [$student->full_name, $student->stream, $section, $symbols->get($student->id)])), $query));
+                && ($query === '' || str_contains(mb_strtolower(implode(' ', [
+                    $student->full_name, $student->roll_number, $student->stream,
+                    $section, $symbols->get($student->id),
+                ])), $query));
         })->values();
     }
 
