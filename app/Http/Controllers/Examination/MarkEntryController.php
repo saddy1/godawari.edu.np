@@ -26,6 +26,10 @@ class MarkEntryController extends Controller
         $section = $sections->firstWhere('id', $request->integer('section'));
         $subjects = $exam ? ExaminationSubject::with(['offering.subject', 'offering.department', 'marks'])
             ->where('examination_id', $exam->id)->when($facultyId, fn ($q) => $q->whereHas('offering', fn ($o) => $o->where('department_id', $facultyId)))
+            ->when($section, fn ($q) => $q->whereHas('offering.studentEnrollments', fn ($enrollments) => $enrollments
+                ->where('academic_year', $exam->academicYear->name)
+                ->whereHas('student', fn ($students) => $students->where('section_id', $section->id)
+                    ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $section->name)))))
             ->get()->sortBy('offering.subject.name')->values() : collect();
 
         return view('examinations.marks-dashboard', compact('exams', 'exam', 'faculties', 'facultyId', 'sections', 'section', 'subjects'));
