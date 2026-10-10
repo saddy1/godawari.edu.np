@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Examination;
 use App\Http\Controllers\Controller;
 use App\Models\Card\Student;
 use App\Models\Examination\ExaminationMark;
+use App\Models\Examination\ExaminationAttendance;
 use App\Models\Examination\ExaminationMarkSubmission;
 use App\Models\Examination\ExaminationSubject;
 use App\Models\Examination\Examination;
@@ -69,6 +70,9 @@ class MarkEntryController extends Controller
         $students = $selectedSection
             ? $this->eligibleStudents($examinationSubject, $selectedSectionIds)->get()
             : collect();
+        $attendanceAbsentIds = ExaminationAttendance::where('examination_subject_id', $examinationSubject->id)
+            ->where('status', 'absent')->whereIn('student_id', $students->pluck('id'))->pluck('student_id')->map(fn ($id) => (int) $id);
+        $this->syncAttendanceAbsences($examinationSubject, $attendanceAbsentIds);
         $marks = ExaminationMark::where('examination_subject_id', $examinationSubject->id)->whereIn('student_id', $students->pluck('id'))->get()->keyBy('student_id');
         $markSubmission = $selectedSection ? ExaminationMarkSubmission::where('examination_subject_id', $examinationSubject->id)
             ->where('teacher_id', $request->user()->id)->where('section_id', $selectedSection->id)->first() : null;
@@ -76,7 +80,7 @@ class MarkEntryController extends Controller
             $selectedSection ? $theorySectionIds->intersect($selectedSectionIds)->values() : $theorySectionIds,
             $selectedSection ? $practicalSectionIds->intersect($selectedSectionIds)->values() : $practicalSectionIds);
         return view('examinations.marks', compact(
-            'examinationSubject', 'students', 'marks', 'component', 'sections', 'selectedSection',
+            'examinationSubject', 'students', 'marks', 'component', 'sections', 'selectedSection', 'attendanceAbsentIds',
             'theorySectionIds', 'practicalSectionIds', 'markSubmission', 'submissionProgress'
         ));
     }
@@ -189,12 +193,14 @@ class MarkEntryController extends Controller
         $marksColumn = $component.'_marks';
         $absentColumn = $component.'_is_absent';
         $fullMarks = (float) $examinationSubject->{$component.'_full_marks'};
+        $attendanceAbsentIds = ExaminationAttendance::where('examination_subject_id', $examinationSubject->id)
+            ->where('status', 'absent')->whereIn('student_id', $eligibleIds)->pluck('student_id')->map(fn ($id) => (int) $id);
 
-        DB::transaction(function () use ($rows, $eligibleIds, $examinationSubject, $component, $marksColumn, $absentColumn, $fullMarks) {
+        DB::transaction(function () use ($rows, $eligibleIds, $attendanceAbsentIds, $examinationSubject, $component, $marksColumn, $absentColumn, $fullMarks) {
             foreach ($rows as $studentId => $row) {
                 $studentId = (int) $studentId;
                 if (! $eligibleIds->contains($studentId)) throw ValidationException::withMessages(['marks' => 'A submitted student is outside this subject and section.']);
-                $absent = filter_var($row['is_absent'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                $absent = $attendanceAbsentIds->contains($studentId) || filter_var($row['is_absent'] ?? false, FILTER_VALIDATE_BOOLEAN);
                 $score = filled($row['score'] ?? null) ? (float) $row['score'] : null;
                 if ($score !== null && $score > $fullMarks) {
                     $passMarks = (float) $examinationSubject->{$component.'_pass_marks'};
@@ -220,6 +226,22 @@ class MarkEntryController extends Controller
                 $mark->save();
             }
         });
+    }
+
+    /** Attendance is authoritative: an admin-marked absence applies to both components. */
+    private function syncAttendanceAbsences(ExaminationSubject $subject, $studentIds): void
+    {
+        foreach ($studentIds as $studentId) {
+            ExaminationMark::updateOrCreate(
+                ['examination_subject_id' => $subject->id, 'student_id' => $studentId],
+                [
+                    'theory_marks' => null, 'practical_marks' => null,
+                    'theory_is_absent' => (float) $subject->theory_full_marks > 0,
+                    'practical_is_absent' => (float) $subject->practical_full_marks > 0,
+                    'is_absent' => true, 'submitted_at' => now(),
+                ]
+            );
+        }
     }
 
     private function ensureTeacherSubmissionIsOpen(ExaminationSubject $subject, int $teacherId, int $sectionId): void
