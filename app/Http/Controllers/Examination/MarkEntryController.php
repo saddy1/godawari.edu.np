@@ -53,7 +53,17 @@ class MarkEntryController extends Controller
                 : route('admin.examinations.index', ['exam' => $examinationSubject->examination_id]);
             return redirect()->to($route)->with('error', $message);
         }
-        $sections = $examinationSubject->examination->sections->whereIn('id', $sectionIds)->values();
+        $sections = $examinationSubject->examination->sections->whereIn('id', $sectionIds)
+            ->filter(function ($section) use ($examinationSubject) {
+                return Student::query()->where('member_type', 'student')
+                    ->whereHas('subjectEnrollments', fn ($enrollments) => $enrollments
+                        ->where('subject_offering_id', $examinationSubject->subject_offering_id)
+                        ->where('academic_year', $examinationSubject->examination->academicYear->name))
+                    ->where(fn ($students) => $students->where('section_id', $section->id)
+                        ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $section->name)))
+                    ->exists();
+            })->values();
+        abort_if($sections->isEmpty(), 422, 'No enrolled students study this subject in your assigned sections.');
         $selectedSection = $this->selectedSection($request, $sections);
         $selectedSectionIds = $selectedSection ? collect([(int) $selectedSection->id]) : collect();
         $students = $selectedSection
