@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Card\Department;
 use App\Models\Card\Organization;
 use App\Models\Card\Section;
+use App\Models\Card\Student;
 use App\Models\Card\SubjectOffering;
 use App\Models\Examination\Examination;
 use App\Models\Examination\ExaminationAttendance;
@@ -16,6 +17,7 @@ use App\Services\ExamAnalyticsService;
 use App\Services\ExamTeacherAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class ExaminationController extends Controller
@@ -189,7 +191,48 @@ class ExaminationController extends Controller
                 && (! $examination->starts_on || now()->startOfDay()->gte($examination->starts_on))
                 && (! $examination->ends_on || now()->startOfDay()->lte($examination->ends_on)),
             'canManage' => auth()->user()->canAccess('examinations.manage'),
+            'marksDashboard' => auth()->user()->canAccess('examinations.manage')
+                ? $this->marksDashboard($examination, $teacherAssignments) : collect(),
         ];
+    }
+
+    /** A manager-facing, section-by-section view of mark-entry readiness. */
+    private function marksDashboard(Examination $examination, ExamTeacherAssignmentService $teacherAssignments)
+    {
+        return $examination->subjects->map(function (ExaminationSubject $subject) use ($examination, $teacherAssignments) {
+            $theoryTeachers = $teacherAssignments->labelsFor($examination, $subject->subject_offering_id, 'theory');
+            $practicalTeachers = (float) $subject->practical_full_marks > 0
+                ? $teacherAssignments->labelsFor($examination, $subject->subject_offering_id, 'practical') : collect();
+
+            $sections = $examination->sections->map(function (Section $section) use ($subject, $examination, $theoryTeachers, $practicalTeachers) {
+                $studentIds = Student::query()->where('member_type', 'student')
+                    ->whereHas('subjectEnrollments', fn ($q) => $q->where('subject_offering_id', $subject->subject_offering_id)
+                        ->where('academic_year', $examination->academicYear->name))
+                    ->where(fn ($q) => $q->where('section_id', $section->id)
+                        ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $section->name)))
+                    ->pluck('id');
+                $marks = $subject->marks->whereIn('student_id', $studentIds);
+                $componentStatus = collect([
+                    'theory' => (float) $subject->theory_full_marks > 0,
+                    'practical' => (float) $subject->practical_full_marks > 0,
+                ])->filter()->mapWithKeys(fn ($enabled, $component) => [$component => [
+                    'entered' => $marks->filter(fn ($mark) => $mark->{$component.'_marks'} !== null || $mark->{$component.'_is_absent'})->count(),
+                    'expected' => $studentIds->count(),
+                ]]);
+                $lockedBy = $subject->markSubmissions->where('section_id', $section->id)
+                    ->filter(fn ($submission) => $submission->is_locked)->pluck('teacher.name')->filter()->unique()->values();
+                $namesFor = fn ($labels) => $labels->filter(fn ($label) => Str::endsWith($label, ' · '.$section->name))
+                    ->map(fn ($label) => Str::beforeLast($label, ' · '))->unique()->values();
+                $assigned = $namesFor($theoryTeachers)->merge($namesFor($practicalTeachers))->unique()->values();
+
+                return (object) [
+                    'section' => $section, 'students' => $studentIds->count(), 'components' => $componentStatus,
+                    'locked_by' => $lockedBy, 'pending_teachers' => $assigned->diff($lockedBy)->values(),
+                ];
+            })->filter(fn ($row) => $row->students > 0)->values();
+
+            return (object) ['subject' => $subject, 'sections' => $sections];
+        })->filter(fn ($row) => $row->sections->isNotEmpty())->values();
     }
 
     // Separate from $analytics above — that's marks-based (theory/practical

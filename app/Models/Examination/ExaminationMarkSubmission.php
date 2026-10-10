@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class ExaminationMarkSubmission extends Model
 {
     protected $fillable = [
-        'examination_subject_id', 'teacher_id', 'section_ids', 'locked_at',
+        'examination_subject_id', 'teacher_id', 'section_id', 'section_ids', 'locked_at',
         'unlock_requested_at', 'unlock_reason', 'unlocked_at', 'unlocked_by',
     ];
 
@@ -19,6 +19,7 @@ class ExaminationMarkSubmission extends Model
 
     public function examinationSubject() { return $this->belongsTo(ExaminationSubject::class); }
     public function teacher() { return $this->belongsTo(User::class, 'teacher_id'); }
+    public function section() { return $this->belongsTo(\App\Models\Card\Section::class); }
     public function unlockedBy() { return $this->belongsTo(User::class, 'unlocked_by'); }
     public function getIsLockedAttribute(): bool { return $this->locked_at !== null; }
     public function getUnlockIsPendingAttribute(): bool { return $this->is_locked && $this->unlock_requested_at !== null; }

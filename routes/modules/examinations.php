@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['auth', 'module.enabled:examinations'])->group(function () {
     Route::get('/', [ExaminationController::class, 'index'])->middleware('permission:examinations.view')->name('index');
+    Route::get('/marks-entry', [MarkEntryController::class, 'dashboard'])->middleware('permission:examinations.marks.enter')->name('marks.dashboard');
     Route::post('/', [ExaminationController::class, 'store'])->middleware('permission:examinations.manage')->name('store');
     Route::get('/{examination}', [ExaminationController::class, 'show'])->middleware('permission:examinations.view')->name('show');
     Route::patch('/{examination}', [ExaminationController::class, 'update'])->middleware('permission:examinations.manage')->name('update');
