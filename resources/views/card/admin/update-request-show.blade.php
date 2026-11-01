@@ -24,11 +24,14 @@
 
     <section class="rounded-2xl border bg-white p-6 shadow-sm">
         <h2 class="text-base font-bold text-gray-800">Student details</h2>
-        <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-            <div><p class="text-xs text-gray-400">Name</p><p class="font-semibold">{{ $student->full_name }}</p></div>
-            <div><p class="text-xs text-gray-400">Roll number</p><p class="font-semibold">{{ $student->roll_number ?: '—' }}</p></div>
-            <div><p class="text-xs text-gray-400">Class / section</p><p class="font-semibold">{{ $student->stream ?: '—' }} {{ $student->section ?: '' }}</p></div>
-            <div><p class="text-xs text-gray-400">Submitted</p><p class="font-semibold">{{ $updateRequest->created_at->format('d M Y, h:i A') }}</p></div>
+        <div class="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
+            <img src="{{ $student->photo_url }}" alt="{{ $student->full_name }}" class="h-24 w-20 rounded-xl border border-gray-200 object-cover shadow-sm">
+            <div class="grid flex-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+                <div><p class="text-xs text-gray-400">Name</p><p class="font-semibold">{{ $student->full_name }}</p></div>
+                <div><p class="text-xs text-gray-400">Roll number</p><p class="font-semibold">{{ $student->roll_number ?: '—' }}</p></div>
+                <div><p class="text-xs text-gray-400">Class / section</p><p class="font-semibold">{{ $student->stream ?: '—' }} {{ $student->section ?: '' }}</p></div>
+                <div><p class="text-xs text-gray-400">Submitted</p><p class="font-semibold">{{ $updateRequest->created_at->format('d M Y, h:i A') }}</p></div>
+            </div>
         </div>
     </section>
 

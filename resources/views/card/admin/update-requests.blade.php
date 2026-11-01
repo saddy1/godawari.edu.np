@@ -38,8 +38,13 @@
                 @endphp
                 <tr class="hover:bg-gray-50" x-data="{ open: false }">
                     <td class="px-6 py-4">
-                        <p class="font-medium text-gray-800">{{ $req->student->full_name }}</p>
-                        <p class="text-xs text-gray-400">Roll: {{ $req->student->roll_number }} &middot; {{ $req->student->stream }} {{ $req->student->section }}</p>
+                        <div class="flex items-center gap-3">
+                            <img src="{{ $req->student->photo_url }}" alt="{{ $req->student->full_name }}" class="h-10 w-10 shrink-0 rounded-lg border border-gray-200 object-cover">
+                            <div>
+                                <p class="font-medium text-gray-800">{{ $req->student->full_name }}</p>
+                                <p class="text-xs text-gray-400">Roll: {{ $req->student->roll_number }} &middot; {{ $req->student->stream }} {{ $req->student->section }}</p>
+                            </div>
+                        </div>
                     </td>
                     <td class="px-6 py-4">
                         @if($req->status !== 'pending')
