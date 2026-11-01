@@ -45,4 +45,5 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::post('/marks/{examinationSubject}/submit', [MarkEntryController::class, 'submit'])->middleware('permission:examinations.marks.enter')->name('marks.submit');
     Route::post('/mark-submissions/{markSubmission}/request-unlock', [MarkEntryController::class, 'requestUnlock'])->middleware('permission:examinations.marks.enter')->name('marks.request-unlock');
     Route::patch('/mark-submissions/{markSubmission}/unlock', [MarkEntryController::class, 'unlock'])->middleware('permission:examinations.manage')->name('marks.unlock');
+    Route::patch('/marks/{examinationSubject}/students/{student}/present', [MarkEntryController::class, 'markStudentPresent'])->middleware('permission:examinations.manage')->name('marks.mark-present');
 });

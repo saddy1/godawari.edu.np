@@ -190,6 +190,56 @@ class MarkEntryController extends Controller
         return back()->with('success', 'Marks unlocked for '.$markSubmission->teacher?->name.'.');
     }
 
+    /** Correct an erroneous absence and reopen the section for teacher resubmission. */
+    public function markStudentPresent(Request $request, ExaminationSubject $examinationSubject, Student $student)
+    {
+        abort_unless($request->user()->canAccess('examinations.manage'), 403);
+        $component = $this->component($request, $examinationSubject);
+        $examinationSubject->load('examination.sections');
+
+        $section = $examinationSubject->examination->sections->firstWhere('id', $student->section_id)
+            ?? $examinationSubject->examination->sections->firstWhere('name', $student->section);
+        abort_unless($section, 422, 'This student is not assigned to an examination section.');
+        abort_unless($this->eligibleStudents($examinationSubject, collect([(int) $section->id]))
+            ->whereKey($student->id)->exists(), 422, 'This student is not enrolled in this examination subject.');
+
+        $attendance = ExaminationAttendance::where('examination_subject_id', $examinationSubject->id)
+            ->where('student_id', $student->id)->first();
+        $mark = ExaminationMark::where('examination_subject_id', $examinationSubject->id)
+            ->where('student_id', $student->id)->first();
+        abort_unless(($attendance?->status === 'absent') || ($mark && $mark->{$component.'_is_absent'}), 422, 'This student is not marked absent for the selected component.');
+
+        DB::transaction(function () use ($attendance, $mark, $examinationSubject, $student, $section, $request) {
+            if ($attendance?->status === 'absent') {
+                $attendance->update([
+                    'status' => 'present', 'reason' => null,
+                    'marked_by' => $request->user()->id, 'marked_at' => now(),
+                ]);
+            }
+
+            if ($mark) {
+                // Attendance absence applies to both components. Clear both;
+                // the teacher must enter/review the actual marks before submit.
+                $mark->update([
+                    'theory_is_absent' => false, 'practical_is_absent' => false,
+                    'is_absent' => false, 'theory_marks' => null, 'practical_marks' => null,
+                    'submitted_at' => now(),
+                ]);
+            }
+
+            ExaminationMarkSubmission::where('examination_subject_id', $examinationSubject->id)
+                ->where('section_id', $section->id)
+                ->whereNotNull('locked_at')
+                ->update([
+                    'locked_at' => null, 'unlock_requested_at' => null,
+                    'unlock_reason' => 'Administrator corrected '.$student->full_name.' from absent to present. Please enter or verify the marks and submit again.',
+                    'unlocked_at' => now(), 'unlocked_by' => $request->user()->id,
+                ]);
+        });
+
+        return back()->with('success', $student->full_name.' is now marked present. The affected teacher section has been reopened for marks entry and resubmission.');
+    }
+
     private function saveRows(array $rows, ExaminationSubject $examinationSubject, $sectionIds, string $component): void
     {
         $eligibleIds = $this->eligibleStudents($examinationSubject, $sectionIds)->pluck('id')->map(fn ($id) => (int) $id);
