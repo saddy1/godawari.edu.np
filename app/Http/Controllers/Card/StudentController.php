@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Card;
 use App\Http\Controllers\Controller;
 
 use App\Models\Card\Organization;
+use App\Models\Card\CardRequest;
 use App\Models\Card\Student;
 use App\Models\LibraryLoan;
 use App\Services\MemberAccountService;
@@ -73,6 +74,10 @@ class StudentController extends Controller
                 && ! $linkedUser->isSuperAdmin();
 
             $photoPath = $student->photo;
+
+            // Keep request history consistent even on installations where an
+            // older database backup was restored without the FK cascade.
+            CardRequest::where('student_id', $student->id)->delete();
             $student->delete();
             $this->deleteStudentPhoto($photoPath);
 

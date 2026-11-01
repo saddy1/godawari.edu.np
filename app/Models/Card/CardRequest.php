@@ -10,7 +10,10 @@ class CardRequest extends Model
 
     public function student()
     {
-        return $this->belongsTo(Student::class);
+        // Card requests are historical records. Inactive students must remain
+        // available here; only a genuinely deleted student makes this relation
+        // invalid. (Student normally hides inactive members with a global scope.)
+        return $this->belongsTo(Student::class)->withoutGlobalScope('active');
     }
 
     public function getStatusLabelAttribute(): string
