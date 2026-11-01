@@ -4,6 +4,7 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Session\TokenMismatchException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 
@@ -55,6 +56,43 @@ class Handler extends ExceptionHandler
                 ->withInput($request->except(['password', 'password_confirmation', '_token']));
         }
 
+        // Keep APP_DEBUG disabled in production, while still giving signed-in
+        // administrators a useful, safe diagnostic instead of Laravel's plain
+        // "Server Error" page. The full trace remains in the application log;
+        // it is intentionally never exposed in the browser.
+        if (! config('app.debug')
+            && ! $request->expectsJson()
+            && $this->shouldShowAdminDiagnostic($request, $e)) {
+            $cause = $this->rootCause($e);
+
+            return response()->view('errors.admin-error', [
+                'exception' => class_basename($cause),
+                'message' => $cause->getMessage() ?: 'An unexpected error occurred.',
+                'file' => basename($cause->getFile()),
+                'line' => $cause->getLine(),
+            ], 500);
+        }
+
         return parent::render($request, $e);
+    }
+
+    /** Show production diagnostics only to authenticated administrators. */
+    private function shouldShowAdminDiagnostic($request, Throwable $e): bool
+    {
+        if ($e instanceof HttpExceptionInterface && $e->getStatusCode() < 500) {
+            return false;
+        }
+
+        return auth()->check() && auth()->user()?->isAdmin();
+    }
+
+    /** A ViewException wraps the useful underlying application exception. */
+    private function rootCause(Throwable $e): Throwable
+    {
+        while ($e->getPrevious() instanceof Throwable) {
+            $e = $e->getPrevious();
+        }
+
+        return $e;
     }
 }

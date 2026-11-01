@@ -471,7 +471,11 @@ class StudentPortalController extends Controller
 
     public function adminCardRequests()
     {
+        // Ignore legacy requests whose student was deleted. Besides keeping the
+        // queue meaningful, this prevents a missing relationship from breaking
+        // the whole admin page.
         $query = CardRequest::with('student')
+            ->whereHas('student')
             ->orderByRaw("FIELD(status, 'pending', 'approved', 'collected', 'rejected')")
             ->orderBy('created_at', 'desc');
 
