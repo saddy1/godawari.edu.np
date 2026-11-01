@@ -27,7 +27,7 @@
     <section class="overflow-hidden rounded-2xl bg-gradient-to-r from-[#0b2415] to-[#1a5632] p-3.5 text-white shadow-sm sm:p-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0"><p class="text-[8px] font-black uppercase tracking-[.16em] text-amber-300">{{$exam->name}} · Marks entry</p><h1 class="mt-1 truncate text-lg font-black sm:text-xl">{{$subject->name}}</h1><p class="mt-0.5 text-[10px] font-semibold text-white/60">{{$examinationSubject->offering->department->name}} · {{$selectedSection?->name ?? 'Choose a section'}}</p></div>
-            <div class="flex shrink-0 items-center gap-2">@if($entryReadOnly)<span class="rounded-lg bg-amber-400 px-2 py-1.5 text-[9px] font-black text-amber-950">🔒 VIEW ONLY</span>@endif<a href="{{auth()->user()->isTeacher()?route('admin.examinations.index',['exam'=>$exam->id]):route('admin.examinations.index',['exam'=>$exam->id])}}" class="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-[10px] font-black hover:bg-white/20">← Subjects</a></div>
+            <div class="flex shrink-0 items-center gap-2">@if($entryReadOnly)<span class="rounded-lg bg-amber-400 px-2 py-1.5 text-[9px] font-black text-amber-950">🔒 VIEW ONLY</span>@endif<a href="{{route('admin.examinations.index',['exam'=>$exam->id])}}" class="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-[10px] font-black hover:bg-white/20">← All subjects</a></div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             @if($hasTheory)<div class="rounded-xl border border-white/10 bg-white/10 px-3 py-2"><p class="text-[8px] font-black uppercase tracking-widest text-emerald-200">Theory</p><p class="mt-0.5 text-xs font-black sm:text-sm">{{$theoryCode}} · FM {{$examinationSubject->theory_full_marks}} · PM {{$examinationSubject->theory_pass_marks}}</p></div>@endif
@@ -37,6 +37,15 @@
     </section>
 
     @if($errors->any())<div class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">@foreach($errors->all() as $error)<p>• {{$error}}</p>@endforeach</div>@endif
+
+    @if($markSubmission && ! $submissionLocked && $markSubmission->unlocked_at && $markSubmission->unlock_reason)
+        <section class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-amber-700">Correction required</p>
+            <h2 class="mt-1 text-sm font-black text-amber-950">This section was reopened for mark re-entry</h2>
+            <p class="mt-1 text-xs font-semibold text-amber-800">{{ $markSubmission->unlock_reason }}</p>
+            <p class="mt-2 text-[10px] font-bold text-amber-700">Review the affected student, enter the correct mark, then submit this section again.</p>
+        </section>
+    @endif
 
     <section class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
         <div class="flex items-start justify-between gap-3"><div><p class="text-[9px] font-black uppercase tracking-widest text-emerald-700">Step 3 of 3</p><h2 class="mt-0.5 text-sm font-black text-slate-900">Choose a section</h2><p class="mt-0.5 text-[10px] font-semibold text-slate-400">Students are shown alphabetically after you choose a section.</p></div><span class="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-600">{{$sections->count()}} available</span></div>
