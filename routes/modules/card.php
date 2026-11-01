@@ -77,6 +77,7 @@ Route::prefix('admin/students')->middleware(['auth', 'admin', 'module.enabled:ca
 
     Route::prefix('requests')->name('admin.')->middleware('permission:students.card-request')->group(function () {
         Route::get('/card-requests', [StudentPortalController::class, 'adminCardRequests'])->name('card-requests');
+        Route::delete('/card-requests/orphaned', [StudentPortalController::class, 'adminCleanupOrphanedCardRequests'])->name('card-requests.cleanup-orphaned');
         Route::patch('/card-requests/{cardRequest}', [StudentPortalController::class, 'adminUpdateCardRequest'])->name('card-requests.update');
         Route::get('/update-requests', [StudentPortalController::class, 'adminUpdateRequests'])->name('update-requests');
         Route::post('/update-requests/{updateRequest}', [StudentPortalController::class, 'adminReviewUpdateRequest'])

@@ -6,6 +6,22 @@
 
 <div class="space-y-4">
 
+    @if($orphanedRequestCount > 0)
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <p class="font-semibold text-amber-900 text-sm">{{ $orphanedRequestCount }} invalid card {{ Str::plural('request', $orphanedRequestCount) }} found</p>
+            <p class="mt-1 text-xs text-amber-800">These requests belong to students that no longer exist. They are excluded from the list until cleaned up.</p>
+        </div>
+        <form method="POST" action="{{ route('admin.card-requests.cleanup-orphaned') }}" onsubmit="return confirm('Remove {{ $orphanedRequestCount }} invalid card {{ Str::plural('request', $orphanedRequestCount) }}? This removes only the requests; it cannot restore deleted students.');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-amber-600 hover:bg-amber-700 px-4 py-2 text-xs font-semibold text-white transition">
+                Remove invalid requests
+            </button>
+        </form>
+    </div>
+    @endif
+
     {{-- Stats --}}
     @php
         $counts = $requests->getCollection()->groupBy('status');

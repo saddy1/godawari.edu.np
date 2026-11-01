@@ -485,8 +485,22 @@ class StudentPortalController extends Controller
         }
 
         $requests = $query->paginate(25);
+        $orphanedRequestCount = CardRequest::doesntHave('student')->count();
 
-        return view('card.admin.card-requests', compact('requests'));
+        return view('card.admin.card-requests', compact('requests', 'orphanedRequestCount'));
+    }
+
+    /** Remove only card requests whose linked student no longer exists. */
+    public function adminCleanupOrphanedCardRequests()
+    {
+        $deleted = CardRequest::doesntHave('student')->delete();
+
+        return redirect()->route('admin.card-requests')->with(
+            'success',
+            $deleted === 1
+                ? 'Removed 1 invalid card request with no linked student.'
+                : "Removed {$deleted} invalid card requests with no linked student."
+        );
     }
 
     public function adminUpdateCardRequest(Request $request, CardRequest $cardRequest)
