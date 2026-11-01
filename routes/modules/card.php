@@ -80,6 +80,7 @@ Route::prefix('admin/students')->middleware(['auth', 'admin', 'module.enabled:ca
         Route::delete('/card-requests/orphaned', [StudentPortalController::class, 'adminCleanupOrphanedCardRequests'])->name('card-requests.cleanup-orphaned');
         Route::patch('/card-requests/{cardRequest}', [StudentPortalController::class, 'adminUpdateCardRequest'])->name('card-requests.update');
         Route::get('/update-requests', [StudentPortalController::class, 'adminUpdateRequests'])->name('update-requests');
+        Route::get('/update-requests/{updateRequest}', [StudentPortalController::class, 'adminShowUpdateRequest'])->name('update-requests.show');
         Route::post('/update-requests/{updateRequest}', [StudentPortalController::class, 'adminReviewUpdateRequest'])
             ->withoutMiddleware('permission:students.card-request')
             ->middleware('permission:students.card-request,hr.members.edit,students.edit')

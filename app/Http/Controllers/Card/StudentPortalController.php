@@ -537,6 +537,23 @@ class StudentPortalController extends Controller
         return view('card.admin.update-requests', compact('requests'));
     }
 
+    /** Display one request without crowding the administrative queue. */
+    public function adminShowUpdateRequest(UpdateRequest $updateRequest)
+    {
+        $updateRequest->load('student');
+        abort_unless($updateRequest->student, 404);
+
+        if (! auth()->user()->isSuperAdmin()) {
+            $isInScope = auth()->user()->applyStudentScope(
+                Student::withoutGlobalScope('active')->whereKey($updateRequest->student_id)
+            )->exists();
+
+            abort_unless($isInScope, 403);
+        }
+
+        return view('card.admin.update-request-show', compact('updateRequest'));
+    }
+
     public function adminReviewUpdateRequest(Request $request, UpdateRequest $updateRequest)
     {
         $request->validate([

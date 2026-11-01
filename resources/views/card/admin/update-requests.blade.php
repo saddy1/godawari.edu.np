@@ -42,6 +42,9 @@
                         <p class="text-xs text-gray-400">Roll: {{ $req->student->roll_number }} &middot; {{ $req->student->stream }} {{ $req->student->section }}</p>
                     </td>
                     <td class="px-6 py-4">
+                        @if($req->status !== 'pending')
+                            <span class="text-xs text-gray-500">{{ count($req->requested_changes ?? []) }} {{ Str::plural('field', count($req->requested_changes ?? [])) }} updated</span>
+                        @else
                         <div class="space-y-1">
                             @foreach($req->requested_changes as $field => $value)
                                 <div class="text-xs">
@@ -63,6 +66,7 @@
                                 </div>
                             @endforeach
                         </div>
+                        @endif
                     </td>
                     <td class="px-6 py-4 text-xs text-gray-500">
                         {{ $req->created_at->format('d M Y') }}<br>
@@ -102,7 +106,7 @@
                                 </form>
                             </div>
                         @else
-                            <span class="text-xs text-gray-400">—</span>
+                            <a href="{{ route('admin.update-requests.show', $req) }}" class="text-xs text-primary font-medium hover:underline">View details</a>
                         @endif
                     </td>
                 </tr>
