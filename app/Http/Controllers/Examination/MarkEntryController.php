@@ -70,17 +70,20 @@ class MarkEntryController extends Controller
         $students = $selectedSection
             ? $this->eligibleStudents($examinationSubject, $selectedSectionIds)->get()
             : collect();
-        $attendanceAbsentIds = ExaminationAttendance::where('examination_subject_id', $examinationSubject->id)
-            ->where('status', 'absent')->whereIn('student_id', $students->pluck('id'))->pluck('student_id')->map(fn ($id) => (int) $id);
+        $attendanceRecords = ExaminationAttendance::with('markedBy')
+            ->where('examination_subject_id', $examinationSubject->id)
+            ->where('status', 'absent')->whereIn('student_id', $students->pluck('id'))
+            ->get()->keyBy('student_id');
+        $attendanceAbsentIds = $attendanceRecords->keys()->map(fn ($id) => (int) $id);
         $this->syncAttendanceAbsences($examinationSubject, $attendanceAbsentIds);
-        $marks = ExaminationMark::where('examination_subject_id', $examinationSubject->id)->whereIn('student_id', $students->pluck('id'))->get()->keyBy('student_id');
+        $marks = ExaminationMark::with('enteredBy')->where('examination_subject_id', $examinationSubject->id)->whereIn('student_id', $students->pluck('id'))->get()->keyBy('student_id');
         $markSubmission = $selectedSection ? ExaminationMarkSubmission::where('examination_subject_id', $examinationSubject->id)
             ->where('teacher_id', $request->user()->id)->where('section_id', $selectedSection->id)->first() : null;
         $submissionProgress = $this->submissionProgress($examinationSubject,
             $selectedSection ? $theorySectionIds->intersect($selectedSectionIds)->values() : $theorySectionIds,
             $selectedSection ? $practicalSectionIds->intersect($selectedSectionIds)->values() : $practicalSectionIds);
         return view('examinations.marks', compact(
-            'examinationSubject', 'students', 'marks', 'component', 'sections', 'selectedSection', 'attendanceAbsentIds',
+            'examinationSubject', 'students', 'marks', 'component', 'sections', 'selectedSection', 'attendanceAbsentIds', 'attendanceRecords',
             'theorySectionIds', 'practicalSectionIds', 'markSubmission', 'submissionProgress'
         ));
     }
