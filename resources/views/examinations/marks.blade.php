@@ -22,12 +22,19 @@
         'component' => $component,
         'section' => $selectedSectionId,
     ]);
+    $subjectListUrl = auth()->user()->isTeacher()
+        ? route('admin.examinations.index', ['exam' => $exam->id])
+        : route('admin.examinations.marks.dashboard', [
+            'exam' => $exam->id,
+            'faculty' => $examinationSubject->offering->department_id,
+            'section' => $selectedSectionId,
+        ]);
 @endphp
 <div class="mx-auto max-w-6xl space-y-3 sm:space-y-4">
     <section class="overflow-hidden rounded-2xl bg-gradient-to-r from-[#0b2415] to-[#1a5632] p-3.5 text-white shadow-sm sm:p-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0"><p class="text-[8px] font-black uppercase tracking-[.16em] text-amber-300">{{$exam->name}} · Marks entry</p><h1 class="mt-1 truncate text-lg font-black sm:text-xl">{{$subject->name}}</h1><p class="mt-0.5 text-[10px] font-semibold text-white/60">{{$examinationSubject->offering->department->name}} · {{$selectedSection?->name ?? 'Choose a section'}}</p></div>
-            <div class="flex shrink-0 items-center gap-2">@if($entryReadOnly)<span class="rounded-lg bg-amber-400 px-2 py-1.5 text-[9px] font-black text-amber-950">🔒 VIEW ONLY</span>@endif<a href="{{route('admin.examinations.index',['exam'=>$exam->id])}}" class="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-[10px] font-black hover:bg-white/20">← All subjects</a></div>
+            <div class="flex shrink-0 items-center gap-2">@if($entryReadOnly)<span class="rounded-lg bg-amber-400 px-2 py-1.5 text-[9px] font-black text-amber-950">🔒 VIEW ONLY</span>@endif<a href="{{$subjectListUrl}}" class="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-[10px] font-black hover:bg-white/20">← {{$selectedSection ? $selectedSection->name.' subjects' : 'All subjects'}}</a></div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             @if($hasTheory)<div class="rounded-xl border border-white/10 bg-white/10 px-3 py-2"><p class="text-[8px] font-black uppercase tracking-widest text-emerald-200">Theory</p><p class="mt-0.5 text-xs font-black sm:text-sm">{{$theoryCode}} · FM {{$examinationSubject->theory_full_marks}} · PM {{$examinationSubject->theory_pass_marks}}</p></div>@endif
