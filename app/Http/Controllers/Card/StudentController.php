@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Card\Organization;
 use App\Models\Card\CardRequest;
 use App\Models\Card\Student;
+use App\Models\Card\UpdateRequest;
 use App\Models\LibraryLoan;
 use App\Services\MemberAccountService;
 use App\Services\SubjectEnrollmentService;
@@ -78,6 +79,7 @@ class StudentController extends Controller
             // Keep request history consistent even on installations where an
             // older database backup was restored without the FK cascade.
             CardRequest::where('student_id', $student->id)->delete();
+            UpdateRequest::where('student_id', $student->id)->delete();
             $student->delete();
             $this->deleteStudentPhoto($photoPath);
 

@@ -14,6 +14,8 @@ class UpdateRequest extends Model
 
     public function student()
     {
-        return $this->belongsTo(Student::class);
+        // Requests are historical records, so an inactive student must still
+        // be available to the administrator reviewing the request.
+        return $this->belongsTo(Student::class)->withoutGlobalScope('active');
     }
 }

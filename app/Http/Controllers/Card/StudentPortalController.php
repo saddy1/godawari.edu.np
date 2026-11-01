@@ -523,6 +523,8 @@ class StudentPortalController extends Controller
     public function adminUpdateRequests()
     {
         $query = UpdateRequest::with('student')
+            // Do not render a request whose student was permanently deleted.
+            ->whereHas('student')
             ->orderByRaw("FIELD(status, 'pending', 'approved', 'rejected')")
             ->orderBy('created_at', 'desc');
 
