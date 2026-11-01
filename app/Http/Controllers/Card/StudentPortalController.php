@@ -317,6 +317,7 @@ class StudentPortalController extends Controller
         UpdateRequest::create([
             'student_id' => $student->id,
             'requested_changes' => ['photo' => 'profile-update-photos/' . $filename],
+            'previous_values' => ['photo' => $student->photo],
             'status' => 'pending',
         ]);
 
@@ -446,6 +447,9 @@ class StudentPortalController extends Controller
         UpdateRequest::create([
             'student_id' => $student->id,
             'requested_changes' => $changes,
+            'previous_values' => collect(array_keys($changes))
+                ->mapWithKeys(fn ($field) => [$field => $student->{$field}])
+                ->all(),
             'status' => 'pending',
         ]);
 

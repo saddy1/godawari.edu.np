@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class UpdateRequest extends Model
 {
-    protected $fillable = ['student_id', 'requested_changes', 'status', 'admin_note'];
+    protected $fillable = ['student_id', 'requested_changes', 'previous_values', 'status', 'admin_note'];
 
     protected $casts = [
         'requested_changes' => 'array',
+        'previous_values' => 'array',
     ];
 
     public function student()

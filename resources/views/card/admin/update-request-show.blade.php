@@ -36,12 +36,20 @@
         <div class="border-b px-6 py-4"><h2 class="text-base font-bold text-gray-800">Requested changes</h2></div>
         <div class="divide-y">
             @forelse($updateRequest->requested_changes ?? [] as $field => $value)
-                <div class="grid gap-2 px-6 py-4 sm:grid-cols-3">
+                @php
+                    $previous = data_get($updateRequest->previous_values ?? [], $field);
+                    $current = $student->{$field} ?? null;
+                @endphp
+                <div class="grid gap-3 px-6 py-4 sm:grid-cols-4">
                     <p class="text-sm font-semibold text-gray-700">{{ $labels[$field] ?? $field }}</p>
                     @if($field === 'photo')
-                        <div class="sm:col-span-2 flex items-center gap-3"><img src="{{ $student->photo_url }}" alt="Current profile" class="h-20 w-16 rounded-lg border object-cover"><span class="text-gray-400">→</span><img src="{{ asset($value) }}" alt="Requested profile" class="h-20 w-16 rounded-lg border border-green-300 object-cover"></div>
+                        <div><p class="mb-1 text-[10px] font-semibold uppercase text-gray-400">Previous</p>@if($previous)<img src="{{ asset($previous) }}" alt="Previous profile" class="h-20 w-16 rounded-lg border object-cover">@else<p class="text-xs text-gray-400">Not recorded</p>@endif</div>
+                        <div><p class="mb-1 text-[10px] font-semibold uppercase text-gray-400">Requested</p><img src="{{ asset($value) }}" alt="Requested profile" class="h-20 w-16 rounded-lg border border-blue-300 object-cover"></div>
+                        <div><p class="mb-1 text-[10px] font-semibold uppercase text-gray-400">Current</p><img src="{{ $student->photo_url }}" alt="Current profile" class="h-20 w-16 rounded-lg border border-green-300 object-cover"></div>
                     @else
-                        <p class="sm:col-span-2 break-words text-sm text-green-700 font-medium">{{ is_array($value) ? json_encode($value) : $value }}</p>
+                        <div><p class="text-[10px] font-semibold uppercase text-gray-400">Previous</p><p class="mt-1 break-words text-sm text-gray-500">{{ $previous !== null && $previous !== '' ? (is_array($previous) ? json_encode($previous) : $previous) : 'Not recorded' }}</p></div>
+                        <div><p class="text-[10px] font-semibold uppercase text-gray-400">Requested</p><p class="mt-1 break-words text-sm font-medium text-blue-700">{{ is_array($value) ? json_encode($value) : $value }}</p></div>
+                        <div><p class="text-[10px] font-semibold uppercase text-gray-400">Current</p><p class="mt-1 break-words text-sm font-medium text-green-700">{{ $current !== null && $current !== '' ? (is_array($current) ? json_encode($current) : $current) : '—' }}</p></div>
                     @endif
                 </div>
             @empty
