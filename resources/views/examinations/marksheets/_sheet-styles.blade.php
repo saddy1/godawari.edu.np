@@ -48,9 +48,14 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; background: #e5e7eb; color
 .gs-info b { border-bottom: 1px dotted #777; }
 .gs-table { table-layout: fixed; }
 .gs-table th { background: white; font-size: 8pt; }
-.gs-table th:nth-child(1) { width: 12%; }
-.gs-table th:nth-child(2) { width: 48%; }
-.gs-table th:nth-child(3), .gs-table th:nth-child(4), .gs-table th:nth-child(5), .gs-table th:nth-child(6) { width: 10%; }
+.gs-table th:nth-child(1) { width: 11%; }
+.gs-table th:nth-child(2) { width: 40%; }
+.gs-table th:nth-child(3) { width: 10%; }
+.gs-table th:nth-child(4) { width: 10%; }
+.gs-table th:nth-child(5) { width: 9%; }
+.gs-table th:nth-child(6) { width: 10%; }
+.gs-table th:nth-child(7) { width: 10%; }
+.gs-table th, .gs-table td { overflow-wrap: anywhere; }
 .gs-table tbody td { border-top: 0; border-bottom: 0; padding: 1.6mm 1.5mm; }
 .gs-table tfoot td.gs-gpa { text-align: right; font-weight: bold; padding: 2mm; border: .75pt solid #333; }
 .gs-extra { margin-top: 6mm; }
