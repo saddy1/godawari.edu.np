@@ -30,7 +30,7 @@ class MarkSubmissionTrackerController extends Controller
         $sectionId = $request->integer('section_id');
 
         if ($exam) {
-            $subjects = ExaminationSubject::with(['offering.subject', 'offering.department'])
+            $subjects = ExaminationSubject::with(['offering.subject', 'offering.department', 'marks.student'])
                 ->where('examination_id', $exam->id)->get();
             $subjectsByOffering = $subjects->keyBy('subject_offering_id');
             $submissions = ExaminationMarkSubmission::whereIn('examination_subject_id', $subjects->pluck('id'))
@@ -55,12 +55,19 @@ class MarkSubmissionTrackerController extends Controller
 
                 return $teachers->map(function ($teacher) use ($subject, $group, $components, $submissions) {
                     $submission = $submissions->get($subject->id.':'.$teacher->id.':'.$group->lesson->section_id);
+                    $sectionMarks = $subject->marks->filter(fn ($mark) => $mark->student
+                        && ((int) $mark->student->section_id === (int) $group->lesson->section_id
+                            || ($mark->student->section_id === null && $mark->student->section === $group->lesson->section->name)));
+                    $marksEntered = collect($components)->contains(fn ($component) => $sectionMarks->contains(
+                        fn ($mark) => $mark->{$component.'_marks'} !== null || $mark->{$component.'_is_absent'}
+                    ));
                     return (object) [
                         'subject' => $subject,
                         'teacher' => $teacher,
                         'section' => $group->lesson->section,
                         'components' => collect($components),
                         'submission' => $submission,
+                        'marks_entered' => $marksEntered,
                     ];
                 });
             })->unique(fn ($entry) => $entry->subject->id.':'.$entry->teacher->id.':'.$entry->section->id)
@@ -86,12 +93,14 @@ class MarkSubmissionTrackerController extends Controller
 
         $summary = [
             'submitted' => $entries->filter(fn ($entry) => $entry->submission?->is_locked)->count(),
-            'pending' => $entries->filter(fn ($entry) => ! $entry->submission?->is_locked)->count(),
+            'entered' => $entries->filter(fn ($entry) => ! $entry->submission?->is_locked && $entry->marks_entered)->count(),
+            'pending' => $entries->filter(fn ($entry) => ! $entry->submission?->is_locked && ! $entry->marks_entered)->count(),
             'unassigned' => $unassignedCount,
         ];
         $status = $request->string('status')->toString();
         if ($status === 'submitted') $entries = $entries->filter(fn ($entry) => $entry->submission?->is_locked);
-        if ($status === 'pending') $entries = $entries->filter(fn ($entry) => ! $entry->submission?->is_locked);
+        if ($status === 'entered') $entries = $entries->filter(fn ($entry) => ! $entry->submission?->is_locked && $entry->marks_entered);
+        if ($status === 'pending') $entries = $entries->filter(fn ($entry) => ! $entry->submission?->is_locked && ! $entry->marks_entered);
 
         $organizations = Organization::where('is_active', true)->orderBy('name')->get();
         return view('examinations.mark-submissions.index', compact('organizations', 'organizationId', 'exams', 'exam', 'faculties', 'facultyId', 'sections', 'sectionId', 'entries', 'status', 'summary'));

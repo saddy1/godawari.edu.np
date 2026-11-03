@@ -134,6 +134,7 @@ class SubjectController extends Controller
             'practical_code' => $practicalCode ?: null,
         ]);
         $existingSubject = Subject::where('code', $subjectCode)->first();
+        $hasPractical = $request->boolean('has_practical');
 
         $data = $request->validate([
             'department_id' => 'required|exists:departments,id',
@@ -142,9 +143,8 @@ class SubjectController extends Controller
             'year_level'    => 'nullable|integer|min:1|max:6',
             'subject_code'  => 'required|string|max:50',
             'subject_name'  => [Rule::requiredIf(! $existingSubject), 'nullable', 'string', 'max:150'],
-            // GPA is credit-weighted, so a new subject must carry its credit value
-            // from the moment it enters the curriculum.
-            'credit_hours'  => [Rule::requiredIf(! $existingSubject), 'nullable', 'integer', 'min:1', 'max:255'],
+            'theory_credit_hours' => [Rule::requiredIf(! $existingSubject), 'nullable', 'numeric', 'min:0.01', 'max:255'],
+            'practical_credit_hours' => [Rule::requiredIf(! $existingSubject && $hasPractical), 'nullable', 'numeric', 'min:0.01', 'max:255'],
             'has_practical' => 'nullable|boolean',
             'practical_code' => 'nullable|string|max:50',
             'is_elective'   => 'nullable|boolean',
@@ -159,15 +159,18 @@ class SubjectController extends Controller
             ? ($data['elective_group'] ?? null)
             : null;
 
-        $offering = DB::transaction(function () use ($data, $request, $existingSubject) {
+        $offering = DB::transaction(function () use ($data, $request, $existingSubject, $hasPractical) {
             $subject = $existingSubject;
 
             if (! $subject) {
-                $hasPractical = $request->boolean('has_practical');
+                $theoryCredits = (float) ($data['theory_credit_hours'] ?? 0);
+                $practicalCredits = $hasPractical ? (float) ($data['practical_credit_hours'] ?? 0) : 0;
                 $subject = Subject::create([
                     'code' => $data['subject_code'],
                     'name' => $data['subject_name'],
-                    'credit_hours' => $data['credit_hours'] ?? null,
+                    'credit_hours' => $this->legacyTotalCredits($theoryCredits, $practicalCredits),
+                    'theory_credit_hours' => $theoryCredits,
+                    'practical_credit_hours' => $hasPractical ? $practicalCredits : null,
                     'has_practical' => $hasPractical,
                     'practical_code' => $hasPractical
                         ? ($data['practical_code'] ?: $data['subject_code'])
@@ -220,10 +223,12 @@ class SubjectController extends Controller
             'practical_code' => $practicalCode ?: null,
         ]);
 
+        $hasPractical = $request->boolean('has_practical');
         $data = $request->validate([
             'subject_name' => ['required', 'string', 'max:150'],
             'subject_code' => ['required', 'string', 'max:50', Rule::unique('subjects', 'code')->ignore($subjectOffering->subject_id)],
-            'credit_hours' => ['required', 'integer', 'min:1', 'max:255'],
+            'theory_credit_hours' => ['required', 'numeric', 'min:0.01', 'max:255'],
+            'practical_credit_hours' => [Rule::requiredIf($hasPractical), 'nullable', 'numeric', 'min:0.01', 'max:255'],
             'has_practical' => ['nullable', 'boolean'],
             'practical_code' => ['nullable', 'string', 'max:50'],
             'group_name' => ['nullable', 'string', 'max:100'],
@@ -233,7 +238,6 @@ class SubjectController extends Controller
             'elective_group' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $hasPractical = $request->boolean('has_practical');
         $isElective = $request->boolean('is_elective');
         $department = $subjectOffering->department;
 
@@ -241,7 +245,9 @@ class SubjectController extends Controller
             $subjectOffering->subject->update([
                 'name' => $data['subject_name'],
                 'code' => $data['subject_code'],
-                'credit_hours' => $data['credit_hours'] ?? null,
+                'credit_hours' => $this->legacyTotalCredits((float) $data['theory_credit_hours'], $hasPractical ? (float) ($data['practical_credit_hours'] ?? 0) : 0),
+                'theory_credit_hours' => $data['theory_credit_hours'],
+                'practical_credit_hours' => $hasPractical ? $data['practical_credit_hours'] : null,
                 'has_practical' => $hasPractical,
                 'practical_code' => $hasPractical
                     ? ($data['practical_code'] ?: $data['subject_code'])
@@ -261,5 +267,11 @@ class SubjectController extends Controller
         return back()->with('success', $isElective
             ? 'Subject allocation updated. Elective assignment remains manual.'
             : "Subject allocation updated and synchronized to {$assignedCount} matching student(s).");
+    }
+
+    private function legacyTotalCredits(float $theoryCredits, float $practicalCredits): ?int
+    {
+        $total = $theoryCredits + $practicalCredits;
+        return floor($total) === $total ? (int) $total : null;
     }
 }

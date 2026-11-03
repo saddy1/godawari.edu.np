@@ -156,8 +156,13 @@ class MarksheetController extends Controller
                 $grade = $result['grade'];
                 $rows[] = [
                     'code' => $code, 'name' => $model->name, 'label' => $label,
-                    // Only total subject credits are stored; apportion without doubling them.
-                    'credit_hour' => (float) $model->credit_hours * $full / $totalFull,
+                    // Prefer configured NEB TH/IN credits. Older subjects fall back
+                    // to a proportional split of their legacy total credit value.
+                    'credit_hour' => $component === 'theory' && $model->theory_credit_hours !== null
+                        ? (float) $model->theory_credit_hours
+                        : ($component === 'practical' && $model->practical_credit_hours !== null
+                            ? (float) $model->practical_credit_hours
+                            : (float) $model->credit_hours * $full / $totalFull),
                     'grade' => $grade['grade'] ?? null, 'point' => $grade['point'] ?? null,
                     'final_grade' => $component === 'theory' ? $finalGrade : null,
                     'remarks' => $mark?->remarks ?: ($absent ? 'Absent' : ($graded ? null : 'Incomplete')),
