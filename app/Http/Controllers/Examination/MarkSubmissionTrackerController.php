@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Examination\Examination;
 use App\Models\Examination\ExaminationMarkSubmission;
 use App\Models\Examination\ExaminationSubject;
+use App\Models\Card\Organization;
 use App\Models\TeachingLearning\RoutineLessonGroup;
 use Illuminate\Http\Request;
 
@@ -14,13 +15,19 @@ class MarkSubmissionTrackerController extends Controller
     /** Show every teacher's required mark submission for the selected examination. */
     public function index(Request $request)
     {
-        $exams = Examination::with('academicYear')->latest('starts_on')->latest('id')->get();
+        $organizationId = $request->integer('organization_id');
+        $exams = Examination::with('academicYear')->when($organizationId, fn ($query) => $query->where('organization_id', $organizationId))
+            ->latest('starts_on')->latest('id')->get();
         $exam = $exams->firstWhere('id', $request->integer('exam'))
             ?? $exams->firstWhere('status', 'ongoing')
             ?? $exams->first();
 
         $entries = collect();
         $unassignedCount = 0;
+        $faculties = $exam?->departments ?? collect();
+        $facultyId = $request->integer('faculty_id');
+        $sections = $exam?->sections->when($facultyId, fn ($items) => $items->where('department_id', $facultyId))->values() ?? collect();
+        $sectionId = $request->integer('section_id');
 
         if ($exam) {
             $subjects = ExaminationSubject::with(['offering.subject', 'offering.department'])
@@ -65,19 +72,28 @@ class MarkSubmissionTrackerController extends Controller
                 ->filter(fn ($section) => (int) $section->department_id === (int) $subject->offering->department_id
                     && (! $subject->offering->group_name || $subject->offering->group_name === $section->group_name))
                 ->map(fn ($section) => $subject->id.':'.$section->id))->unique();
+            if ($facultyId) {
+                $entries = $entries->filter(fn ($entry) => (int) $entry->subject->offering->department_id === $facultyId)->values();
+                $facultySectionIds = $sections->pluck('id')->map(fn ($id) => (int) $id)->all();
+                $expectedPairs = $expectedPairs->filter(fn ($pair) => in_array((int) substr(strrchr($pair, ':'), 1), $facultySectionIds, true));
+            }
+            if ($sectionId) {
+                $entries = $entries->filter(fn ($entry) => (int) $entry->section->id === $sectionId)->values();
+                $expectedPairs = $expectedPairs->filter(fn ($pair) => str_ends_with($pair, ':'.$sectionId));
+            }
             $unassignedCount = $expectedPairs->diff($assignedPairs)->count();
         }
-
-        $status = $request->string('status')->toString();
-        if ($status === 'submitted') $entries = $entries->filter(fn ($entry) => $entry->submission?->is_locked);
-        if ($status === 'pending') $entries = $entries->filter(fn ($entry) => ! $entry->submission?->is_locked);
 
         $summary = [
             'submitted' => $entries->filter(fn ($entry) => $entry->submission?->is_locked)->count(),
             'pending' => $entries->filter(fn ($entry) => ! $entry->submission?->is_locked)->count(),
             'unassigned' => $unassignedCount,
         ];
+        $status = $request->string('status')->toString();
+        if ($status === 'submitted') $entries = $entries->filter(fn ($entry) => $entry->submission?->is_locked);
+        if ($status === 'pending') $entries = $entries->filter(fn ($entry) => ! $entry->submission?->is_locked);
 
-        return view('examinations.mark-submissions.index', compact('exams', 'exam', 'entries', 'status', 'summary'));
+        $organizations = Organization::where('is_active', true)->orderBy('name')->get();
+        return view('examinations.mark-submissions.index', compact('organizations', 'organizationId', 'exams', 'exam', 'faculties', 'facultyId', 'sections', 'sectionId', 'entries', 'status', 'summary'));
     }
 }
