@@ -150,7 +150,10 @@ class MarksheetController extends Controller
 
         $mainSubjects = $subjectRows;
         $extraSubjects = collect();
-        $gpa = $mainSubjects->isNotEmpty() && $mainSubjects->every(fn ($row) => $row['countable'])
+        // Do not publish a misleading GPA when an older subject has not yet been
+        // assigned credit hours. The curriculum screen flags those subjects for repair.
+        $gpa = $mainSubjects->isNotEmpty()
+            && $mainSubjects->every(fn ($row) => $row['countable'] && $row['credit_hour'] > 0)
             ? $grades->gpaFor($mainSubjects) : null;
 
         return [

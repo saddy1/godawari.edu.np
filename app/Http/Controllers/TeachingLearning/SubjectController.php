@@ -142,7 +142,9 @@ class SubjectController extends Controller
             'year_level'    => 'nullable|integer|min:1|max:6',
             'subject_code'  => 'required|string|max:50',
             'subject_name'  => [Rule::requiredIf(! $existingSubject), 'nullable', 'string', 'max:150'],
-            'credit_hours'  => 'nullable|integer|min:0|max:255',
+            // GPA is credit-weighted, so a new subject must carry its credit value
+            // from the moment it enters the curriculum.
+            'credit_hours'  => [Rule::requiredIf(! $existingSubject), 'nullable', 'integer', 'min:1', 'max:255'],
             'has_practical' => 'nullable|boolean',
             'practical_code' => 'nullable|string|max:50',
             'is_elective'   => 'nullable|boolean',
@@ -221,7 +223,7 @@ class SubjectController extends Controller
         $data = $request->validate([
             'subject_name' => ['required', 'string', 'max:150'],
             'subject_code' => ['required', 'string', 'max:50', Rule::unique('subjects', 'code')->ignore($subjectOffering->subject_id)],
-            'credit_hours' => ['nullable', 'integer', 'min:0', 'max:255'],
+            'credit_hours' => ['required', 'integer', 'min:1', 'max:255'],
             'has_practical' => ['nullable', 'boolean'],
             'practical_code' => ['nullable', 'string', 'max:50'],
             'group_name' => ['nullable', 'string', 'max:100'],
