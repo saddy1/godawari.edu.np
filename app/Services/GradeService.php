@@ -6,7 +6,7 @@ use Illuminate\Support\Collection;
 
 class GradeService
 {
-    // Nepal's standard NEB grading scale (grade 9-12).
+    // NEB Letter Grading Directive, 2078 (Classes 11–12).
     private const SCALE = [
         ['min' => 90, 'grade' => 'A+', 'point' => 4.00],
         ['min' => 80, 'grade' => 'A', 'point' => 3.60],
@@ -14,9 +14,8 @@ class GradeService
         ['min' => 60, 'grade' => 'B', 'point' => 2.80],
         ['min' => 50, 'grade' => 'C+', 'point' => 2.40],
         ['min' => 40, 'grade' => 'C', 'point' => 2.00],
-        ['min' => 30, 'grade' => 'D+', 'point' => 1.60],
-        ['min' => 20, 'grade' => 'D', 'point' => 1.20],
-        ['min' => 0, 'grade' => 'NG', 'point' => 0.00],
+        ['min' => 35, 'grade' => 'D', 'point' => 1.60],
+        ['min' => 0, 'grade' => 'NG', 'point' => null],
     ];
 
     public function gradeFor(float $percentage): array

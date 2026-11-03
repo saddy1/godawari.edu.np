@@ -29,7 +29,7 @@
     <p class="gs-intro gs-exam-statement">IN THE <strong>{{ Str::upper($examination->name) }}</strong> EXAMINATION CONDUCTED IN <strong>{{ $academicYearName }} B.S.</strong>, THE GRADES OBTAINED ARE GIVEN BELOW.</p>
 
     <table class="gs-table">
-        <thead><tr><th>Subject Code</th><th>Subjects</th><th>Credit Hour</th><th>Grade Point</th><th>Grade</th><th>Remarks</th></tr></thead>
+        <thead><tr><th>Subject Code</th><th>Subjects</th><th>Credit Hour</th><th>Grade Point</th><th>Grade</th><th>Final Grade</th><th>Remarks</th></tr></thead>
         <tbody>
         @forelse($subjectRows as $row)
             <tr>
@@ -38,13 +38,14 @@
                 <td class="num">{{ $row['credit_hour'] ? number_format($row['credit_hour'], 2) : '—' }}</td>
                 <td class="num">{{ $row['point'] !== null ? number_format($row['point'], 2) : '—' }}</td>
                 <td class="num">{{ $row['grade'] ?? '—' }}</td>
+                <td class="num">{{ $row['final_grade'] ?? '—' }}</td>
                 <td>{{ $row['remarks'] ?? '' }}</td>
             </tr>
         @empty
-            <tr><td colspan="6" style="text-align:center;color:#888">No subjects configured for this student yet.</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:#888">No subjects configured for this student yet.</td></tr>
         @endforelse
         </tbody>
-        <tfoot><tr><td colspan="6" class="gs-gpa">GRADE POINT AVERAGE (GPA): {{ $gpa !== null ? number_format($gpa, 2) : '—' }}</td></tr></tfoot>
+        <tfoot><tr><td colspan="7" class="gs-gpa">GRADE POINT AVERAGE (GPA): {{ $gpa !== null ? number_format($gpa, 2) : '—' }}</td></tr></tfoot>
     </table>
 
     <div class="gs-footer">

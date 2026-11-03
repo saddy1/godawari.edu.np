@@ -125,24 +125,43 @@ class MarksheetController extends Controller
             $model = $subject->offering->subject;
             $components = ['theory' => ['TH', $model->code, (float) $subject->theory_full_marks]];
             if ($examination->practical_enabled && (float) $subject->practical_full_marks > 0) {
-                $components['practical'] = ['PR', $model->practical_code ?: $model->code, (float) $subject->practical_full_marks];
+                // The NEB grade-sheet calls this assessment component Internal (IN).
+                $components['practical'] = ['IN', $model->practical_code ?: $model->code, (float) $subject->practical_full_marks];
             }
             $totalFull = array_sum(array_column($components, 2));
+            $componentResults = collect($components)->map(function ($component, $key) use ($mark, $grades) {
+                [, , $full] = $component;
+                $absent = (bool) $mark?->{$key.'_is_absent'};
+                $obtained = $mark?->{$key.'_marks'};
+                $graded = ! $absent && $obtained !== null;
+
+                return [
+                    'absent' => $absent,
+                    'graded' => $graded,
+                    'obtained' => $obtained,
+                    'grade' => $absent ? ['grade' => 'Abs', 'point' => null]
+                        : ($graded ? $grades->gradeFor(round((float) $obtained / $full * 100, 2)) : null),
+                ];
+            });
+            // NEB defines final grade as the weighted result of Theory and Internal.
+            $finalGrade = $componentResults->every(fn ($result) => $result['graded'])
+                ? $grades->gradeFor(round($componentResults->sum('obtained') / $totalFull * 100, 2))['grade']
+                : null;
             $rows = [];
             foreach ($components as $component => [$label, $code, $full]) {
                 if ($full <= 0) continue;
-                $absent = (bool) $mark?->{$component.'_is_absent'};
-                $obtained = $mark?->{$component.'_marks'};
-                $graded = ! $absent && $obtained !== null;
-                $grade = $absent ? ['grade' => 'Abs', 'point' => 0.0]
-                    : ($graded ? $grades->gradeFor(round((float) $obtained / $full * 100, 2)) : null);
+                $result = $componentResults->get($component);
+                $absent = $result['absent'];
+                $graded = $result['graded'];
+                $grade = $result['grade'];
                 $rows[] = [
                     'code' => $code, 'name' => $model->name, 'label' => $label,
                     // Only total subject credits are stored; apportion without doubling them.
                     'credit_hour' => (float) $model->credit_hours * $full / $totalFull,
                     'grade' => $grade['grade'] ?? null, 'point' => $grade['point'] ?? null,
+                    'final_grade' => $component === 'theory' ? $finalGrade : null,
                     'remarks' => $mark?->remarks ?: ($absent ? 'Absent' : ($graded ? null : 'Incomplete')),
-                    'countable' => $absent || $graded,
+                    'countable' => $graded,
                 ];
             }
             return $rows;
@@ -150,10 +169,10 @@ class MarksheetController extends Controller
 
         $mainSubjects = $subjectRows;
         $extraSubjects = collect();
-        // Do not publish a misleading GPA when an older subject has not yet been
-        // assigned credit hours. The curriculum screen flags those subjects for repair.
+        // An NEB GPA is issued only when every component is graded, credit-bearing,
+        // and graded (not NG). Never turn absence or NG into a numeric GPA.
         $gpa = $mainSubjects->isNotEmpty()
-            && $mainSubjects->every(fn ($row) => $row['countable'] && $row['credit_hour'] > 0)
+            && $mainSubjects->every(fn ($row) => $row['countable'] && $row['credit_hour'] > 0 && $row['point'] !== null)
             ? $grades->gpaFor($mainSubjects) : null;
 
         return [
