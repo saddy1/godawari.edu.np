@@ -23,17 +23,27 @@ class MarkEntryController extends Controller
         $exam = $exams->firstWhere('id', $request->integer('exam'));
         $faculties = $exam?->departments ?? collect();
         $facultyId = $request->integer('faculty');
-        $sections = $exam?->sections->when($facultyId, fn ($items) => $items->where('department_id', $facultyId))->values() ?? collect();
-        $section = $sections->firstWhere('id', $request->integer('section'));
         $subjects = $exam ? ExaminationSubject::with(['offering.subject', 'offering.department', 'marks'])
-            ->where('examination_id', $exam->id)->when($facultyId, fn ($q) => $q->whereHas('offering', fn ($o) => $o->where('department_id', $facultyId)))
-            ->when($section, fn ($q) => $q->whereHas('offering.studentEnrollments', fn ($enrollments) => $enrollments
-                ->where('academic_year', $exam->academicYear->name)
-                ->whereHas('student', fn ($students) => $students->where('section_id', $section->id)
-                    ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $section->name)))))
+            ->where('examination_id', $exam->id)
+            ->when($facultyId, fn ($q) => $q->whereHas('offering', fn ($o) => $o->where('department_id', $facultyId)))
             ->get()->sortBy('offering.subject.name')->values() : collect();
+        $examinationSubject = $subjects->firstWhere('id', $request->integer('subject'));
 
-        return view('examinations.marks-dashboard', compact('exams', 'exam', 'faculties', 'facultyId', 'sections', 'section', 'subjects'));
+        $sections = collect();
+        if ($examinationSubject) {
+            $exam->loadMissing('sections');
+            $sections = $exam->sections->filter(function ($section) use ($examinationSubject, $exam) {
+                return Student::query()->where('member_type', 'student')
+                    ->whereHas('subjectEnrollments', fn ($enrollments) => $enrollments
+                        ->where('subject_offering_id', $examinationSubject->subject_offering_id)
+                        ->where('academic_year', $exam->academicYear->name))
+                    ->where(fn ($students) => $students->where('section_id', $section->id)
+                        ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $section->name)))
+                    ->exists();
+            })->values();
+        }
+
+        return view('examinations.marks-dashboard', compact('exams', 'exam', 'faculties', 'facultyId', 'subjects', 'examinationSubject', 'sections'));
     }
 
     public function edit(Request $request, ExaminationSubject $examinationSubject, ExamTeacherAssignmentService $teacherAssignments)

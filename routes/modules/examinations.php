@@ -5,6 +5,7 @@ use App\Http\Controllers\Examination\ExamAttendanceController;
 use App\Http\Controllers\Examination\ExaminationController;
 use App\Http\Controllers\Examination\MarkEntryController;
 use App\Http\Controllers\Examination\MarksheetController;
+use App\Http\Controllers\Examination\MarksLedgerController;
 use App\Http\Controllers\Examination\MarkSubmissionTrackerController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +41,9 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::get('/{examination}/marksheets/print', [MarksheetController::class, 'print'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.print');
     Route::get('/{examination}/marksheets/download', [MarksheetController::class, 'downloadAll'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.download');
     Route::get('/{examination}/marksheets/{student}/download', [MarksheetController::class, 'downloadOne'])->middleware('permission:examinations.manage,examinations.reports')->name('marksheets.download-one');
+
+    Route::get('/{examination}/marks-ledger', [MarksLedgerController::class, 'index'])->middleware('permission:examinations.manage,examinations.reports')->name('marks-ledger.index');
+    Route::get('/{examination}/marks-ledger/download', [MarksLedgerController::class, 'download'])->middleware('permission:examinations.manage,examinations.reports')->name('marks-ledger.download');
 
     Route::get('/marks/{examinationSubject}', [MarkEntryController::class, 'edit'])->middleware('permission:examinations.marks.enter')->name('marks.edit');
     Route::put('/marks/{examinationSubject}', [MarkEntryController::class, 'update'])->middleware('permission:examinations.marks.enter')->name('marks.update');
