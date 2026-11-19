@@ -7,6 +7,7 @@ use App\Models\Card\Department;
 use App\Models\Card\Organization;
 use App\Models\Card\Section;
 use App\Models\Card\Student;
+use App\Models\Card\StudentSubjectEnrollment;
 use App\Models\Card\SubjectOffering;
 use App\Models\Examination\Examination;
 use App\Models\Examination\ExaminationAttendance;
@@ -140,9 +141,43 @@ class ExaminationController extends Controller
         return redirect()->route('admin.examinations.index', ['exam' => $examination->id]);
     }
 
+    /**
+     * Kept deliberately light. This used to also build the subject/FM-PM
+     * table and the mark-entry readiness board inline on every page load —
+     * together that was 2,000+ queries and 7+ seconds for a large exam, for
+     * sections the admin may never open (one of them, `marksDashboard`,
+     * wasn't even being rendered — see `@if(false && ...)` it replaced).
+     * Both now live on their own routes, built only when visited:
+     * see subjectsIndex() and readiness().
+     */
     private function workspaceData(Examination $examination, ExamAnalyticsService $analytics, ExamTeacherAssignmentService $teacherAssignments): array
     {
         $examination->load(['academicYear', 'organization', 'department.sections', 'departments.sections', 'sections', 'subjects.offering.subject', 'subjects.offering.department', 'subjects.marks', 'subjects.markSubmissions.teacher']);
+        $unlockRequests = ExaminationMarkSubmission::with(['teacher', 'examinationSubject.offering.subject'])
+            ->whereHas('examinationSubject', fn ($query) => $query->where('examination_id', $examination->id))
+            ->whereNotNull('unlock_requested_at')->latest('unlock_requested_at')->get();
+
+        return [
+            'examination' => $examination,
+            'unlockRequests' => $unlockRequests,
+            'analytics' => $analytics->forExam($examination),
+            'attendanceSummary' => $this->attendanceSummary($examination),
+            'markEntryOpen' => $this->markEntryOpen($examination),
+            'canManage' => auth()->user()->canAccess('examinations.manage'),
+        ];
+    }
+
+    private function markEntryOpen(Examination $examination): bool
+    {
+        return $examination->status === 'ongoing'
+            && (! $examination->starts_on || now()->startOfDay()->gte($examination->starts_on))
+            && (! $examination->ends_on || now()->startOfDay()->lte($examination->ends_on));
+    }
+
+    /** The FM/PM configuration table + (for non-managers) quick marks-entry links. Its own page, built on demand. */
+    public function subjectsIndex(Examination $examination, ExamTeacherAssignmentService $teacherAssignments)
+    {
+        $examination->loadMissing(['academicYear', 'organization', 'departments.sections', 'sections', 'subjects.offering.subject', 'subjects.offering.department']);
         $departmentIds = $examination->departments->pluck('id');
         if ($departmentIds->isEmpty()) $departmentIds = collect([$examination->department_id]);
         $sectionIds = $examination->sections->pluck('id');
@@ -170,47 +205,77 @@ class ExaminationController extends Controller
                 'practical_labels' => $subjectOfferings->flatMap(fn ($offering) => $teacherLabels->get($offering->id)['practical'] ?? collect())->unique()->sort()->values(),
             ];
         })->values();
+        // Subjects already carry the SAME examination instance (already
+        // loaded with sections) so sectionIdsFor()'s loadMissing() doesn't
+        // re-fetch examination.sections once per subject (45 subjects × 2
+        // components was ~90 avoidable queries before this line existed).
+        $examination->subjects->each(fn ($subject) => $subject->setRelation('examination', $examination));
         $markAccess = $examination->subjects->mapWithKeys(fn ($subject) => [$subject->id => [
             'theory' => $teacherAssignments->sectionIdsFor($subject, auth()->user(), 'theory')->count(),
             'practical' => (float) $subject->practical_full_marks > 0
                 ? $teacherAssignments->sectionIdsFor($subject, auth()->user(), 'practical')->count() : 0,
         ]]);
-        $unlockRequests = ExaminationMarkSubmission::with(['teacher', 'examinationSubject.offering.subject'])
-            ->whereHas('examinationSubject', fn ($query) => $query->where('examination_id', $examination->id))
-            ->whereNotNull('unlock_requested_at')->latest('unlock_requested_at')->get();
 
-        return [
+        return view('examinations.subjects', [
             'examination' => $examination,
             'offerings' => $offerings,
             'subjectRows' => $subjectRows,
             'markAccess' => $markAccess,
-            'unlockRequests' => $unlockRequests,
-            'analytics' => $analytics->forExam($examination),
-            'attendanceSummary' => $this->attendanceSummary($examination),
-            'markEntryOpen' => $examination->status === 'ongoing'
-                && (! $examination->starts_on || now()->startOfDay()->gte($examination->starts_on))
-                && (! $examination->ends_on || now()->startOfDay()->lte($examination->ends_on)),
+            'markEntryOpen' => $this->markEntryOpen($examination),
             'canManage' => auth()->user()->canAccess('examinations.manage'),
-            'marksDashboard' => auth()->user()->canAccess('examinations.manage')
-                ? $this->marksDashboard($examination, $teacherAssignments) : collect(),
-        ];
+        ]);
     }
 
-    /** A manager-facing, section-by-section view of mark-entry readiness. */
+    /** The subject × section mark-entry readiness board. Its own page, built on demand. */
+    public function readiness(Examination $examination, ExamTeacherAssignmentService $teacherAssignments)
+    {
+        $examination->loadMissing(['academicYear', 'sections', 'departments', 'subjects.offering.subject', 'subjects.marks', 'subjects.markSubmissions.teacher']);
+
+        return view('examinations.readiness', [
+            'examination' => $examination,
+            'marksDashboard' => $this->marksDashboard($examination, $teacherAssignments),
+        ]);
+    }
+
+    /**
+     * A manager-facing, section-by-section view of mark-entry readiness.
+     *
+     * Enrollment lookups used to run per subject-per-section (N subjects ×
+     * M sections DB queries each) — on a large exam (45 subjects × 35
+     * sections here) that was ~1,900 queries and 7+ seconds on its own.
+     * One batched query now resolves every subject/section's student list
+     * up front, matching the same section_id-or-legacy-name rule.
+     */
     private function marksDashboard(Examination $examination, ExamTeacherAssignmentService $teacherAssignments)
     {
-        return $examination->subjects->map(function (ExaminationSubject $subject) use ($examination, $teacherAssignments) {
-            $theoryTeachers = $teacherAssignments->labelsFor($examination, $subject->subject_offering_id, 'theory');
-            $practicalTeachers = (float) $subject->practical_full_marks > 0
-                ? $teacherAssignments->labelsFor($examination, $subject->subject_offering_id, 'practical') : collect();
+        $offeringIds = $examination->subjects->pluck('subject_offering_id')->unique()->values();
+        $teacherLabels = $teacherAssignments->labelsByOffering($examination, $offeringIds);
 
-            $sections = $examination->sections->map(function (Section $section) use ($subject, $examination, $theoryTeachers, $practicalTeachers) {
-                $studentIds = Student::query()->where('member_type', 'student')
-                    ->whereHas('subjectEnrollments', fn ($q) => $q->where('subject_offering_id', $subject->subject_offering_id)
-                        ->where('academic_year', $examination->academicYear->name))
-                    ->where(fn ($q) => $q->where('section_id', $section->id)
-                        ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $section->name)))
-                    ->pluck('id');
+        $sectionsById = $examination->sections->keyBy('id');
+        $sectionsByName = $examination->sections->keyBy('name');
+        $studentIdsByOfferingSection = [];
+        StudentSubjectEnrollment::query()
+            ->where('academic_year', $examination->academicYear->name)
+            ->whereIn('subject_offering_id', $offeringIds)
+            ->whereHas('student', fn ($q) => $q->where('member_type', 'student'))
+            ->with('student:id,section_id,section')
+            ->get(['id', 'subject_offering_id', 'student_id'])
+            ->each(function ($enrollment) use (&$studentIdsByOfferingSection, $sectionsById, $sectionsByName) {
+                $student = $enrollment->student;
+                if (! $student) return;
+                $section = $student->section_id ? $sectionsById->get($student->section_id) : null;
+                $section = $section ?: $sectionsByName->get($student->section);
+                if (! $section) return;
+                $studentIdsByOfferingSection[$enrollment->subject_offering_id][$section->id][] = $enrollment->student_id;
+            });
+
+        return $examination->subjects->map(function (ExaminationSubject $subject) use ($examination, $teacherLabels, $studentIdsByOfferingSection) {
+            $labels = $teacherLabels->get((int) $subject->subject_offering_id, ['theory' => collect(), 'practical' => collect()]);
+            $theoryTeachers = $labels['theory'];
+            $practicalTeachers = (float) $subject->practical_full_marks > 0 ? $labels['practical'] : collect();
+
+            $sections = $examination->sections->map(function (Section $section) use ($subject, $theoryTeachers, $practicalTeachers, $studentIdsByOfferingSection) {
+                $studentIds = collect($studentIdsByOfferingSection[$subject->subject_offering_id][$section->id] ?? []);
                 $marks = $subject->marks->whereIn('student_id', $studentIds);
                 $componentStatus = collect([
                     'theory' => (float) $subject->theory_full_marks > 0,

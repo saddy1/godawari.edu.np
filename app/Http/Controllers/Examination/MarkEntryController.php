@@ -32,15 +32,20 @@ class MarkEntryController extends Controller
         $sections = collect();
         if ($examinationSubject) {
             $exam->loadMissing('sections');
-            $sections = $exam->sections->filter(function ($section) use ($examinationSubject, $exam) {
-                return Student::query()->where('member_type', 'student')
-                    ->whereHas('subjectEnrollments', fn ($enrollments) => $enrollments
-                        ->where('subject_offering_id', $examinationSubject->subject_offering_id)
-                        ->where('academic_year', $exam->academicYear->name))
-                    ->where(fn ($students) => $students->where('section_id', $section->id)
-                        ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->where('section', $section->name)))
-                    ->exists();
-            })->values();
+            // One query for every section's enrollment instead of one
+            // query PER section (35 sections here, 35 queries → 1).
+            $sectionIds = $exam->sections->pluck('id');
+            $sectionNames = $exam->sections->pluck('name');
+            $matchedSectionIds = Student::query()->where('member_type', 'student')
+                ->whereHas('subjectEnrollments', fn ($enrollments) => $enrollments
+                    ->where('subject_offering_id', $examinationSubject->subject_offering_id)
+                    ->where('academic_year', $exam->academicYear->name))
+                ->where(fn ($students) => $students->whereIn('section_id', $sectionIds)
+                    ->orWhere(fn ($legacy) => $legacy->whereNull('section_id')->whereIn('section', $sectionNames)))
+                ->get(['id', 'section_id', 'section'])
+                ->map(fn ($student) => $student->section_id ?: $exam->sections->firstWhere('name', $student->section)?->id)
+                ->filter()->unique();
+            $sections = $exam->sections->whereIn('id', $matchedSectionIds)->values();
         }
 
         return view('examinations.marks-dashboard', compact('exams', 'exam', 'faculties', 'facultyId', 'subjects', 'examinationSubject', 'sections'));

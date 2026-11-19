@@ -16,7 +16,9 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::post('/', [ExaminationController::class, 'store'])->middleware('permission:examinations.manage')->name('store');
     Route::get('/{examination}', [ExaminationController::class, 'show'])->middleware('permission:examinations.view')->name('show');
     Route::patch('/{examination}', [ExaminationController::class, 'update'])->middleware('permission:examinations.manage')->name('update');
+    Route::get('/{examination}/subjects', [ExaminationController::class, 'subjectsIndex'])->middleware('permission:examinations.view')->name('subjects.index');
     Route::put('/{examination}/subjects', [ExaminationController::class, 'saveSubjects'])->middleware('permission:examinations.manage')->name('subjects.update');
+    Route::get('/{examination}/readiness', [ExaminationController::class, 'readiness'])->middleware('permission:examinations.manage')->name('readiness.index');
     Route::get('/{examination}/subject-dates', [ExaminationController::class, 'subjectDates'])->middleware('permission:examinations.manage')->name('subject-dates.index');
     Route::put('/{examination}/subject-dates', [ExaminationController::class, 'saveSubjectDates'])->middleware('permission:examinations.manage')->name('subject-dates.update');
     Route::delete('/{examination}', [ExaminationController::class, 'destroy'])->middleware('permission:examinations.manage')->name('destroy');

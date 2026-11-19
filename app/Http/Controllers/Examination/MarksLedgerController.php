@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Examination;
 
 use App\Http\Controllers\Controller;
 use App\Models\Examination\Examination;
+use App\Models\Examination\ExaminationMark;
 use App\Models\Examination\ExaminationSymbolNumber;
 use App\Services\ExamResultService;
 use App\Services\ExamRosterService;
 use App\Services\GradeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -40,15 +42,36 @@ class MarksLedgerController extends Controller
         }, $filename, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     }
 
+    /**
+     * Grading ~1,500 students for a full ledger is still real work even
+     * after batching the queries, so it's cached per exam and busted the
+     * instant a mark or a subject's FM/PM changes — a refresh, a re-open,
+     * or the "Download Excel" click right after viewing the preview all
+     * hit the cache instead of re-grading the whole roster.
+     */
     private function buildLedger(Examination $examination, ExamRosterService $roster, GradeService $grades): array
+    {
+        $examination->loadMissing('subjects');
+        $marksVersion = ExaminationMark::whereIn('examination_subject_id', $examination->subjects->pluck('id'))->max('updated_at');
+        $subjectsVersion = $examination->subjects->max('updated_at');
+        $cacheKey = "exam_ledger:{$examination->id}:{$marksVersion}:{$subjectsVersion}";
+
+        return Cache::remember($cacheKey, now()->addHours(6), fn () => $this->computeLedger($examination, $roster, $grades));
+    }
+
+    private function computeLedger(Examination $examination, ExamRosterService $roster, GradeService $grades): array
     {
         $examination->loadMissing(['organization', 'academicYear']);
         $students = $roster->studentsForExam($examination);
         $symbolNumbers = ExaminationSymbolNumber::where('examination_id', $examination->id)->pluck('symbol_no', 'student_id');
         $service = new ExamResultService($roster, $grades);
 
-        $rows = $students->map(function ($student) use ($examination, $service, $symbolNumbers) {
-            $result = $service->resultFor($examination, $student, (int) ($symbolNumbers->get($student->id) ?: 0));
+        // Batched: 2 queries for the whole roster instead of resultFor()'s
+        // 2 queries PER student (1,500+ students was 3,000+ queries here).
+        $results = $service->resultsForRoster($examination, $students, $symbolNumbers)->keyBy(fn ($result) => $result['student']->id);
+
+        $rows = $students->map(function ($student) use ($results) {
+            $result = $results->get($student->id);
             $department = $result['department'];
 
             return [
