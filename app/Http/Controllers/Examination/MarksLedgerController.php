@@ -75,7 +75,13 @@ class MarksLedgerController extends Controller
             $department = $result['department'];
 
             return [
-                'student'         => $student,
+                // A plain object with just what the view/export read — not
+                // the full Eloquent model. Caching ~1,500 hydrated Student
+                // models (each dragging its loaded academicSection.department
+                // relation) is what exhausted PHP's memory limit on
+                // unserialize() in production; this keeps the cached payload
+                // small regardless of memory_limit.
+                'student' => (object) ['id' => $student->id, 'full_name' => $student->full_name, 'roll_number' => $student->roll_number],
                 'symbol_no'       => $result['symbol_no'] ?: null,
                 'department_name' => $department?->name ?: ($student->stream ?: 'Unassigned'),
                 'section_name'    => $student->academicSection?->name ?: ($student->section ?: 'Unassigned'),
