@@ -403,14 +403,12 @@ class MemberController extends Controller
 
     public function update(Request $request, Student $member, SubjectEnrollmentService $subjectEnrollments)
     {
+        // Converting the record's member_type itself stays locked server-side too
+        // (defense in depth — the form disables the radio, but a raw request
+        // shouldn't be able to flip it). Faculty/section/roll number are no longer
+        // forced back to the old value: students can move class or section here.
         if ($member->member_type === 'student') {
-            $request->merge([
-                'member_type' => $member->member_type,
-                'organization' => $member->organization,
-                'stream' => $member->stream,
-                'section' => $member->section,
-                'roll_number' => $member->roll_number,
-            ]);
+            $request->merge(['member_type' => $member->member_type]);
         }
 
         $data = $this->validated($request, $member);
@@ -755,23 +753,10 @@ class MemberController extends Controller
 
             $section = CardSection::with('department.organization')->findOrFail($request->integer('section_id'));
 
-            // A section's name (e.g. "ALL") isn't unique across departments/faculties —
-            // two unrelated departments can each have their own section that happens to
-            // share the same display name. The "search" and "assign to" pickers on this
-            // page are independent, so nothing stops an operator from filtering students
-            // under one faculty and then assigning a same-named section that actually
-            // belongs to a completely different one. Block that instead of silently
-            // moving students into the wrong department; a real cross-department
-            // transfer should go through each student's own Edit form.
-            $mismatched = Student::whereIn('id', $request->ids)
-                ->where('member_type', 'student')
-                ->whereNotNull('stream')->where('stream', '!=', '')
-                ->where('stream', '!=', $section->department->name)
-                ->get()->pluck('full_name');
-            if ($mismatched->isNotEmpty()) {
-                return back()->with('error', "Cannot assign this section: {$mismatched->implode(', ')} currently belong to a different faculty/class ({$section->department->name} was chosen). Move students between faculties from each student's own Edit page instead.");
-            }
-
+            // The target organization/faculty/section picker here is independent of
+            // the search filters used to select students, so this assignment is
+            // always a deliberate choice — including moving students into a
+            // different faculty than they currently belong to.
             $data['organization'] = $section->department->organization->slug;
             $data['stream'] = $section->department->name;
             $data['section'] = $section->name;

@@ -21,7 +21,12 @@
     $selectedType = old('member_type', $isEdit ? $member->member_type : ($pfType ?: 'student'));
     $prefillOrganization = optional($p)->organizationSlug() ?? '';
     $prefillStream = optional($p)->departmentName() ?? '';
-    $lockAcademic = $isEdit && $member->member_type === 'student';
+    // Converting an existing record between student/teacher/staff is a different,
+    // bigger operation (it would strand library/attendance/enrollment history built
+    // against the old type) — that stays locked. Faculty, section, and roll number
+    // are normal edits a school makes all the time (a student moves class or
+    // section), so those are editable here just like any other field.
+    $lockMemberType = $isEdit && $member->member_type === 'student';
     $pendingUpdateRequest = $pendingUpdateRequest ?? null;
     $input = 'w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15';
     $label = 'block text-xs font-extrabold uppercase tracking-widest text-gray-500 mb-1.5';
@@ -120,12 +125,8 @@
         @if($p)
             <input type="hidden" name="prefill_user" value="{{ $p->id }}">
         @endif
-        @if($lockAcademic)
+        @if($lockMemberType)
             <input type="hidden" name="member_type" value="{{ $member->member_type }}">
-            <input type="hidden" name="organization" value="{{ $member->organization }}">
-            <input type="hidden" name="stream" value="{{ $member->stream }}">
-            <input type="hidden" name="section" value="{{ $member->section }}">
-            <input type="hidden" name="roll_number" value="{{ $member->roll_number }}">
         @endif
 
         {{-- ── Type gate: shown alone, before any other field, until a type is picked ── --}}
@@ -168,36 +169,36 @@
                     <p class="text-xs font-extrabold uppercase tracking-widest text-[#1a5632]">Step 1</p>
                     <h2 class="mt-1 text-lg font-extrabold text-gray-950">Categorize Member</h2>
                     <p class="mt-1 text-sm font-medium text-gray-500">This decides where the record appears later: ID Card, Learning, Attendance, Library, and future modules.</p>
-                    @if($lockAcademic)
-                        <p class="mt-2 inline-flex rounded-lg bg-gray-100 px-3 py-2 text-xs font-extrabold text-gray-600">Academic identity is locked. Use the promotion workflow for class or section movement.</p>
+                    @if($lockMemberType)
+                        <p class="mt-2 inline-flex rounded-lg bg-gray-100 px-3 py-2 text-xs font-extrabold text-gray-600">Member type is locked here — create a new record to convert between student, teacher, and staff.</p>
                     @endif
                 </div>
             </div>
 
             <div class="mt-4 grid gap-3 md:grid-cols-3">
                 <label class="cursor-pointer">
-                    <input type="radio" name="member_type" value="student" x-model="memberType" class="peer sr-only" @disabled($lockAcademic)>
+                    <input type="radio" name="member_type" value="student" x-model="memberType" class="peer sr-only" @disabled($lockMemberType)>
                     <span class="flex min-h-20 flex-col justify-center rounded-xl border-2 border-gray-200 px-4 py-3 text-sm font-extrabold text-gray-600 transition peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">
                         Student
                         <small class="mt-1 text-xs font-semibold opacity-70">Class, section, roll, guardian</small>
                     </span>
                 </label>
                 <label class="cursor-pointer">
-                    <input type="radio" name="member_type" value="teacher" x-model="memberType" class="peer sr-only" @disabled($lockAcademic)>
+                    <input type="radio" name="member_type" value="teacher" x-model="memberType" class="peer sr-only" @disabled($lockMemberType)>
                     <span class="flex min-h-20 flex-col justify-center rounded-xl border-2 border-gray-200 px-4 py-3 text-sm font-extrabold text-gray-600 transition peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">
                         Academic Employee
                         <small class="mt-1 text-xs font-semibold opacity-70">Teacher, resources, attendance</small>
                     </span>
                 </label>
                 <label class="cursor-pointer">
-                    <input type="radio" name="member_type" value="staff" x-model="memberType" class="peer sr-only" @disabled($lockAcademic)>
+                    <input type="radio" name="member_type" value="staff" x-model="memberType" class="peer sr-only" @disabled($lockMemberType)>
                     <span class="flex min-h-20 flex-col justify-center rounded-xl border-2 border-gray-200 px-4 py-3 text-sm font-extrabold text-gray-600 transition peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">
                         Administrative Employee
                         <small class="mt-1 text-xs font-semibold opacity-70">Office staff, attendance, payroll</small>
                     </span>
                 </label>
             </div>
-            @unless($lockAcademic)
+            @unless($lockMemberType)
                 <button type="button" @click="typeChosen = false" class="mt-3 text-xs font-extrabold text-gray-400 hover:text-[#1a5632] hover:underline">
                     &larr; Change member type
                 </button>
@@ -206,7 +207,7 @@
             <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div>
                     <label class="{{ $label }}">Organization</label>
-                    <select name="organization" x-model="organization" @change="stream = ''; section = ''" required @disabled($lockAcademic) class="{{ $input }} {{ $lockAcademic ? 'cursor-not-allowed bg-gray-100 text-gray-500' : '' }}">
+                    <select name="organization" x-model="organization" @change="stream = ''; section = ''" required class="{{ $input }}">
                         <option value="">Select organization</option>
                         @foreach($formOptions as $orgValue => $orgData)
                             <option value="{{ $orgValue }}">{{ $orgData['label'] ?? $orgValue }}</option>
@@ -215,7 +216,7 @@
                 </div>
                 <div>
                     <label class="{{ $label }}" x-text="isStudent ? 'Class' : 'Department / Unit (optional)'"></label>
-                    <select name="stream" x-model="stream" @change="section = ''" :required="isStudent" @disabled($lockAcademic) class="{{ $input }} {{ $lockAcademic ? 'cursor-not-allowed bg-gray-100 text-gray-500' : '' }}">
+                    <select name="stream" x-model="stream" @change="section = ''" :required="isStudent" class="{{ $input }}">
                         <option value="" x-text="organization ? (isStudent ? 'Select class' : 'Select department / unit') : 'Select organization first'"></option>
                         <template x-for="item in streamOptions" :key="item">
                             <option :value="item" :selected="item === stream" x-text="item"></option>
@@ -224,16 +225,19 @@
                 </div>
                 <div x-show="isStudent" x-transition>
                     <label class="{{ $label }}">Section</label>
-                    <select name="section" x-model="section" @disabled($lockAcademic) class="{{ $input }} {{ $lockAcademic ? 'cursor-not-allowed bg-gray-100 text-gray-500' : '' }}">
+                    <select name="section" x-model="section" class="{{ $input }}">
                         <option value="" x-text="stream ? 'Select section' : 'Select class first'"></option>
                         <template x-for="item in sectionOptions" :key="item">
                             <option :value="item" :selected="item === section" x-text="item"></option>
                         </template>
                     </select>
+                    @if($isEdit && $member->member_type === 'student')
+                        <p class="mt-1.5 text-[11px] font-semibold text-amber-600">Changing class/section moves the student immediately — subject enrollments and routine attendance resync to the new section.</p>
+                    @endif
                 </div>
                 <div>
                     <label class="{{ $label }}" x-text="isStudent ? 'Roll Number / Student ID' : 'Employee ID'"></label>
-                    <input name="roll_number" value="{{ old('roll_number', $isEdit ? $member->roll_number : '') }}" required @readonly($lockAcademic) class="{{ $input }} {{ $lockAcademic ? 'cursor-not-allowed bg-gray-100 text-gray-500' : '' }}">
+                    <input name="roll_number" value="{{ old('roll_number', $isEdit ? $member->roll_number : '') }}" required class="{{ $input }}">
                 </div>
                 <div>
                     <label class="{{ $label }}">Device ID <span x-show="isEmployee" class="text-red-500">*</span></label>
