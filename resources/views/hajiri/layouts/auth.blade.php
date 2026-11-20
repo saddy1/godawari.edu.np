@@ -57,5 +57,6 @@
     <script src="{{url('/erp/hajiri/admin/js/settings.js')}}"></script>
     <script src="{{url('/erp/hajiri/admin/js/gleek.js')}}"></script>
     <script src="{{url('/erp/hajiri/admin/js/styleSwitcher.js')}}"></script>
+@include('partials.page-loader')
 </body>
 </html>

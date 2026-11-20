@@ -16,11 +16,11 @@ class RoutineCollisionService
     {
         $teacherIds = $groups->pluck('teacher_ids')->flatten()->map(fn ($id) => (int) $id);
         if ($teacherIds->duplicates()->isNotEmpty()) {
-            throw ValidationException::withMessages(['groups' => 'One teacher cannot handle both parallel practical groups.']);
+            throw ValidationException::withMessages(['groups' => 'One teacher cannot teach two parallel groups in the same class.']);
         }
         $roomIds = $groups->pluck('routine_room_id')->filter()->map(fn ($id) => (int) $id);
         if ($roomIds->duplicates()->isNotEmpty()) {
-            throw ValidationException::withMessages(['groups' => 'Parallel practical groups must use different rooms or laboratories.']);
+            throw ValidationException::withMessages(['groups' => 'Parallel groups must use different rooms or classrooms.']);
         }
 
         $overlapping = RoutineLesson::query()

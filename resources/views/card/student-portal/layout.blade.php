@@ -238,5 +238,6 @@
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
 @include('partials.pwa-install-script', ['sw' => 'student-sw.js', 'storageKey' => 'student-ios-install-dismissed', 'appLabel' => 'the student portal'])
+@include('partials.page-loader')
 </body>
 </html>

@@ -47,5 +47,6 @@
     @include('partials.page-wheel-scroll')
     @stack('modals')
     @stack('scripts')
+@include('partials.page-loader')
 </body>
 </html>

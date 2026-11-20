@@ -282,11 +282,11 @@ class RoutineBuilderController extends Controller
                 : back()->with('success', 'Routine cell cleared.');
         }
         $data = $request->validate([
-            'mode' => ['required', Rule::in(['single', 'practical_split'])],
+            'mode' => ['required', Rule::in(['single', 'practical_split', 'elective_parallel'])],
             'subject_offering_id' => [Rule::requiredIf(fn () => $request->input('mode') === 'single'), 'nullable', 'integer', 'exists:subject_offerings,id'],
             'notes' => ['nullable', 'string', 'max:500'],
-            'groups' => ['required', 'array', 'min:1', 'max:2'],
-            'groups.*.subject_offering_id' => [Rule::requiredIf(fn () => $request->input('mode') === 'practical_split'), 'nullable', 'integer', 'exists:subject_offerings,id'],
+            'groups' => ['required', 'array', 'min:1', 'max:4'],
+            'groups.*.subject_offering_id' => [Rule::requiredIf(fn () => in_array($request->input('mode'), ['practical_split', 'elective_parallel'], true)), 'nullable', 'integer', 'exists:subject_offerings,id'],
             'groups.*.teacher_ids' => ['nullable', 'array'],
             'groups.*.teacher_ids.*' => ['integer', 'distinct', 'exists:users,id'],
             'groups.*.routine_room_id' => ['nullable', 'integer', 'exists:routine_rooms,id'],
@@ -305,16 +305,27 @@ class RoutineBuilderController extends Controller
         $groups = collect($data['groups']);
         if ($data['mode'] === 'single' && $groups->count() !== 1) throw ValidationException::withMessages(['groups' => 'A theory class requires one whole-class group.']);
         if ($data['mode'] === 'practical_split' && ! in_array($groups->count(), [1, 2], true)) throw ValidationException::withMessages(['groups' => 'A practical class requires one or two lab groups.']);
+        if ($data['mode'] === 'elective_parallel' && ($groups->count() < 2 || $groups->count() > 4)) throw ValidationException::withMessages(['groups' => 'A parallel elective class needs between 2 and 4 groups.']);
         $section = $routinePlan->sections->firstWhere('id', (int) $base['section_id']);
 
-        // Theory has one shared subject; a practical split lets each group carry its own
-        // subject (e.g. Group A → Physics lab, Group B → Chemistry lab), so resolve per group.
+        // Theory has one shared subject; a practical split or a parallel elective
+        // block lets each group carry its own subject (e.g. Group A → Physics lab,
+        // Group B → Chemistry lab, or Elective A → Economics, Elective B →
+        // Accountancy), so resolve per group.
         $offerings = $data['mode'] === 'single'
             ? [$this->resolveOffering($routinePlan, $section, (int) $data['subject_offering_id'])]
             : $groups->map(fn ($group) => $this->resolveOffering($routinePlan, $section, (int) $group['subject_offering_id']))->values()->all();
         if ($data['mode'] === 'practical_split') {
             foreach ($offerings as $offering) {
                 if (! $offering->subject->has_practical) throw ValidationException::withMessages(['groups' => 'Every practical group must use a subject that has a practical component.']);
+            }
+        }
+        if ($data['mode'] === 'elective_parallel') {
+            foreach ($offerings as $offering) {
+                if (! $offering->is_elective) throw ValidationException::withMessages(['groups' => 'Every parallel group must use an elective subject — students are split by their elective choice, not a 50/50 lab split.']);
+            }
+            if (collect($offerings)->pluck('id')->unique()->count() !== count($offerings)) {
+                throw ValidationException::withMessages(['groups' => 'Each parallel group must use a different elective subject.']);
             }
         }
         // A room is optional — some organizations don't track lab rooms at all.

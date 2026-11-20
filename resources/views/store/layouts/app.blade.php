@@ -382,5 +382,6 @@
         })();
     </script>
     @stack('scripts')
+@include('partials.page-loader')
 </body>
 </html>

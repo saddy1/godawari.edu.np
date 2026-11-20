@@ -133,4 +133,5 @@ jQuery.loadScript=function(url,callback){jQuery.ajax({url:url,dataType:'script',
 </script>
 
 @include('partials.pwa-install-script', ['sw' => 'teacher-sw.js', 'storageKey' => 'teacher-ios-install-dismissed', 'appLabel' => 'this app', 'bannerBottom' => '4.75rem'])
+@include('partials.page-loader')
 </body></html>

@@ -422,5 +422,6 @@
 
     {{-- Page-Specific Scripts --}}
     @stack('scripts')
+@include('partials.page-loader')
 </body>
 </html>

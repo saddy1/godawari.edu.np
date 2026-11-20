@@ -133,5 +133,6 @@
     @stack('scripts')
 
     @include('partials.pwa-install-script', ['sw' => 'admin-sw.js', 'storageKey' => 'admin-ios-install-dismissed', 'appLabel' => 'the admin app'])
+@include('partials.page-loader')
 </body>
 </html>

@@ -407,5 +407,6 @@
 @stack('scripts')
 
 @include('partials.pwa-install-script', ['sw' => 'learning-sw.js', 'storageKey' => 'learning-ios-install-dismissed', 'appLabel' => 'E-Learning'])
+@include('partials.page-loader')
 </body>
 </html>

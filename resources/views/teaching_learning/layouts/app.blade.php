@@ -60,5 +60,6 @@
 
     @include('partials.page-wheel-scroll')
     @stack('scripts')
+@include('partials.page-loader')
 </body>
 </html>
