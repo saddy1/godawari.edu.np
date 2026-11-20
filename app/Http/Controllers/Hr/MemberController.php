@@ -28,40 +28,109 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use ZipArchive;
 
 class MemberController extends Controller
 {
+    // Grouped for the "tick the attributes you want" export picker. Keys are
+    // read straight off the Student model (or a getter below for the few that
+    // need formatting/lookup), values are the CSV column headers.
+    private const EXPORT_ATTRIBUTES = [
+        'Identity' => [
+            'full_name' => 'Full Name',
+            'first_name' => 'First Name',
+            'middle_name' => 'Middle Name',
+            'last_name' => 'Last Name',
+            'member_type' => 'Member Type',
+            'gender' => 'Gender',
+            'dob' => 'Date of Birth (AD)',
+            'dob_bs' => 'Date of Birth (BS)',
+            'blood_group' => 'Blood Group',
+            'citizenship_no' => 'Citizenship No.',
+        ],
+        'Academic' => [
+            'organization' => 'Organization',
+            'stream' => 'Faculty / Department',
+            'section' => 'Section',
+            'batch' => 'Batch',
+            'semester' => 'Semester',
+            'year_level' => 'Year Level',
+            'roll_number' => 'Roll Number',
+            'registration_no' => 'Registration No.',
+        ],
+        'Contact' => [
+            'mobile' => 'Mobile',
+            'email' => 'Email',
+            'parent_contact' => 'Parent Contact',
+            'emergency_contact_name' => 'Emergency Contact Name',
+            'emergency_contact_phone' => 'Emergency Contact Phone',
+            'guardian_name' => 'Guardian Name',
+            'guardian_relation' => 'Guardian Relation',
+            'guardian_contact' => 'Guardian Contact',
+            'father_name' => "Father's Name",
+            'mother_name' => "Mother's Name",
+            'grandfather_name' => "Grandfather's Name",
+        ],
+        'Permanent Address' => [
+            'permanent_province' => 'Province',
+            'permanent_district' => 'District',
+            'permanent_municipality' => 'Municipality',
+            'permanent_ward' => 'Ward',
+            'permanent_tole' => 'Tole',
+        ],
+        'Temporary Address' => [
+            'temporary_province' => 'Province',
+            'temporary_district' => 'District',
+            'temporary_municipality' => 'Municipality',
+            'temporary_ward' => 'Ward',
+            'temporary_tole' => 'Tole',
+        ],
+        'Employment' => [
+            'designation' => 'Designation',
+            'employment_type' => 'Employment Type',
+            'employee_category' => 'Employee Category',
+            'joining_date' => 'Joining Date (AD)',
+            'joining_date_bs' => 'Joining Date (BS)',
+            'valid_till' => 'Valid Till (AD)',
+            'valid_till_bs' => 'Valid Till (BS)',
+        ],
+        'Bank & IDs' => [
+            'bank_name' => 'Bank Name',
+            'bank_branch' => 'Bank Branch',
+            'bank_account_name' => 'Bank Account Name',
+            'bank_account_number' => 'Bank Account Number',
+            'pan_number' => 'PAN No.',
+            'ssf_number' => 'SSF No.',
+            'cit_number' => 'CIT No.',
+        ],
+        'Other' => [
+            'library_id' => 'Library ID',
+            'has_library_card' => 'Has Library Card',
+            'bus_route' => 'Bus Route',
+            'bus_stop' => 'Bus Stop',
+            'has_bus_pass' => 'Has Bus Pass',
+            'is_active' => 'Active',
+        ],
+    ];
+
     public function __construct(private LibraryClearanceService $libraryClearance)
     {
     }
 
-    public function index(Request $request)
+    // Shared by the listing (paginated, with eager loads for the table) and the
+    // CSV export (chunked, no eager loads) so filters never drift apart.
+    private function filteredMembersQuery(Request $request)
     {
-        $perPage = (int) $request->input('per_page', 20);
-        if (! in_array($perPage, [10, 20, 50, 100], true)) {
-            $perPage = 20;
-        }
-
-        $academicYear = AcademicYear::orderByDesc('is_active')->latest('starts_on')->latest('id')->first();
         // The model's global scope already excludes inactive members by default.
         // Explicitly asking for them (or "all") bypasses it for this listing only —
         // every other page that reads Student still never sees them.
         $status = $request->input('status');
-        $query = Student::query()
+
+        return Student::query()
             ->when($status === 'inactive', fn ($q) => $q->withInactive()->where('is_active', false))
             ->when($status === 'all', fn ($q) => $q->withInactive())
-            ->with([
-            'user.roles',
-            'academicSection',
-            'subjectEnrollments' => fn ($query) => $query
-                ->when($academicYear, fn ($query) => $query->where('academic_year', $academicYear->name))
-                ->where('assignment_source', 'manual')
-                ->whereNotNull('subject_offering_id'),
-            'subjectEnrollments.offering',
-        ]);
-
-        $query->when($request->filled('type'), fn ($q) => $q->where('member_type', $request->type))
+            ->when($request->filled('type'), fn ($q) => $q->where('member_type', $request->type))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = preg_replace('/\s+/', ' ', trim((string) $request->input('search')));
                 $nameTerms = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
@@ -97,6 +166,81 @@ class MemberController extends Controller
             ->when($request->filled('batch'), fn ($q) => $q->where('batch', $request->batch))
             ->when($request->filled('permanent_district'), fn ($q) => $q->where('permanent_district', $request->permanent_district))
             ->when($request->filled('permanent_municipality'), fn ($q) => $q->where('permanent_municipality', $request->permanent_municipality));
+    }
+
+    public function exportForm(Request $request)
+    {
+        return view('hr.members.export', [
+            'attributeGroups' => self::EXPORT_ATTRIBUTES,
+            'filters' => $request->query(),
+            'matchCount' => $this->filteredMembersQuery($request)->count(),
+        ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $data = $request->validate([
+            'attributes' => ['required', 'array', 'min:1'],
+            'attributes.*' => ['string'],
+        ], [
+            'attributes.required' => 'Tick at least one attribute to export.',
+        ]);
+
+        $validKeys = collect(self::EXPORT_ATTRIBUTES)->collapse()->keys();
+        $selected = $validKeys->intersect($data['attributes'])->values();
+
+        if ($selected->isEmpty()) {
+            return back()->withErrors(['attributes' => 'Tick at least one attribute to export.']);
+        }
+
+        $labels = collect(self::EXPORT_ATTRIBUTES)->collapse();
+        $query = $this->filteredMembersQuery($request)->orderBy('first_name')->orderBy('last_name');
+        $filename = 'students-export-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($query, $selected, $labels) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $selected->map(fn ($key) => $labels[$key])->all(), ',', '"', '\\');
+
+            $query->chunk(200, function ($members) use ($out, $selected) {
+                foreach ($members as $member) {
+                    fputcsv($out, $selected->map(fn ($key) => $this->exportAttributeValue($member, $key))->all(), ',', '"', '\\');
+                }
+            });
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function exportAttributeValue(Student $member, string $key): string
+    {
+        $value = match ($key) {
+            'full_name' => $member->full_name,
+            'has_library_card', 'has_bus_pass', 'is_active' => $member->{$key} ? 'Yes' : 'No',
+            'dob', 'joining_date', 'valid_till' => $member->{$key}?->format('Y-m-d'),
+            default => $member->{$key},
+        };
+
+        return (string) ($value ?? '');
+    }
+
+    public function index(Request $request)
+    {
+        $perPage = (int) $request->input('per_page', 20);
+        if (! in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 20;
+        }
+
+        $academicYear = AcademicYear::orderByDesc('is_active')->latest('starts_on')->latest('id')->first();
+        $query = $this->filteredMembersQuery($request)
+            ->with([
+            'user.roles',
+            'academicSection',
+            'subjectEnrollments' => fn ($query) => $query
+                ->when($academicYear, fn ($query) => $query->where('academic_year', $academicYear->name))
+                ->where('assignment_source', 'manual')
+                ->whereNotNull('subject_offering_id'),
+            'subjectEnrollments.offering',
+        ]);
 
         $members = $query->latest()->paginate($perPage)->withQueryString();
         $this->attachLibraryClearanceStatus($members->getCollection());

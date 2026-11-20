@@ -57,6 +57,14 @@
             </a>
         @endif
 
+        @if($canHrView)
+            <a href="{{ route('admin.hr.members.export') }}"
+               class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.hr.members.export', 'admin/hr/members/export') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v-1a3 3 0 013-3h10a3 3 0 013 3v1m-8 4l-4-4m0 0l4-4m-4 4h12"/></svg>
+                <span class="flex-1 truncate">Export Data</span>
+            </a>
+        @endif
+
         @if($canHrEdit)
             <a href="{{ route('admin.hr.members.promote.index') }}"
                class="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all {{ $navActive('admin.hr.members.promote.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white hover:bg-white/8' }}">

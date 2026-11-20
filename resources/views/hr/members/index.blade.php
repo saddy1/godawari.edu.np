@@ -21,13 +21,22 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ session('error') }}</div>
     @endif
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach($counts as $key => $count)
-            <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">{{ $key === 'all' ? 'All Members' : $typeLabels[$key] }}</p>
-                <p class="mt-2 text-3xl font-black text-gray-950">{{ $count }}</p>
-            </div>
-        @endforeach
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            @foreach($counts as $key => $count)
+                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">{{ $key === 'all' ? 'All Members' : $typeLabels[$key] }}</p>
+                    <p class="mt-2 text-3xl font-black text-gray-950">{{ $count }}</p>
+                </div>
+            @endforeach
+        </div>
+        @if(auth()->user()?->canAccess('hr.members.view'))
+            <a href="{{ route('admin.hr.members.export', request()->query()) }}"
+               class="inline-flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4V4m0 8l-3.5-3.5M12 12l3.5-3.5"/></svg>
+                Export CSV
+            </a>
+        @endif
     </div>
 
     <form id="hr-member-filter-form" method="GET" action="{{ route('admin.hr.members.index') }}" class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"

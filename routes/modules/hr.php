@@ -20,6 +20,8 @@ Route::prefix('admin/hr')
         Route::post('/members/import/photos/preview', [MemberController::class, 'importPhotosPreview'])->middleware('permission:hr.members.create')->name('members.import.photos.preview');
         Route::post('/members/import/photos/confirm', [MemberController::class, 'importPhotosConfirm'])->middleware('permission:hr.members.create')->name('members.import.photos.confirm');
         Route::get('/members/template', [MemberController::class, 'template'])->middleware('permission:hr.members.create')->name('members.template');
+        Route::get('/members/export', [MemberController::class, 'exportForm'])->middleware('permission:hr.members.view')->name('members.export');
+        Route::post('/members/export', [MemberController::class, 'export'])->middleware('permission:hr.members.view')->name('members.export.download');
         Route::get('/members/create', [MemberController::class, 'create'])->middleware('permission:hr.members.create')->name('members.create');
         Route::post('/members', [MemberController::class, 'store'])->middleware('permission:hr.members.create')->name('members.store');
         Route::get('/members/bulk-edit', [MemberController::class, 'bulkEdit'])->middleware('permission:hr.members.edit')->name('members.bulk-edit.index');
