@@ -31,7 +31,7 @@
             @endforeach
         </div>
         @if(auth()->user()?->canAccess('hr.members.view'))
-            <a href="{{ route('admin.hr.members.export', request()->query()) }}"
+            <a id="hr-export-link" href="{{ route('admin.hr.members.export', request()->query()) }}"
                class="inline-flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4V4m0 8l-3.5-3.5M12 12l3.5-3.5"/></svg>
                 Export CSV
@@ -357,8 +357,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filterForm || !results) return;
 
     const searchInput = filterForm.querySelector('[data-ajax-search]');
+    const exportLink  = document.getElementById('hr-export-link');
+    const exportBasePath = @js(route('admin.hr.members.export'));
     let searchTimer = null;
     let controller  = null;
+
+    // The table refreshes via fetch() below without a real navigation, so the
+    // Export CSV link (a plain server-rendered href) would otherwise keep
+    // pointing at whatever filters were active on the last full page load.
+    // Keep it in sync with the query string every time filters change.
+    const syncExportLink = queryString => {
+        if (exportLink) exportLink.href = exportBasePath + queryString;
+    };
 
     const escapeRegex = v => String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -388,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (controller) controller.abort();
         controller = new AbortController();
         const url = currentUrl(pageUrl);
+        syncExportLink(url.includes('?') ? url.slice(url.indexOf('?')) : '');
         results.classList.add('opacity-60');
         try {
             const res = await fetch(url, {

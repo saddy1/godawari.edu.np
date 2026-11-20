@@ -35,7 +35,7 @@
         <p class="text-sm font-bold uppercase tracking-widest text-white/50">Human Resource</p>
         <h1 class="mt-1 text-3xl font-extrabold">Export Members</h1>
         <p class="mt-2 max-w-3xl text-sm font-medium text-white/70">
-            Tick the attributes you want, and download a CSV of the matching members.
+            Tap the attributes you want, and download a CSV of the matching members.
         </p>
     </div>
 
@@ -66,7 +66,10 @@
         @endforeach
 
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p class="text-sm font-bold text-gray-700" x-text="selected.size + ' attribute' + (selected.size === 1 ? '' : 's') + ' selected'"></p>
+            <p class="inline-flex items-center gap-2 text-sm font-bold text-gray-700">
+                <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#1a5632] px-2 text-xs font-extrabold text-white" x-text="selected.size"></span>
+                attribute<span x-show="selected.size !== 1">s</span> selected
+            </p>
             <div class="flex gap-2">
                 <button type="button" @click="selectAll()" class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-50">Select all</button>
                 <button type="button" @click="clearAll()" class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-50">Clear</button>
@@ -82,13 +85,15 @@
                             <span x-text="groupChecked(@js(array_keys($attrs))) ? 'Unselect' : 'Select all'"></span>
                         </button>
                     </div>
-                    <div class="mt-3 space-y-2">
+                    <div class="mt-3 flex flex-wrap gap-2">
                         @foreach($attrs as $key => $label)
-                            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                <input type="checkbox" name="attributes[]" value="{{ $key }}"
-                                       :checked="selected.has('{{ $key }}')" @change="toggle('{{ $key }}')"
-                                       class="h-4 w-4 rounded border-gray-300 text-[#1a5632] focus:ring-[#1a5632]/30">
-                                {{ $label }}
+                            <label class="cursor-pointer select-none" @click.prevent="toggle('{{ $key }}')">
+                                <input type="checkbox" name="attributes[]" value="{{ $key }}" :checked="selected.has('{{ $key }}')" class="sr-only" tabindex="-1">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition"
+                                      :class="selected.has('{{ $key }}') ? 'border-[#1a5632] bg-emerald-50 text-[#1a5632]' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'">
+                                    <svg x-show="selected.has('{{ $key }}')" x-cloak class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                    {{ $label }}
+                                </span>
                             </label>
                         @endforeach
                     </div>
