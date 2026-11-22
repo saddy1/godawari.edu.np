@@ -24,10 +24,12 @@
 </head>
 <body>
 <div id="toolbar">
-    <h1>Marksheets — {{ $examination->name }} ({{ $roster->count() }} students)</h1>
-    <a class="btn-back" href="{{ route('admin.examinations.marksheets.index', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination])) }}">← Back</a>
-    <a class="btn-print" href="{{ request('student_id') ? route('admin.examinations.marksheets.download-one', [$examination, request('student_id')]) : route('admin.examinations.marksheets.download', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination])) }}">Download PDF</a>
-    <button class="btn-print" onclick="window.print()">Print</button>
+    <h1>{{ isset($readOnly) ? 'Marksheet — '.$examination->name : 'Marksheets — '.$examination->name.' ('.$roster->count().' students)' }}</h1>
+    <a class="btn-back" href="{{ $backUrl ?? route('admin.examinations.marksheets.index', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination])) }}">← Back</a>
+    @unless(isset($readOnly))
+        <a class="btn-print" href="{{ $downloadUrl ?? (request('student_id') ? route('admin.examinations.marksheets.download-one', [$examination, request('student_id')]) : route('admin.examinations.marksheets.download', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination]))) }}">Download PDF</a>
+        <button class="btn-print" onclick="window.print()">Print</button>
+    @endunless
 </div>
 
 <div id="pages">

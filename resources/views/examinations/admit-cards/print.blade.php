@@ -38,8 +38,8 @@
         </select>
     </form>
     @endunless
-    <a class="btn-back" href="{{ route('admin.examinations.admit-cards.index', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination])) }}">← Back</a>
-    <a class="btn-print" href="{{ isset($singleStudent) ? route('admin.examinations.admit-cards.download-one', [$examination, $singleStudent]) : route('admin.examinations.admit-cards.download', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination, 'count' => $count])) }}">Download PDF</a>
+    <a class="btn-back" href="{{ $backUrl ?? route('admin.examinations.admit-cards.index', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination])) }}">← Back</a>
+    <a class="btn-print" href="{{ $downloadUrl ?? (isset($singleStudent) ? route('admin.examinations.admit-cards.download-one', [$examination, $singleStudent]) : route('admin.examinations.admit-cards.download', array_merge(request()->only(['q', 'school_class', 'faculty', 'section']), ['examination' => $examination, 'count' => $count]))) }}">Download PDF</a>
     <button class="btn-print" onclick="window.print()">Print</button>
 </div>
 

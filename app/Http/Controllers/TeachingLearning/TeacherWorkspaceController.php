@@ -163,6 +163,54 @@ class TeacherWorkspaceController extends Controller
         return response()->json(['saved' => true, 'saved_at' => now()->format('h:i:s A')]);
     }
 
+    // Notebook checking is a separate judgement call from attendance — a
+    // teacher often reviews copybooks during or just after the period, not
+    // only inside the strict attendance window — so it shares the same
+    // "is this your class, today" authorization but not the time window.
+    public function saveNotebook(Request $request, RoutineLesson $routineLesson)
+    {
+        $routineLesson->load(['plan', 'period', 'endPeriod', 'groups.teachers']);
+        app(RoutineLessonRosterService::class)->sync($routineLesson);
+        $routineLesson->load(['groups.teachers', 'groups.students']);
+        $groups = $this->authorizeNotebook($routineLesson, $request->user());
+        $data = $request->validate([
+            'student_id' => ['required_without:all', 'nullable', 'integer'],
+            'all' => ['sometimes', 'boolean'],
+            'checked' => ['required', 'boolean'],
+        ]);
+        $students = $groups->flatMap->students->unique('id');
+        $all = $request->boolean('all');
+        abort_unless($all || $students->pluck('id')->contains((int) ($data['student_id'] ?? 0)), 422, 'This student is not in your scheduled routine group.');
+        DB::transaction(function () use ($routineLesson, $request, $students, $all, $data) {
+            $session = $this->session($routineLesson, $request->user());
+            RoutineAttendanceSession::whereKey($session->id)->lockForUpdate()->first();
+            foreach ($students as $student) {
+                $isTarget = $all || (int) $student->id === (int) ($data['student_id'] ?? 0);
+                if (! $isTarget) {
+                    continue;
+                }
+                $key = ['routine_attendance_session_id' => $session->id, 'student_id' => $student->id];
+                RoutineStudentAttendance::updateOrCreate($key, [
+                    'notebook_checked' => $data['checked'],
+                    'notebook_checked_by' => $request->user()->id,
+                    'notebook_checked_at' => now(),
+                ]);
+            }
+        });
+
+        return response()->json(['saved' => true, 'saved_at' => now()->format('h:i:s A')]);
+    }
+
+    private function authorizeNotebook(RoutineLesson $lesson, User $user): Collection
+    {
+        abort_unless($lesson->plan?->status === 'published', 422, 'Notebook check is available only from a published routine.');
+        abort_unless($lesson->day_of_week === now()->format('l'), 422, 'This class is not scheduled today.');
+        $groups = $this->teacherGroups($lesson, $user);
+        abort_if($groups->isEmpty(), 403, 'This class is not assigned to you.');
+
+        return $groups;
+    }
+
     private function authorizeAttendance(RoutineLesson $lesson, User $user, bool $editing = true): Collection
     {
         abort_unless($lesson->plan?->status === 'published', 422, 'Attendance is available only from a published routine.');
@@ -203,5 +251,33 @@ class TeacherWorkspaceController extends Controller
             ['routine_lesson_id' => $lesson->id, 'attendance_date' => now()->toDateString()],
             ['opened_by' => $user->id, 'opened_at' => now()]
         );
+    }
+
+    // Teachers/staff are HR records (Card\Student, member_type teacher/staff)
+    // just like students are — so the same Complaint model and the same
+    // shared panel partial cover both, keyed off whichever HR record is
+    // linked to the logged-in user.
+    public function complaints(Request $request)
+    {
+        $member = $request->user()->student;
+        abort_unless($member, 404, 'No HR record is linked to your account yet.');
+        $complaints = \App\Models\Complaint::where('student_id', $member->id)->latest()->get();
+
+        return view('teaching_learning.teacher-workspace.complaints', compact('complaints'));
+    }
+
+    public function submitComplaint(Request $request)
+    {
+        $member = $request->user()->student;
+        abort_unless($member, 404, 'No HR record is linked to your account yet.');
+        $data = $request->validate([
+            'category' => ['required', Rule::in(array_keys(\App\Models\Complaint::CATEGORIES))],
+            'subject' => ['required', 'string', 'max:150'],
+            'message' => ['required', 'string', 'max:3000'],
+        ]);
+
+        \App\Models\Complaint::create([...$data, 'student_id' => $member->id, 'status' => 'pending']);
+
+        return redirect()->route('admin.teacher.complaints')->with('success', 'Your feedback/complaint has been submitted.');
     }
 }

@@ -284,25 +284,36 @@
     <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="hr-password-title">
         <div class="flex items-start justify-between gap-4">
             <div>
-                <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">Reset Password</p>
+                <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">Reset Login Credentials</p>
                 <h3 id="hr-password-title" class="mt-1 text-base font-extrabold text-gray-900"></h3>
             </div>
             <button type="button" onclick="closeHrPasswordReset()" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Close">&times;</button>
         </div>
-        <form id="hr-password-form" method="POST" class="mt-5 space-y-3">
+        <p class="mt-2 text-xs font-semibold text-gray-400">Only fill in what needs to change — leave the rest blank.</p>
+        <form id="hr-password-form" method="POST" class="mt-4 space-y-3">
             @csrf
             @method('PATCH')
             <div>
-                <label class="mb-1 block text-xs font-bold text-gray-600">New password</label>
-                <input name="password" type="password" required minlength="8" placeholder="Minimum 8 characters" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
+                <label class="mb-1 block text-xs font-bold text-gray-600">New password <span class="font-normal text-gray-400">(optional)</span></label>
+                <input name="password" type="password" minlength="8" placeholder="Leave blank to keep current password" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
             </div>
             <div>
                 <label class="mb-1 block text-xs font-bold text-gray-600">Confirm password</label>
-                <input name="password_confirmation" type="password" required minlength="8" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
+                <input name="password_confirmation" type="password" minlength="8" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
+            </div>
+            <div class="border-t border-gray-100 pt-3">
+                <label class="mb-1 block text-xs font-bold text-gray-600">Login ID <span class="font-normal text-gray-400">(optional)</span></label>
+                <input name="login_user_id" type="text" placeholder="Leave blank to keep current login ID" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
+                <p id="hr-password-current-login-id" class="mt-1 text-[11px] font-semibold text-gray-400"></p>
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-bold text-gray-600">Login email <span class="font-normal text-gray-400">(optional)</span></label>
+                <input name="login_email" type="email" placeholder="Leave blank to keep current login email" class="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/10">
+                <p id="hr-password-current-login-email" class="mt-1 text-[11px] font-semibold text-gray-400"></p>
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeHrPasswordReset()" class="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
-                <button type="submit" class="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-600">Reset Password</button>
+                <button type="submit" class="flex-1 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-600">Save</button>
             </div>
         </form>
     </div>
@@ -334,12 +345,14 @@
 
 @push('scripts')
 <script>
-function openHrPasswordReset(memberId, memberName) {
+function openHrPasswordReset(memberId, memberName, currentLoginId, currentLoginEmail) {
     const modal = document.getElementById('hr-password-modal');
     const form = document.getElementById('hr-password-form');
     form.action = `{{ url('/admin/hr/members') }}/${memberId}/password`;
     document.getElementById('hr-password-title').textContent = memberName;
     form.reset();
+    document.getElementById('hr-password-current-login-id').textContent = currentLoginId ? `Current: ${currentLoginId}` : '';
+    document.getElementById('hr-password-current-login-email').textContent = currentLoginEmail ? `Current: ${currentLoginEmail}` : '';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     form.querySelector('[name="password"]').focus();

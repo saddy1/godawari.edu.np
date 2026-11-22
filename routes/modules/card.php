@@ -125,6 +125,8 @@ Route::post('/student/card/logout', [StudentAuthController::class, 'logout'])->m
 Route::middleware(['card.student', 'module.enabled:card'])->prefix('student/card')->name('student.')->group(function () {
     Route::get('/dashboard', [StudentPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('/attendance', [StudentPortalController::class, 'attendance'])->name('attendance');
+    Route::get('/results', [StudentPortalController::class, 'results'])->name('results');
+    Route::get('/exams/{examination}/marksheet', [StudentPortalController::class, 'marksheet'])->name('marksheet');
     Route::get('/learning', [StudentPortalController::class, 'learning'])->name('learning');
     Route::get('/card-status', [StudentPortalController::class, 'cardStatus'])->name('card-status');
     Route::post('/request-card', [StudentPortalController::class, 'requestCard'])->name('request-card');
@@ -137,4 +139,6 @@ Route::middleware(['card.student', 'module.enabled:card'])->prefix('student/card
     Route::get('/library', [StudentPortalController::class, 'myLibrary'])->name('library');
     Route::get('/change-password', [StudentPortalController::class, 'changePasswordForm'])->name('change-password');
     Route::post('/change-password', [StudentPortalController::class, 'changePassword'])->name('change-password.update');
+    Route::get('/complaints', [StudentPortalController::class, 'complaints'])->name('complaints');
+    Route::post('/complaints', [StudentPortalController::class, 'submitComplaint'])->name('complaints.store');
 });

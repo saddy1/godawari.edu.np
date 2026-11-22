@@ -61,6 +61,32 @@
         </div>
     </div>
 
+    @if($member->member_type === 'student')
+        @include('hr.members._activity-tabs')
+
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-extrabold uppercase tracking-widest text-gray-400">Performance Snapshot</p>
+            <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                <div class="rounded-xl bg-gray-50 p-4 text-center">
+                    <p class="text-2xl font-black text-[#1a5632]">{{ number_format($performanceSnapshot['attendance_rate'], 1) }}%</p>
+                    <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Attendance Rate (This Year)</p>
+                </div>
+                <div class="rounded-xl bg-gray-50 p-4 text-center">
+                    @if($performanceSnapshot['latest_result'])
+                        <p class="text-2xl font-black {{ $performanceSnapshot['latest_result']['overall_grade'] === 'NG' ? 'text-red-600' : 'text-[#1a5632]' }}">{{ $performanceSnapshot['latest_result']['overall_grade'] ?? '—' }}</p>
+                    @else
+                        <p class="text-2xl font-black text-gray-300">—</p>
+                    @endif
+                    <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Latest Exam Grade</p>
+                </div>
+                <div class="rounded-xl bg-gray-50 p-4 text-center">
+                    <p class="truncate text-sm font-extrabold text-gray-800">{{ $performanceSnapshot['latest_exam']?->name ?? 'No exams yet' }}</p>
+                    <p class="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Most Recent Exam</p>
+                </div>
+            </div>
+        </section>
+    @endif
+
     <div class="grid gap-4 lg:grid-cols-[280px_1fr]">
         <aside class="space-y-4">
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

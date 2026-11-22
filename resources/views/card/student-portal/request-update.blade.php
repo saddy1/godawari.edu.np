@@ -52,7 +52,12 @@
         @csrf
 
         <div class="border-b border-gray-100 p-5">
-            <h2 class="text-base font-extrabold text-gray-950">Profile Photo</h2>
+            <div class="flex items-center gap-2.5">
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[#1a5632]">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h1l2-3h8l2 3h1a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3" stroke-width="2"/></svg>
+                </span>
+                <h2 class="text-base font-extrabold text-gray-950">Profile Photo</h2>
+            </div>
             <p class="mt-1 text-xs font-semibold text-gray-500">Take a clear passport-style photo or upload one from your device. Maximum size: 2 MB.</p>
             <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div class="h-32 w-28 shrink-0 overflow-hidden rounded-2xl border-2 border-gray-200 bg-gray-100 shadow-sm">
@@ -77,9 +82,14 @@
         </div>
 
         <div class="border-b border-gray-100 p-5">
-            <h2 class="text-base font-extrabold text-gray-950">Date of Birth & Family Details</h2>
+            <div class="flex items-center gap-2.5">
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[#1a5632]">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2a5 5 0 00-10 0v2m10 0H7m8-13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </span>
+                <h2 class="text-base font-extrabold text-gray-950">Date of Birth & Family Details</h2>
+            </div>
             <p class="mt-1 text-xs font-semibold text-gray-500">Tap the calendar button to choose the date of birth in Bikram Sambat.</p>
-            <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                     <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">Date of Birth (BS)</label>
                     <input type="text" name="dob_bs" value="{{ old('dob_bs', $student->dob_bs) }}" placeholder="YYYY-MM-DD" maxlength="10" inputmode="numeric" data-min-bs="2000-01-01" data-max-bs="today" class="nepali-date-picker w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
@@ -100,14 +110,19 @@
 
         <div class="grid gap-6 p-5 lg:grid-cols-2">
             <div>
-                <h2 class="text-base font-extrabold text-gray-950">Contact Details</h2>
-                <div class="mt-4 space-y-4">
+                <div class="flex items-center gap-2.5">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[#1a5632]">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                    </span>
+                    <h2 class="text-base font-extrabold text-gray-950">Contact Details</h2>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
                     @foreach([
-                        'mobile' => ['Mobile Number', $student->mobile, 'text'],
-                        'email' => ['Email Address', $student->email, 'email'],
-                        'guardian_contact' => ['Guardian Contact', $student->guardian_contact, 'text'],
-                    ] as $field => [$label, $current, $type])
-                        <div>
+                        'mobile' => ['Mobile Number', $student->mobile, 'text', false],
+                        'guardian_contact' => ['Guardian Contact', $student->guardian_contact, 'text', false],
+                        'email' => ['Email Address', $student->email, 'email', true],
+                    ] as $field => [$label, $current, $type, $fullWidth])
+                        <div class="{{ $fullWidth ? 'col-span-2' : '' }}">
                             <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">{{ $label }}</label>
                             <input type="{{ $type }}" name="{{ $field }}" value="{{ old($field, $current) }}" class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none focus:ring-2 focus:ring-[#1a5632]/15">
                         </div>
@@ -116,23 +131,28 @@
             </div>
 
             <div>
-                <h2 class="text-base font-extrabold text-gray-950">Permanent Address</h2>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div class="flex items-center gap-2.5">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[#1a5632]">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </span>
+                    <h2 class="text-base font-extrabold text-gray-950">Permanent Address</h2>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
                     <div>
                         <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">Province</label>
-                        <select name="permanent_province" x-model="permProvince" @change="permDistrict = ''; permMunicipality = ''; syncTemporary()" class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
+                        <select name="permanent_province" x-model="permProvince" @change="permDistrict = ''; permMunicipality = ''; syncTemporary()" class="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
                             <option value="">Select Province</option>
                             <template x-for="province in addressData.provinces" :key="province"><option :value="province" x-text="province"></option></template>
                         </select>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">District</label>
-                        <select name="permanent_district" x-model="permDistrict" @change="permMunicipality = ''; syncTemporary()" :disabled="!permProvince" class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold disabled:bg-gray-100 focus:border-[#1a5632] focus:outline-none">
+                        <select name="permanent_district" x-model="permDistrict" @change="permMunicipality = ''; syncTemporary()" :disabled="!permProvince" class="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm font-semibold disabled:bg-gray-100 focus:border-[#1a5632] focus:outline-none">
                             <option value="">Select District</option>
                             <template x-for="district in permanentDistricts" :key="district"><option :value="district" x-text="district"></option></template>
                         </select>
                     </div>
-                    <div class="sm:col-span-2">
+                    <div class="col-span-2">
                         <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">Municipality / Rural Municipality</label>
                         <select name="permanent_municipality" x-model="permMunicipality" @change="syncTemporary()" :disabled="!permDistrict" class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold disabled:bg-gray-100 focus:border-[#1a5632] focus:outline-none">
                             <option value="">Select Municipality</option>
@@ -141,11 +161,11 @@
                     </div>
                     <div>
                         <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">Ward</label>
-                        <input name="permanent_ward" x-model="permWard" @input="syncTemporary()" inputmode="numeric" class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
+                        <input name="permanent_ward" x-model="permWard" @input="syncTemporary()" inputmode="numeric" class="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
                     </div>
                     <div>
                         <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">Tole / Street</label>
-                        <input name="permanent_tole" x-model="permTole" @input="syncTemporary()" class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
+                        <input name="permanent_tole" x-model="permTole" @input="syncTemporary()" class="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
                     </div>
                 </div>
             </div>
@@ -153,13 +173,18 @@
 
         <div class="border-t border-gray-100 p-5">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="text-base font-extrabold text-gray-950">Temporary Address</h2>
+                <div class="flex items-center gap-2.5">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[#1a5632]">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    </span>
+                    <h2 class="text-base font-extrabold text-gray-950">Temporary Address</h2>
+                </div>
                 <label class="inline-flex items-center gap-2 text-xs font-extrabold text-gray-600">
                     <input type="checkbox" x-model="sameAddress" @change="syncTemporary()" class="rounded border-gray-300 text-[#1a5632] focus:ring-[#1a5632]">
                     Same as permanent address
                 </label>
             </div>
-            <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                     <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">Province</label>
                     <select name="temporary_province" x-model="tempProvince" @change="sameAddress = false; tempDistrict = ''; tempMunicipality = ''" class="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm font-semibold focus:border-[#1a5632] focus:outline-none">
@@ -174,7 +199,7 @@
                         <template x-for="district in temporaryDistricts" :key="district"><option :value="district" x-text="district"></option></template>
                     </select>
                 </div>
-                <div>
+                <div class="col-span-2">
                     <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-widest text-gray-500">Municipality</label>
                     <select name="temporary_municipality" x-model="tempMunicipality" @change="sameAddress = false" :disabled="!tempDistrict" class="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm font-semibold disabled:bg-gray-100 focus:border-[#1a5632] focus:outline-none">
                         <option value="">Select Municipality</option>

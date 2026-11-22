@@ -60,4 +60,7 @@ Route::prefix('admin/teacher')->name('admin.teacher.')->middleware(['auth', 'sta
     Route::get('/workspace', [TeacherWorkspaceController::class, 'index'])->name('workspace');
     Route::get('/attendance/{routineLesson}', [TeacherWorkspaceController::class, 'attendance'])->name('attendance');
     Route::put('/attendance/{routineLesson}', [TeacherWorkspaceController::class, 'saveAttendance'])->name('attendance.save');
+    Route::put('/attendance/{routineLesson}/notebook', [TeacherWorkspaceController::class, 'saveNotebook'])->name('attendance.notebook.save');
+    Route::get('/complaints', [TeacherWorkspaceController::class, 'complaints'])->name('complaints');
+    Route::post('/complaints', [TeacherWorkspaceController::class, 'submitComplaint'])->name('complaints.store');
 });

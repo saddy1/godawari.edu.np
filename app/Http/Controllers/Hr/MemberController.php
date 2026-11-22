@@ -394,10 +394,94 @@ class MemberController extends Controller
             ->filter(fn ($enrollment) => $enrollment->offering?->is_elective)
             ->values();
 
+        // A quick at-a-glance performance snapshot for students only — the
+        // full attendance year and every exam live on their own tabs; this is
+        // just enough for a front-desk answer without clicking through.
+        $performanceSnapshot = null;
+        if ($member->member_type === 'student') {
+            $attendanceSummary = app(\App\Services\StudentAttendanceCalendarService::class)->forAcademicYear($member)['summary'];
+
+            $latestExamId = \App\Models\Examination\ExaminationSymbolNumber::where('student_id', $member->id)->latest('id')->value('examination_id');
+            $latestExam = $latestExamId ? \App\Models\Examination\Examination::find($latestExamId) : null;
+            $latestResult = null;
+            if ($latestExam) {
+                $symbolNo = (int) \App\Models\Examination\ExaminationSymbolNumber::where('examination_id', $latestExam->id)->where('student_id', $member->id)->value('symbol_no');
+                $latestResult = app(\App\Services\ExamResultService::class)->resultFor($latestExam, $member, $symbolNo);
+            }
+
+            $performanceSnapshot = [
+                'attendance_rate' => $attendanceSummary['rate'],
+                'latest_exam' => $latestExam,
+                'latest_result' => $latestResult,
+            ];
+        }
+
         return view('hr.members.show', [
             'member' => $member,
             'academicYear' => $academicYear,
             'electiveEnrollments' => $electiveEnrollments,
+            'performanceSnapshot' => $performanceSnapshot,
+        ]);
+    }
+
+    // ── Student 360: so a front-desk admin fielding a guardian's question can
+    // see attendance, exam results, and counselling history for one student
+    // without hopping between modules. Same attendance format the student
+    // sees on their own portal — reuses the same service, not a rebuild.
+    public function activityAttendance(Student $member, Request $request)
+    {
+        abort_unless($member->member_type === 'student', 404);
+        $data = app(\App\Services\StudentAttendanceCalendarService::class)->forAcademicYear($member, $request->integer('academic_year_id') ?: null);
+
+        return view('hr.members.activity-attendance', array_merge($data, ['member' => $member]));
+    }
+
+    // Unlike the student's own "My Exams" page, nothing here is gated on
+    // publish status — an admin answering a guardian's question needs to see
+    // marks as they stand, published or not. The publish badge is shown so
+    // the admin knows what the student/guardian can currently see themselves.
+    public function activityExams(Student $member)
+    {
+        abort_unless($member->member_type === 'student', 404);
+        $departmentId = $member->department_record?->id;
+
+        $symbolNumbers = \App\Models\Examination\ExaminationSymbolNumber::where('student_id', $member->id)->pluck('symbol_no', 'examination_id');
+        $examinations = \App\Models\Examination\Examination::with(['academicYear', 'organization'])
+            ->whereIn('id', $symbolNumbers->keys())
+            ->orderByDesc('starts_on')
+            ->get();
+
+        $resultService = app(\App\Services\ExamResultService::class);
+        $results = $examinations->map(function ($examination) use ($member, $symbolNumbers, $resultService, $departmentId) {
+            $symbolNo = (int) $symbolNumbers->get($examination->id, 0);
+
+            return (object) [
+                'examination' => $examination,
+                'symbol_no' => $symbolNo,
+                'published' => $examination->isPublishedForDepartment($departmentId),
+                'result' => $resultService->resultFor($examination, $member, $symbolNo),
+            ];
+        })->values();
+
+        return view('hr.members.activity-exams', compact('member', 'results'));
+    }
+
+    // The session's private `report` column is only ever shown through
+    // CounsellingSession::canViewReport() — same gate the Counselling module
+    // itself uses, so this page can't leak a report to an admin who
+    // shouldn't see it.
+    public function activityCounselling(Student $member)
+    {
+        abort_unless($member->member_type === 'student', 404);
+        $sessions = \App\Models\Counselling\CounsellingSession::with(['counsellor', 'requestedBy'])
+            ->where('student_id', $member->id)
+            ->orderByDesc('scheduled_at')
+            ->get();
+
+        return view('hr.members.activity-counselling', [
+            'member' => $member,
+            'sessions' => $sessions,
+            'viewer' => auth()->user(),
         ]);
     }
 
@@ -478,11 +562,50 @@ class MemberController extends Controller
         return redirect()->route('admin.hr.members.index')->with('success', 'Member updated and synced across ERP modules.');
     }
 
+    // Shared by validated() (the main Add/Edit form) and resetPassword() (the
+    // quick "reset login" modal) so the uniqueness rule can't drift between
+    // the two places that are allowed to set these fields.
+    private function loginUserIdUniqueRule(?int $ignoredUserId): \Closure
+    {
+        return function ($attr, $value, $fail) use ($ignoredUserId) {
+            if (blank($value)) return;
+            $conflict = User::where('student_code', $value)
+                ->when($ignoredUserId, fn ($q) => $q->where('id', '!=', $ignoredUserId))
+                ->with('student')
+                ->first();
+            if ($conflict) {
+                $name = $conflict->student?->full_name ?? $conflict->name ?? 'another member';
+                $fail("User ID \"{$value}\" is already linked to {$name}. Please choose a different login ID.");
+            }
+        };
+    }
+
+    private function loginEmailUniqueRule(?int $ignoredUserId): \Closure
+    {
+        return function ($attr, $value, $fail) use ($ignoredUserId) {
+            if (blank($value)) return;
+            $conflict = User::where('email', $value)
+                ->when($ignoredUserId, fn ($q) => $q->where('id', '!=', $ignoredUserId))
+                ->with('student')
+                ->first();
+            if ($conflict) {
+                $name = $conflict->student?->full_name ?? $conflict->name ?? 'another member';
+                $fail("Login email \"{$value}\" is already used by {$name}. Please choose a different login email.");
+            }
+        };
+    }
+
     public function resetPassword(Request $request, Student $member)
     {
-        $validated = $request->validate([
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        $data = $request->validate([
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'login_user_id' => ['nullable', 'string', 'max:100', $this->loginUserIdUniqueRule($member->user_id)],
+            'login_email' => ['nullable', 'email', 'max:150', $this->loginEmailUniqueRule($member->user_id)],
         ]);
+
+        if (blank($data['password'] ?? null) && blank($data['login_user_id'] ?? null) && blank($data['login_email'] ?? null)) {
+            return back()->with('error', 'Enter a new password, login ID, or login email to update.');
+        }
 
         $user = $member->user;
         if (! $user) {
@@ -490,13 +613,27 @@ class MemberController extends Controller
         }
 
         if ($user->isSuperAdmin() && ! auth()->user()->isSuperAdmin()) {
-            return back()->with('error', 'Cannot reset a Super Admin password.');
+            return back()->with('error', 'Cannot reset login credentials for a Super Admin.');
         }
 
-        $user->password = Hash::make($validated['password']);
-        $user->saveQuietly();
+        // Same login_user_id/login_email conflict handling and password hashing
+        // as the main Edit form — reused here instead of duplicated so the two
+        // places can never drift apart.
+        $accountService = app(MemberAccountService::class);
+        $accountService->sync($member, $data['password'] ?? null, $data['login_user_id'] ?? null, $data['login_email'] ?? null);
 
-        return back()->with('success', $member->full_name . "'s password has been reset successfully.");
+        $changed = array_filter([
+            filled($data['password'] ?? null) ? 'password' : null,
+            filled($data['login_user_id'] ?? null) ? 'login ID' : null,
+            filled($data['login_email'] ?? null) ? 'login email' : null,
+        ]);
+
+        $message = $member->full_name . "'s " . implode(' and ', $changed) . ' updated successfully.';
+        if ($accountService->lastEmailConflictMessage) {
+            $message .= ' ' . $accountService->lastEmailConflictMessage;
+        }
+
+        return back()->with('success', $message);
     }
 
     // Marking a member inactive hides them everywhere the Student model is
@@ -900,40 +1037,10 @@ class MemberController extends Controller
             ],
 
             // Login user ID (student_code) must be globally unique across all users.
-            'login_user_id' => [
-                'nullable',
-                'string',
-                'max:100',
-                function ($attr, $value, $fail) use ($ignoredUserId) {
-                    if (blank($value)) return;
-                    $conflict = User::where('student_code', $value)
-                        ->when($ignoredUserId, fn ($q) => $q->where('id', '!=', $ignoredUserId))
-                        ->with('student')
-                        ->first();
-                    if ($conflict) {
-                        $name = $conflict->student?->full_name ?? $conflict->name ?? 'another member';
-                        $fail("User ID \"{$value}\" is already linked to {$name}. Please choose a different login ID.");
-                    }
-                },
-            ],
+            'login_user_id' => ['nullable', 'string', 'max:100', $this->loginUserIdUniqueRule($ignoredUserId)],
 
             // Login email (teacher/staff sign in with this) must be globally unique across all users.
-            'login_email' => [
-                'nullable',
-                'email',
-                'max:150',
-                function ($attr, $value, $fail) use ($ignoredUserId) {
-                    if (blank($value)) return;
-                    $conflict = User::where('email', $value)
-                        ->when($ignoredUserId, fn ($q) => $q->where('id', '!=', $ignoredUserId))
-                        ->with('student')
-                        ->first();
-                    if ($conflict) {
-                        $name = $conflict->student?->full_name ?? $conflict->name ?? 'another member';
-                        $fail("Login email \"{$value}\" is already used by {$name}. Please choose a different login email.");
-                    }
-                },
-            ],
+            'login_email' => ['nullable', 'email', 'max:150', $this->loginEmailUniqueRule($ignoredUserId)],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],

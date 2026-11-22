@@ -201,20 +201,10 @@ class AdmitCardController extends Controller
     {
         return view('examinations.admit-cards.print', [
             'examination' => $examination,
-            'roster' => $this->singleRoster($examination, $student, $roster),
+            'roster' => $roster->admitCardRoster($examination, $student),
             'count' => 1,
             'singleStudent' => $student,
         ]);
-    }
-
-    private function singleRoster(Examination $examination, Student $student, ExamRosterService $roster): Collection
-    {
-        abort_unless($roster->studentsForExam($examination)->contains('id', $student->id), 404);
-        $this->eagerLoadBranding($examination);
-        $symbolNo = ExaminationSymbolNumber::where('examination_id', $examination->id)->where('student_id', $student->id)->value('symbol_no');
-        abort_if(! $symbolNo, 404, 'Assign a symbol number to this student first.');
-        $subjects = $roster->subjectsForStudent($examination, $student);
-        return collect([['student' => $student, 'symbol_no' => $symbolNo, 'subjects' => $subjects, 'department' => $subjects->first()?->offering?->department]]);
     }
 
     public function print(Request $request, Examination $examination, ExamRosterService $roster)
@@ -246,7 +236,7 @@ class AdmitCardController extends Controller
         $pdf = Pdf::loadView('examinations.admit-cards.pdf', [
             'examination' => $examination,
             'count' => 1,
-            'roster' => $this->singleRoster($examination, $student, $roster),
+            'roster' => $roster->admitCardRoster($examination, $student),
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download(str($student->full_name)->slug('_').'_admit_card.pdf');

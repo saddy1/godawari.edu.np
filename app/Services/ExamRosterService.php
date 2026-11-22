@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Card\Student;
 use App\Models\Card\StudentSubjectEnrollment;
 use App\Models\Examination\Examination;
+use App\Models\Examination\ExaminationSymbolNumber;
 use Illuminate\Support\Collection;
 
 class ExamRosterService
@@ -49,5 +50,19 @@ class ExamRosterService
             ->whereIn('subject_offering_id', $offeringIds)
             ->sortBy(fn ($subject) => $subject->offering->subject->name)
             ->values();
+    }
+
+    // The single-student admit-card "roster" shape the admit-card print/PDF
+    // views expect — shared by the admin AdmitCardController and the student
+    // portal's own-admit-card page so the lookup/validation never drifts.
+    public function admitCardRoster(Examination $examination, Student $student): Collection
+    {
+        abort_unless($this->studentsForExam($examination)->contains('id', $student->id), 404);
+        $examination->loadMissing(['organization.logoAsset', 'organization.signatureAsset', 'organization.stampAsset', 'academicYear']);
+        $symbolNo = ExaminationSymbolNumber::where('examination_id', $examination->id)->where('student_id', $student->id)->value('symbol_no');
+        abort_if(! $symbolNo, 404, 'No admit card has been issued for this exam yet.');
+        $subjects = $this->subjectsForStudent($examination, $student);
+
+        return collect([['student' => $student, 'symbol_no' => $symbolNo, 'subjects' => $subjects, 'department' => $subjects->first()?->offering?->department]]);
     }
 }

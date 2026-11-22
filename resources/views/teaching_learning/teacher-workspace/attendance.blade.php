@@ -14,16 +14,33 @@
     <header class="border-b p-4">
         <div class="flex items-center justify-between gap-3"><h2 class="text-sm font-black">{{$students->count()}} students</h2><input id="attendance-search" aria-label="Search students" class="w-32 rounded-lg border-slate-200 px-3 py-2 text-xs sm:w-52" placeholder="Search"></div>
         <p class="mt-1 text-[10px] font-semibold text-slate-500">{{$editable?'Tap Present or Absent for each student. Changes save immediately.':'Saved attendance is available to view. Editing is closed.'}}</p>
-        @if($editable)<div class="mt-3 flex gap-2"><button type="button" data-all="present" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Mark all present</button><button type="button" data-all="absent" class="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white">Mark all absent</button></div>@endif
+        <div class="mt-3 flex flex-wrap gap-2">
+            @if($editable)
+                <button type="button" data-all="present" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Mark all present</button>
+                <button type="button" data-all="absent" class="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white">Mark all absent</button>
+            @endif
+            <button type="button" data-all-notebook="1" class="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white">Notebook: mark all checked</button>
+            <button type="button" data-all-notebook="0" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600">Notebook: mark all unchecked</button>
+        </div>
     </header>
     <div id="attendance-list" class="divide-y divide-slate-100">
-        @forelse($students as $student)@php $saved=$attendance->get($student->id);$status=$saved?->status; @endphp
-        <article class="attendance-row flex items-center gap-2 p-3 sm:gap-4 sm:px-4" data-student="{{$student->id}}" data-status="{{$status}}" data-search="{{strtolower($student->full_name.' '.$student->roll_number)}}">
-            <span class="w-5 shrink-0 text-center text-[10px] font-black text-slate-400">{{$loop->iteration}}</span>
-            <div class="min-w-0 flex-1"><h3 class="text-xs font-black sm:text-sm">{{$student->full_name}}</h3><p class="text-[10px] text-slate-500">{{$student->roll_number?:'—'}}</p><p class="row-state text-[9px] font-bold text-slate-400">{{$saved?'Saved '.optional($saved->marked_at)->format('h:i A').(!in_array($status,['present','absent'])?' · '.ucfirst($status):''):'Not recorded'}}</p></div>
-            <div class="flex shrink-0 gap-1">
-                <button type="button" data-value="present" @disabled(!$editable) aria-label="Mark {{$student->full_name}} present" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">PRESENT</button>
-                <button type="button" data-value="absent" @disabled(!$editable) aria-label="Mark {{$student->full_name}} absent" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">ABSENT</button>
+        @forelse($students as $student)@php $saved=$attendance->get($student->id);$status=$saved?->status;$notebook=$saved?->notebook_checked; @endphp
+        <article class="attendance-row flex flex-col gap-2 p-3 sm:px-4" data-student="{{$student->id}}" data-status="{{$status}}" data-notebook="{{$notebook===null?'':($notebook?'1':'0')}}" data-search="{{strtolower($student->full_name.' '.$student->roll_number)}}">
+            <div class="flex items-center gap-2 sm:gap-4">
+                <span class="w-5 shrink-0 text-center text-[10px] font-black text-slate-400">{{$loop->iteration}}</span>
+                <div class="min-w-0 flex-1"><h3 class="text-xs font-black sm:text-sm">{{$student->full_name}}</h3><p class="text-[10px] text-slate-500">{{$student->roll_number?:'—'}}</p><p class="row-state text-[9px] font-bold text-slate-400">{{$saved?'Saved '.optional($saved->marked_at)->format('h:i A').(!in_array($status,['present','absent'])?' · '.ucfirst($status):''):'Not recorded'}}</p></div>
+                <div class="flex shrink-0 gap-1">
+                    <button type="button" data-value="present" @disabled(!$editable) aria-label="Mark {{$student->full_name}} present" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">PRESENT</button>
+                    <button type="button" data-value="absent" @disabled(!$editable) aria-label="Mark {{$student->full_name}} absent" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">ABSENT</button>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 pl-7">
+                <span class="text-[9px] font-bold uppercase tracking-wide text-slate-400">Notebook</span>
+                <div class="flex shrink-0 gap-1">
+                    <button type="button" data-notebook-value="1" aria-label="Mark {{$student->full_name}}'s notebook checked" class="notebook-button rounded-lg px-2 py-1.5 text-[10px] font-black">✓ CHECKED</button>
+                    <button type="button" data-notebook-value="0" aria-label="Mark {{$student->full_name}}'s notebook not checked" class="notebook-button rounded-lg px-2 py-1.5 text-[10px] font-black">✗ NOT CHECKED</button>
+                </div>
+                <span class="notebook-state text-[9px] font-bold text-slate-400"></span>
             </div>
         </article>
         @empty<div class="p-10 text-center text-sm font-bold text-amber-700">No students are assigned to your routine group.</div>@endforelse
@@ -74,6 +91,40 @@ async function save(status,row=null){
 }
 rows.forEach(row=>{paint(row);row.querySelectorAll('.status-button').forEach(button=>button.addEventListener('click',()=>save(button.dataset.value,row)));});
 document.querySelectorAll('[data-all]').forEach(button=>button.addEventListener('click',()=>save(button.dataset.all)));
+
+// Notebook checking — a separate flag from attendance, not time-gated.
+const notebookUrl=@json(route('admin.teacher.attendance.notebook.save',$routineLesson));
+let notebookSaving=false;
+function paintNotebook(row){
+    row.querySelectorAll('.notebook-button').forEach(button=>{
+        button.classList.remove('bg-emerald-600','bg-red-600','text-white','bg-slate-100','text-slate-500');
+        const selected=button.dataset.notebookValue===row.dataset.notebook;
+        const activeColor=button.dataset.notebookValue==='1'?'bg-emerald-600 text-white':'bg-red-600 text-white';
+        button.classList.add(...(selected?activeColor:'bg-slate-100 text-slate-500').split(' '));
+        button.setAttribute('aria-pressed',String(selected));
+    });
+}
+async function saveNotebook(value,row=null){
+    if(notebookSaving)return;
+    notebookSaving=true;
+    const affected=row?[row]:rows;
+    affected.forEach(item=>item.querySelector('.notebook-state').textContent='Saving…');
+    try{
+        const body=row?{student_id:Number(row.dataset.student),checked:value==='1'}:{all:true,checked:value==='1'};
+        const response=await fetch(notebookUrl,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':token},body:JSON.stringify(body)});
+        const data=await response.json();
+        if(!response.ok)throw new Error(data.message||'Could not save');
+        affected.forEach(item=>{
+            item.dataset.notebook=value;
+            paintNotebook(item);
+            item.querySelector('.notebook-state').textContent='Saved '+data.saved_at;
+        });
+    }catch(error){
+        affected.forEach(item=>item.querySelector('.notebook-state').textContent='Save failed · Tap to retry');
+    }finally{notebookSaving=false;}
+}
+rows.forEach(row=>{paintNotebook(row);row.querySelectorAll('.notebook-button').forEach(button=>button.addEventListener('click',()=>saveNotebook(button.dataset.notebookValue,row)));});
+document.querySelectorAll('[data-all-notebook]').forEach(button=>button.addEventListener('click',()=>saveNotebook(button.dataset.allNotebook)));
 document.getElementById('attendance-search').addEventListener('input',event=>{const q=event.target.value.toLowerCase();rows.forEach(row=>row.style.display=row.dataset.search.includes(q)?'':'none');});
 pageState.setAttribute('role','status');
 setInterval(lockControls,1000);

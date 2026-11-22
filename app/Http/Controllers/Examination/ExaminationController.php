@@ -237,6 +237,87 @@ class ExaminationController extends Controller
         ]);
     }
 
+    // "Result" sidebar entry: every completed/published exam, so the admin can
+    // jump straight to the one they want to publish — mirrors $examinations
+    // in index() but narrowed to exams that have actually finished grading.
+    public function resultsIndex(Request $request)
+    {
+        $user = auth()->user();
+        $query = Examination::with(['academicYear', 'organization', 'departments'])
+            ->whereIn('status', ['completed', 'published']);
+        $query->when($request->filled('year'), fn ($q) => $q->where('academic_year_id', $request->integer('year')))
+            ->when($request->filled('org'), fn ($q) => $q->where('organization_id', $request->integer('org')));
+
+        $examinations = $query->latest('starts_on')->latest('id')->get()->map(function ($examination) {
+            $total = $examination->departments->count();
+            $published = $examination->publishedDepartmentIds()->count();
+            $examination->publish_state = $total === 0 ? 'none' : ($published === 0 ? 'none' : ($published === $total ? 'all' : 'partial'));
+            $examination->published_count = $published;
+            $examination->department_count = $total;
+
+            return $examination;
+        });
+
+        return view('examinations.results.index', [
+            'examinations' => $examinations,
+            'academicYears' => AcademicYear::orderByDesc('starts_on')->get(),
+            'organizations' => Organization::orderBy('name')->get(),
+        ]);
+    }
+
+    // The per-department publish/unpublish control panel for one exam — reached
+    // by picking an exam from the "Result" sidebar list above.
+    public function resultsShow(Examination $examination)
+    {
+        abort_unless(in_array($examination->status, ['completed', 'published'], true), 404);
+        $examination->loadMissing(['academicYear', 'organization', 'departments']);
+
+        return view('examinations.results.show', ['examination' => $examination]);
+    }
+
+    // Publishing is per-department so a multi-faculty exam can release one
+    // faculty's results while another is still being graded. Only gated on
+    // the exam being at least "completed" — not drafts or still-ongoing exams.
+    public function publishResults(Request $request, Examination $examination)
+    {
+        abort_unless(in_array($examination->status, ['completed', 'published'], true), 422, 'Mark the exam Completed before publishing results — grading should be finished first.');
+
+        $data = $request->validate([
+            'department_ids' => ['required', 'array', 'min:1'],
+            'department_ids.*' => ['integer'],
+        ]);
+
+        $validIds = $examination->departments()->pluck('departments.id');
+        $targetIds = $validIds->intersect($data['department_ids'])->values();
+        abort_if($targetIds->isEmpty(), 422, 'No valid faculty/department selected.');
+
+        $examination->departments()->updateExistingPivot($targetIds->all(), [
+            'published_at' => now(), 'published_by' => auth()->id(),
+        ]);
+
+        $names = $examination->departments->whereIn('id', $targetIds)->pluck('name')->implode(', ');
+
+        return back()->with('success', "Results published for: {$names}. Students in those faculties can now see their results.");
+    }
+
+    public function unpublishResults(Request $request, Examination $examination)
+    {
+        $data = $request->validate([
+            'department_ids' => ['required', 'array', 'min:1'],
+            'department_ids.*' => ['integer'],
+        ]);
+
+        $validIds = $examination->departments()->pluck('departments.id');
+        $targetIds = $validIds->intersect($data['department_ids'])->values();
+        abort_if($targetIds->isEmpty(), 422, 'No valid faculty/department selected.');
+
+        $examination->departments()->updateExistingPivot($targetIds->all(), [
+            'published_at' => null, 'published_by' => null,
+        ]);
+
+        return back()->with('success', 'Result publication withdrawn for the selected faculty/department(s).');
+    }
+
     /**
      * A manager-facing, section-by-section view of mark-entry readiness.
      *

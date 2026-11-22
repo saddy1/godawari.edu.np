@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Card\PromoteController;
+use App\Http\Controllers\Hr\ComplaintController;
 use App\Http\Controllers\Hr\DesignationController as HrDesignationController;
 use App\Http\Controllers\Hr\MemberController;
 use Illuminate\Support\Facades\Route;
@@ -10,6 +11,10 @@ Route::prefix('admin/hr')
     ->middleware(['auth', 'admin', 'module.enabled:hr'])
     ->group(function () {
         Route::get('/', fn () => redirect()->route('admin.hr.members.index'))->name('dashboard');
+
+        Route::get('/complaints', [ComplaintController::class, 'index'])->middleware('permission:hr.members.view')->name('complaints.index');
+        Route::get('/complaints/{complaint}', [ComplaintController::class, 'show'])->middleware('permission:hr.members.view')->name('complaints.show');
+        Route::post('/complaints/{complaint}/respond', [ComplaintController::class, 'respond'])->middleware('permission:hr.members.edit')->name('complaints.respond');
 
         Route::get('/members', [MemberController::class, 'index'])->middleware('permission:hr.members.view')->name('members.index');
         Route::get('/members/import', [MemberController::class, 'importForm'])->middleware('permission:hr.members.create')->name('members.import');
@@ -38,6 +43,9 @@ Route::prefix('admin/hr')
         Route::post('/members/promote', [PromoteController::class, 'promote'])->middleware('permission:hr.members.edit')->name('members.promote.apply');
 
         Route::get('/members/{member}', [MemberController::class, 'show'])->middleware('permission:hr.members.view')->name('members.show');
+        Route::get('/members/{member}/attendance', [MemberController::class, 'activityAttendance'])->middleware('permission:hr.members.view')->name('members.activity.attendance');
+        Route::get('/members/{member}/exams', [MemberController::class, 'activityExams'])->middleware('permission:hr.members.view')->name('members.activity.exams');
+        Route::get('/members/{member}/counselling', [MemberController::class, 'activityCounselling'])->middleware('permission:hr.members.view')->name('members.activity.counselling');
         Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->middleware('permission:hr.members.edit')->name('members.edit');
         Route::put('/members/{member}', [MemberController::class, 'update'])->middleware('permission:hr.members.edit')->name('members.update');
         Route::patch('/members/{member}/password', [MemberController::class, 'resetPassword'])->middleware('permission:hr.members.edit')->name('members.reset-password');

@@ -17,7 +17,7 @@ class Examination extends Model
     public function academicYear() { return $this->belongsTo(AcademicYear::class); }
     public function organization() { return $this->belongsTo(Organization::class); }
     public function department() { return $this->belongsTo(Department::class); }
-    public function departments() { return $this->belongsToMany(Department::class, 'examination_departments')->withTimestamps(); }
+    public function departments() { return $this->belongsToMany(Department::class, 'examination_departments')->withPivot(['published_at', 'published_by'])->withTimestamps(); }
     public function sections() { return $this->belongsToMany(Section::class, 'examination_sections')->withTimestamps(); }
     public function subjects() { return $this->hasMany(ExaminationSubject::class); }
     public function symbolNumbers() { return $this->hasMany(ExaminationSymbolNumber::class); }
@@ -28,4 +28,19 @@ class Examination extends Model
     // specifically guards symbol-number (re)generation, once admit cards start
     // going out, without freezing anything else about the exam.
     public function getSymbolNumbersLockedAttribute(): bool { return $this->symbol_numbers_locked_at !== null; }
+
+    // Publishing is per-department (a multi-faculty exam can release Science's
+    // results while Commerce is still being graded) — separate from the
+    // overall status field above, which just tracks whether grading is done.
+    public function isPublishedForDepartment(?int $departmentId): bool
+    {
+        if (! $departmentId) return false;
+
+        return $this->departments->contains(fn ($department) => $department->id === $departmentId && $department->pivot->published_at !== null);
+    }
+
+    public function publishedDepartmentIds(): \Illuminate\Support\Collection
+    {
+        return $this->departments->filter(fn ($department) => $department->pivot->published_at !== null)->pluck('id');
+    }
 }

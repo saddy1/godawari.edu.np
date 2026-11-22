@@ -8,7 +8,6 @@ use App\Http\Controllers\Hajiri\NepaliCalendarController;
 use App\Models\Card\Student;
 use App\Models\Card\CardRequest;
 use App\Models\Card\UpdateRequest;
-use App\Models\Hajiri\AttendanceLogs;
 use App\Models\Hajiri\HajiriSetting;
 use App\Models\Hajiri\Holiday;
 use App\Models\Learning\LearningCourse;
@@ -17,9 +16,9 @@ use App\Models\Learning\LearningProgress;
 use App\Models\LibraryLoan;
 use App\Models\LibraryNotification;
 use App\Support\SiteSettings;
-use App\Services\Hajiri\AttendanceWindow;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -142,128 +141,78 @@ class StudentPortalController extends Controller
 
     public function attendance(Request $request)
     {
-        $student = $this->getStudent()->load('user');
-        $deviceId = $student->user?->device_id;
-        $calendar = new NepaliCalendarController();
-        $today = Carbon::today();
-        $todayBs = $calendar->ad_2_bs($today->year, $today->month, $today->day);
+        $student = $this->getStudent();
+        $data = app(\App\Services\StudentAttendanceCalendarService::class)->forAcademicYear($student, $request->integer('academic_year_id') ?: null);
 
-        abort_unless(is_array($todayBs), 500, 'The Nepali calendar is not available for the current date.');
+        return view('card.student-portal.attendance', array_merge($data, ['student' => $student]));
+    }
 
-        $minYear = $calendar->minBsYear();
-        $maxYear = $calendar->maxBsYear();
-        $currentYear = (int) $todayBs['year'];
-        $currentMonth = (int) $todayBs['month'];
-        $year = $request->integer('year', $currentYear);
-        $month = $request->integer('month', $currentMonth);
+    // "My Exams" — every exam this student has been issued a symbol number
+    // for, each with its exam-day
+    // attendance (as marked by the invigilating teacher — separate from the
+    // biometric device attendance on the Attendance page), and its marksheet
+    // once the school publishes results for the student's own faculty.
+    public function results()
+    {
+        $student = $this->getStudent();
+        $departmentId = $student->department_record?->id;
 
-        if ($year < $minYear || $year > $maxYear) {
-            $year = $currentYear;
-        }
-        if ($month < 1 || $month > 12) {
-            $month = $currentMonth;
-        }
+        $symbolNumbers = \App\Models\Examination\ExaminationSymbolNumber::where('student_id', $student->id)
+            ->pluck('symbol_no', 'examination_id');
+        $examinations = \App\Models\Examination\Examination::with(['academicYear', 'organization'])
+            ->whereIn('id', $symbolNumbers->keys())
+            ->orderByDesc('starts_on')
+            ->get();
 
-        $calendarYear = $calendar->getBSCal($year);
-        abort_unless($calendarYear, 404, 'The selected Nepali calendar year is unavailable.');
+        $attendanceByExam = \App\Models\Examination\ExaminationAttendance::with(['examinationSubject.offering.subject', 'markedBy'])
+            ->where('student_id', $student->id)
+            ->whereIn('examination_id', $symbolNumbers->keys())
+            ->orderBy('exam_date')
+            ->get()
+            ->groupBy('examination_id');
 
-        $daysInMonth = (int) $calendarYear[$month];
-        $firstAd = $calendar->bs_2_ad($year, $month, 1);
-        $lastAd = $calendar->bs_2_ad($year, $month, $daysInMonth);
-        abort_unless(is_array($firstAd) && is_array($lastAd), 404, 'The selected month is unavailable.');
+        $resultService = app(\App\Services\ExamResultService::class);
+        $results = $examinations->map(function ($examination) use ($student, $symbolNumbers, $attendanceByExam, $resultService, $departmentId) {
+            $symbolNo = (int) $symbolNumbers->get($examination->id, 0);
+            $published = $examination->isPublishedForDepartment($departmentId);
 
-        $startDate = Carbon::createFromDate((int) $firstAd['year'], (int) $firstAd['month'], (int) $firstAd['date'])->startOfDay();
-        $endDate = Carbon::createFromDate((int) $lastAd['year'], (int) $lastAd['month'], (int) $lastAd['date'])->endOfDay();
-        $logsByDate = collect();
+            return (object) [
+                'examination' => $examination,
+                'symbol_no' => $symbolNo,
+                'published' => $published,
+                'result' => $published ? $resultService->resultFor($examination, $student, $symbolNo) : null,
+                'attendance' => $attendanceByExam->get($examination->id, collect()),
+            ];
+        })->values();
 
-        if (filled($deviceId) && Schema::hasTable('attendacelogs')) {
-            $logsByDate = AttendanceLogs::query()
-                ->where('user_id', (int) $deviceId)
-                ->whereBetween('at', [$startDate, $endDate])
-                ->orderBy('at')
-                ->get()
-                ->groupBy(fn ($log) => Carbon::parse($log->getRawOriginal('at'))->toDateString());
-        }
+        return view('card.student-portal.results', compact('student', 'results'));
+    }
 
-        $holidays = collect();
-        if (Schema::hasTable('holiday')) {
-            $holidayQuery = Holiday::query()
-                ->whereDate('date', '>=', $startDate->toDateString())
-                ->whereDate('date', '<=', $endDate->toDateString());
+    // View-only — no download/print affordance. Just the standard,
+    // official-format marksheet to look at, gated on the result being
+    // published for the student's own faculty (same check results() uses).
+    public function marksheet(\App\Models\Examination\Examination $examination)
+    {
+        $student = $this->getStudent();
+        $row = $this->studentMarksheetRow($examination, $student);
 
-            if (Schema::hasColumn('holiday', 'status')) {
-                $holidayQuery->where('status', true);
-            }
+        return view('examinations.marksheets.print', [
+            'examination' => $examination,
+            'roster' => collect([$row]),
+            'backUrl' => route('student.results'),
+            'readOnly' => true,
+        ]);
+    }
 
-            $holidays = $holidayQuery->get()->keyBy(fn ($holiday) => $holiday->date->toDateString());
-        }
+    private function studentMarksheetRow(\App\Models\Examination\Examination $examination, Student $student): array
+    {
+        abort_unless($examination->isPublishedForDepartment($student->department_record?->id), 404, 'This result has not been published yet.');
+        $examination->loadMissing(['organization.logoAsset', 'organization.signatureAsset', 'organization.stampAsset', 'academicYear']);
+        $symbolNo = (int) \App\Models\Examination\ExaminationSymbolNumber::where('examination_id', $examination->id)
+            ->where('student_id', $student->id)->value('symbol_no');
+        abort_if(! $symbolNo, 404, 'No symbol number assigned for this exam.');
 
-        $setting = HajiriSetting::current();
-        $rows = collect();
-
-        for ($day = 1; $day <= $daysInMonth; $day++) {
-            $ad = $calendar->bs_2_ad($year, $month, $day);
-            $date = Carbon::createFromDate((int) $ad['year'], (int) $ad['month'], (int) $ad['date']);
-            $dateKey = $date->toDateString();
-            $dayLogs = $logsByDate->get($dateKey, collect());
-            $holiday = $holidays->get($dateKey);
-            $isWeekend = $setting->isWeekend($date->dayOfWeek);
-            $attendance = $dayLogs->isNotEmpty() ? AttendanceWindow::summary($dayLogs, $setting) : null;
-
-            if ($dayLogs->isNotEmpty()) {
-                $status = 'present';
-                $statusLabel = 'Present';
-            } elseif ($holiday) {
-                $status = 'holiday';
-                $statusLabel = $holiday->label ?: 'Holiday';
-            } elseif ($isWeekend) {
-                $status = 'weekend';
-                $statusLabel = 'Weekend';
-            } elseif ($date->isFuture()) {
-                $status = 'upcoming';
-                $statusLabel = 'Upcoming';
-            } elseif ($date->isToday()) {
-                $status = 'pending';
-                $statusLabel = 'Not recorded';
-            } else {
-                $status = 'absent';
-                $statusLabel = 'Absent';
-            }
-
-            $rows->push([
-                'bs_date' => sprintf('%04d-%02d-%02d', $year, $month, $day),
-                'ad_date' => $date->format('d M Y'),
-                'weekday' => $date->format('l'),
-                'status' => $status,
-                'status_label' => $statusLabel,
-                'check_in' => $attendance['in']['time'] ?? '—',
-                'check_out' => $dayLogs->count() > 1 ? ($attendance['out']['time'] ?? '—') : '—',
-                'in_valid' => $attendance['in']['valid'] ?? null,
-                'out_valid' => $dayLogs->count() > 1 ? ($attendance['out']['valid'] ?? null) : null,
-                'punches' => $dayLogs->count(),
-            ]);
-        }
-
-        $present = $rows->where('status', 'present')->count();
-        $absent = $rows->where('status', 'absent')->count();
-        $workingDays = $present + $absent;
-        $summary = [
-            'present' => $present,
-            'absent' => $absent,
-            'holidays' => $rows->whereIn('status', ['holiday', 'weekend'])->count(),
-            'rate' => $workingDays > 0 ? round(($present / $workingDays) * 100, 1) : 0,
-        ];
-
-        $monthNames = [
-            1 => 'Baisakh', 2 => 'Jestha', 3 => 'Ashadh', 4 => 'Shrawan',
-            5 => 'Bhadra', 6 => 'Ashwin', 7 => 'Kartik', 8 => 'Mangsir',
-            9 => 'Poush', 10 => 'Magh', 11 => 'Falgun', 12 => 'Chaitra',
-        ];
-        $supportedYears = range(max($minYear, $currentYear - 4), min($maxYear, $currentYear + 1));
-
-        return view('card.student-portal.attendance', compact(
-            'student', 'deviceId', 'year', 'month', 'monthNames', 'supportedYears', 'rows', 'summary'
-        ));
+        return app(\App\Services\ExamResultService::class)->resultFor($examination, $student, $symbolNo);
     }
 
     public function learning()
@@ -656,5 +605,27 @@ class StudentPortalController extends Controller
         ]);
 
         return back()->with('success', 'Password changed successfully.');
+    }
+
+    public function complaints()
+    {
+        $student = $this->getStudent();
+        $complaints = \App\Models\Complaint::where('student_id', $student->id)->latest()->get();
+
+        return view('card.student-portal.complaints', compact('student', 'complaints'));
+    }
+
+    public function submitComplaint(Request $request)
+    {
+        $student = $this->getStudent();
+        $data = $request->validate([
+            'category' => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Complaint::CATEGORIES))],
+            'subject' => ['required', 'string', 'max:150'],
+            'message' => ['required', 'string', 'max:3000'],
+        ]);
+
+        \App\Models\Complaint::create([...$data, 'student_id' => $student->id, 'status' => 'pending']);
+
+        return redirect()->route('student.complaints')->with('success', 'Your feedback/complaint has been submitted.');
     }
 }

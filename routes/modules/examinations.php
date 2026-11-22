@@ -13,12 +13,16 @@ Route::prefix('admin/examinations')->name('admin.examinations.')->middleware(['a
     Route::get('/', [ExaminationController::class, 'index'])->middleware('permission:examinations.view')->name('index');
     Route::get('/marks-entry', [MarkEntryController::class, 'dashboard'])->middleware('permission:examinations.marks.enter')->name('marks.dashboard');
     Route::get('/mark-submissions', [MarkSubmissionTrackerController::class, 'index'])->middleware('permission:examinations.manage')->name('mark-submissions.index');
+    Route::get('/results', [ExaminationController::class, 'resultsIndex'])->middleware('permission:examinations.manage')->name('results.index');
     Route::post('/', [ExaminationController::class, 'store'])->middleware('permission:examinations.manage')->name('store');
     Route::get('/{examination}', [ExaminationController::class, 'show'])->middleware('permission:examinations.view')->name('show');
     Route::patch('/{examination}', [ExaminationController::class, 'update'])->middleware('permission:examinations.manage')->name('update');
     Route::get('/{examination}/subjects', [ExaminationController::class, 'subjectsIndex'])->middleware('permission:examinations.view')->name('subjects.index');
     Route::put('/{examination}/subjects', [ExaminationController::class, 'saveSubjects'])->middleware('permission:examinations.manage')->name('subjects.update');
     Route::get('/{examination}/readiness', [ExaminationController::class, 'readiness'])->middleware('permission:examinations.manage')->name('readiness.index');
+    Route::get('/{examination}/results', [ExaminationController::class, 'resultsShow'])->middleware('permission:examinations.manage')->name('results.show');
+    Route::post('/{examination}/results/publish', [ExaminationController::class, 'publishResults'])->middleware('permission:examinations.manage')->name('results.publish');
+    Route::post('/{examination}/results/unpublish', [ExaminationController::class, 'unpublishResults'])->middleware('permission:examinations.manage')->name('results.unpublish');
     Route::get('/{examination}/subject-dates', [ExaminationController::class, 'subjectDates'])->middleware('permission:examinations.manage')->name('subject-dates.index');
     Route::put('/{examination}/subject-dates', [ExaminationController::class, 'saveSubjectDates'])->middleware('permission:examinations.manage')->name('subject-dates.update');
     Route::delete('/{examination}', [ExaminationController::class, 'destroy'])->middleware('permission:examinations.manage')->name('destroy');
