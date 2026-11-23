@@ -170,6 +170,11 @@ class RoutineConfigurationController extends Controller
         return back()->with('success', 'Time slot deleted.');
     }
 
+    // A faculty with several semesters/years can run each on its own time
+    // slot — the conflict check and the delete-before-insert below are both
+    // scoped to the exact (department, semester-or-year) tuple, so assigning
+    // semester 5 to a new slot never touches semester 1's existing one and
+    // never requires unlocking it first.
     public function assignDepartments(Request $request, RoutineShift $routineShift)
     {
         $this->ensureShiftUnlocked($routineShift);
@@ -179,6 +184,12 @@ class RoutineConfigurationController extends Controller
             'whole_organization' => ['nullable', 'boolean'],
             'department_ids' => ['nullable', 'array'],
             'department_ids.*' => ['integer', 'exists:departments,id'],
+            'semesters' => ['nullable', 'array'],
+            'semesters.*' => ['nullable', 'array'],
+            'semesters.*.*' => ['integer', 'min:1', 'max:8'],
+            'year_levels' => ['nullable', 'array'],
+            'year_levels.*' => ['nullable', 'array'],
+            'year_levels.*.*' => ['integer', 'min:1', 'max:6'],
         ]);
         $year = AcademicYear::findOrFail($data['academic_year_id']);
         $this->ensureYearEditable($year);
@@ -191,17 +202,6 @@ class RoutineConfigurationController extends Controller
             throw ValidationException::withMessages(['department_ids' => 'Every selected faculty/class must belong to the selected organization.']);
         }
 
-        $lockedConflict = RoutineShiftAssignment::query()
-            ->where('academic_year_id', $year->id)
-            ->where('organization_id', $organizationId)
-            ->where('routine_shift_id', '!=', $routineShift->id)
-            ->when(! $wholeOrganization, fn ($query) => $query->whereIn('department_id', $departmentIds))
-            ->whereHas('shift', fn ($query) => $query->where('is_locked', true))
-            ->exists();
-        if ($lockedConflict) {
-            throw ValidationException::withMessages(['department_ids' => 'A selected scope belongs to a locked time slot. Unlock it before reassigning.']);
-        }
-
         if (! $wholeOrganization && $departmentIds->isEmpty()) {
             RoutineShiftAssignment::where('academic_year_id', $year->id)
                 ->where('routine_shift_id', $routineShift->id)
@@ -211,44 +211,84 @@ class RoutineConfigurationController extends Controller
             return back()->with('success', 'Time-slot assignment removed for this organization.');
         }
 
-        DB::transaction(function () use ($routineShift, $year, $organizationId, $wholeOrganization, $departmentIds) {
+        // One scope row per (department, semester) or (department, year) the
+        // admin actually ticked — no ticks for a department means "the whole
+        // faculty", same as before.
+        $scopes = collect();
+        if ($wholeOrganization) {
+            $scopes->push(['department_id' => null, 'semester' => null, 'year_level' => null]);
+        } else {
+            foreach ($departmentIds as $departmentId) {
+                $semesters = collect($data['semesters'][$departmentId] ?? [])->map(fn ($s) => (int) $s)->unique()->values();
+                $years = collect($data['year_levels'][$departmentId] ?? [])->map(fn ($y) => (int) $y)->unique()->values();
+
+                if ($semesters->isNotEmpty()) {
+                    foreach ($semesters as $semester) $scopes->push(['department_id' => $departmentId, 'semester' => $semester, 'year_level' => null]);
+                } elseif ($years->isNotEmpty()) {
+                    foreach ($years as $yearLevel) $scopes->push(['department_id' => $departmentId, 'semester' => null, 'year_level' => $yearLevel]);
+                } else {
+                    $scopes->push(['department_id' => $departmentId, 'semester' => null, 'year_level' => null]);
+                }
+            }
+        }
+
+        $scopeQuery = fn ($query, array $scope) => $query
+            ->where(fn ($q) => $scope['department_id'] ? $q->where('department_id', $scope['department_id']) : $q->whereNull('department_id'))
+            ->where(fn ($q) => $scope['semester'] ? $q->where('semester', $scope['semester']) : $q->whereNull('semester'))
+            ->where(fn ($q) => $scope['year_level'] ? $q->where('year_level', $scope['year_level']) : $q->whereNull('year_level'));
+
+        foreach ($scopes as $scope) {
+            $conflict = $scopeQuery(
+                RoutineShiftAssignment::query()
+                    ->where('academic_year_id', $year->id)
+                    ->where('organization_id', $organizationId)
+                    ->where('routine_shift_id', '!=', $routineShift->id),
+                $scope
+            )->whereHas('shift', fn ($query) => $query->where('is_locked', true))->exists();
+            if ($conflict) {
+                throw ValidationException::withMessages(['department_ids' => 'A selected class/semester already uses a locked time slot. Unlock it before reassigning, or pick a different semester/year.']);
+            }
+        }
+
+        DB::transaction(function () use ($routineShift, $year, $organizationId, $wholeOrganization, $departmentIds, $scopes, $scopeQuery) {
             if ($wholeOrganization) {
                 RoutineShiftAssignment::where('academic_year_id', $year->id)
                     ->where('organization_id', $organizationId)
                     ->delete();
-                RoutineShiftAssignment::create([
-                    'academic_year_id' => $year->id,
-                    'routine_shift_id' => $routineShift->id,
-                    'organization_id' => $organizationId,
-                    'department_id' => null,
-                ]);
-                return;
+            } else {
+                // This organization's whole-org assignment (if any) no longer
+                // applies now that specific faculties are being scoped.
+                RoutineShiftAssignment::where('academic_year_id', $year->id)
+                    ->where('routine_shift_id', $routineShift->id)
+                    ->where('organization_id', $organizationId)
+                    ->whereNull('department_id')
+                    ->delete();
+                // This shift's own previous scopes for faculties no longer selected at all.
+                RoutineShiftAssignment::where('academic_year_id', $year->id)
+                    ->where('routine_shift_id', $routineShift->id)
+                    ->where('organization_id', $organizationId)
+                    ->whereNotNull('department_id')
+                    ->whereNotIn('department_id', $departmentIds)
+                    ->delete();
             }
 
-            RoutineShiftAssignment::where('academic_year_id', $year->id)
-                ->where('routine_shift_id', $routineShift->id)
-                ->where('organization_id', $organizationId)
-                ->whereNull('department_id')
-                ->delete();
-            RoutineShiftAssignment::where('academic_year_id', $year->id)
-                ->where('routine_shift_id', $routineShift->id)
-                ->where('organization_id', $organizationId)
-                ->whereNotIn('department_id', $departmentIds)->delete();
-            foreach ($departmentIds as $departmentId) {
-                RoutineShiftAssignment::where('academic_year_id', $year->id)
-                    ->where('department_id', $departmentId)->delete();
+            foreach ($scopes as $scope) {
+                // Whichever shift previously held this exact scope is replaced.
+                $scopeQuery(RoutineShiftAssignment::where('academic_year_id', $year->id), $scope)->delete();
                 RoutineShiftAssignment::create([
                     'academic_year_id' => $year->id,
                     'routine_shift_id' => $routineShift->id,
                     'organization_id' => $organizationId,
-                    'department_id' => $departmentId,
+                    'department_id' => $scope['department_id'],
+                    'semester' => $scope['semester'],
+                    'year_level' => $scope['year_level'],
                 ]);
             }
         });
 
         return back()->with('success', $wholeOrganization
             ? 'Time slot assigned to the complete organization.'
-            : 'Department time-slot assignments updated.');
+            : 'Faculty/semester time-slot assignments updated.');
     }
 
     public function updatePeriod(Request $request, RoutinePeriod $routinePeriod)

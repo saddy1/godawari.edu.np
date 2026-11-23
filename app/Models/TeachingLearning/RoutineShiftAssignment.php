@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class RoutineShiftAssignment extends Model
 {
-    protected $fillable = ['academic_year_id', 'routine_shift_id', 'organization_id', 'department_id'];
+    protected $fillable = ['academic_year_id', 'routine_shift_id', 'organization_id', 'department_id', 'semester', 'year_level'];
 
     public function shift()
     {

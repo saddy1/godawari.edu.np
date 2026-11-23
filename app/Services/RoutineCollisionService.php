@@ -36,7 +36,17 @@ class RoutineCollisionService
                 ->where('ends_at', '>', $startPeriod->starts_at))
             ->get();
 
-        if ($conflict = $overlapping->firstWhere('section_id', $sectionId)) {
+        // A section isn't its own record per semester/year — a department
+        // commonly reuses the same section row (e.g. "ALL") across every one
+        // of its semesters. Two plans only genuinely double-book that section
+        // if they're for the SAME semester/year as well, not just the same
+        // section_id — otherwise Semester 1 and Semester 2 sharing a section
+        // name would falsely collide with each other.
+        $normalize = fn ($value) => $value === null ? null : (int) $value;
+        $samePlanScope = fn ($otherPlan) => $normalize($otherPlan->semester) === $normalize($plan->semester)
+            && $normalize($otherPlan->year_level) === $normalize($plan->year_level);
+
+        if ($conflict = $overlapping->first(fn ($lesson) => (int) $lesson->section_id === $sectionId && $samePlanScope($lesson->plan))) {
             throw ValidationException::withMessages(['section_id' => "Section {$conflict->section->name} already has a class during this time."]);
         }
 

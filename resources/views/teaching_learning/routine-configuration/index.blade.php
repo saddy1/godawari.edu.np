@@ -75,6 +75,11 @@
                         <div class="flex gap-1.5"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.shifts.lock',$shift) }}">@csrf<button class="rounded-lg border px-3 py-1.5 text-[11px] font-bold {{ $shift->is_locked ? 'border-amber-200 text-amber-700' : 'text-gray-600' }}">{{ $shift->is_locked ? 'Unlock' : 'Lock' }}</button></form>@unless($shift->is_locked)<button type="button" onclick="document.getElementById('edit-shift-{{ $shift->id }}').showModal()" class="rounded-lg border px-3 py-1.5 text-[11px] font-bold text-gray-600">Edit time slot</button><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.shifts.destroy',$shift) }}" onsubmit="return confirm('Delete this reusable time slot? It can be deleted only when it has no assignments.')">@csrf @method('DELETE')<button class="rounded-lg border border-red-100 px-3 py-1.5 text-[11px] font-bold text-red-500">Delete</button></form>@endunless</div>
                     </header>
 
+                    <details class="group" @if($loop->first) open @endif>
+                        <summary class="flex cursor-pointer list-none items-center justify-between gap-2 border-t border-gray-100 px-4 py-2.5 text-xs font-black text-gray-600 hover:bg-gray-50">
+                            <span>Periods, breaks &amp; assignment</span>
+                            <svg class="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </summary>
                     <div class="p-3">
                         <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8">
                             @foreach($shift->periods as $period)
@@ -129,30 +134,76 @@
                                     @php
                                         $organizationAssignments = $shift->assignments->where('organization_id', $organization->id);
                                         $wholeOrganization = $organizationAssignments->contains(fn ($assignment) => $assignment->department_id === null);
-                                        $assignedDepartmentIds = $organizationAssignments->pluck('department_id')->filter()->map(fn ($id) => (int) $id)->all();
+                                        $deptAssignments = $organizationAssignments->whereNotNull('department_id');
+                                        $assignedDepartmentIds = $deptAssignments->pluck('department_id')->unique()->map(fn ($id) => (int) $id)->values()->all();
+                                        $assignedSemestersByDept = $deptAssignments->whereNotNull('semester')->groupBy('department_id')
+                                            ->map(fn ($rows) => $rows->pluck('semester')->map(fn ($v) => (int) $v)->values());
+                                        $assignedYearsByDept = $deptAssignments->whereNotNull('year_level')->groupBy('department_id')
+                                            ->map(fn ($rows) => $rows->pluck('year_level')->map(fn ($v) => (int) $v)->values());
                                     @endphp
                                     <form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.shifts.departments',$shift) }}"
-                                          x-data="{ whole: @js($wholeOrganization) }"
+                                          x-data="{
+                                              whole: @js($wholeOrganization),
+                                              selected: @js($assignedDepartmentIds),
+                                              deptSemesters: @js($assignedSemestersByDept),
+                                              deptYears: @js($assignedYearsByDept),
+                                              toggleDept(id) { this.selected.includes(id) ? this.selected = this.selected.filter(x => x !== id) : this.selected.push(id); },
+                                              toggleSem(id, s) { const l = this.deptSemesters[id] ||= []; const i = l.indexOf(s); i === -1 ? l.push(s) : l.splice(i, 1); },
+                                              toggleYear(id, y) { const l = this.deptYears[id] ||= []; const i = l.indexOf(y); i === -1 ? l.push(y) : l.splice(i, 1); },
+                                          }"
                                           class="rounded-xl border border-gray-200 bg-white p-3">
                                         @csrf @method('PUT')
                                         <input type="hidden" name="academic_year_id" value="{{ $selectedYear->id }}">
                                         <input type="hidden" name="organization_id" value="{{ $organization->id }}">
                                         <div class="flex items-center justify-between gap-2">
-                                            <div><p class="text-xs font-black text-gray-900">{{ $organization->name }}</p><p class="text-[10px] font-semibold text-gray-400">Whole organization or selected faculties/classes</p></div>
+                                            <div><p class="text-xs font-black text-gray-900">{{ $organization->name }}</p><p class="text-[10px] font-semibold text-gray-400">Whole organization, or a faculty — and its own semester/year if it differs</p></div>
                                             @if($wholeOrganization)<span class="rounded-full bg-emerald-100 px-2 py-1 text-[9px] font-black text-emerald-700">ALL</span>@elseif(count($assignedDepartmentIds))<span class="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black text-blue-700">{{ count($assignedDepartmentIds) }} SELECTED</span>@endif
                                         </div>
                                         <label class="mt-3 flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/60 p-2.5 text-xs font-black text-[#1a5632]">
                                             <input type="checkbox" name="whole_organization" value="1" x-model="whole" @checked($wholeOrganization) class="rounded text-[#1a5632]">
                                             Apply to complete organization
                                         </label>
-                                        <div class="mt-2 flex flex-wrap gap-1.5" :class="whole && 'opacity-40'">
+
+                                        <div class="mt-2 space-y-2" x-show="!whole">
                                             @foreach($organization->departments as $department)
-                                                <label class="cursor-pointer">
-                                                    <input type="checkbox" name="department_ids[]" value="{{ $department->id }}" :disabled="whole" class="peer sr-only" @checked(in_array($department->id, $assignedDepartmentIds, true))>
-                                                    <span class="inline-flex rounded-lg border bg-white px-2.5 py-2 text-[10px] font-bold text-gray-500 peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">{{ $department->name }}</span>
-                                                </label>
+                                                <div class="rounded-lg border border-gray-100 p-2">
+                                                    <label class="flex cursor-pointer items-center gap-2">
+                                                        <input type="checkbox" @change="toggleDept({{ $department->id }})" :checked="selected.includes({{ $department->id }})" class="rounded text-[#1a5632]">
+                                                        <span class="text-[11px] font-bold text-gray-700">{{ $department->name }}</span>
+                                                        @if($department->academic_system === 'semester')<span class="text-[9px] font-semibold text-gray-400">(by semester)</span>@elseif($department->academic_system === 'year')<span class="text-[9px] font-semibold text-gray-400">(by year)</span>@endif
+                                                    </label>
+
+                                                    @if($department->academic_system === 'semester')
+                                                        <div class="mt-1.5 ml-6 flex flex-wrap items-center gap-1" x-show="selected.includes({{ $department->id }})" x-cloak>
+                                                            @for($s = 1; $s <= 8; $s++)
+                                                                <label class="cursor-pointer">
+                                                                    <input type="checkbox" class="peer sr-only" @change="toggleSem({{ $department->id }}, {{ $s }})" :checked="(deptSemesters[{{ $department->id }}]||[]).includes({{ $s }})">
+                                                                    <span class="inline-flex rounded border px-1.5 py-0.5 text-[9px] font-bold text-gray-500 peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">Sem {{ $s }}</span>
+                                                                </label>
+                                                            @endfor
+                                                            <input type="hidden" name="department_ids[]" value="{{ $department->id }}" :disabled="!selected.includes({{ $department->id }})">
+                                                            <template x-for="s in (deptSemesters[{{ $department->id }}]||[])" :key="s"><input type="hidden" :name="'semesters[{{ $department->id }}][]'" :value="s"></template>
+                                                            <p class="w-full text-[9px] font-semibold text-gray-400">Leave every semester unticked to apply this slot to the whole faculty.</p>
+                                                        </div>
+                                                    @elseif($department->academic_system === 'year')
+                                                        <div class="mt-1.5 ml-6 flex flex-wrap items-center gap-1" x-show="selected.includes({{ $department->id }})" x-cloak>
+                                                            @for($y = 1; $y <= 6; $y++)
+                                                                <label class="cursor-pointer">
+                                                                    <input type="checkbox" class="peer sr-only" @change="toggleYear({{ $department->id }}, {{ $y }})" :checked="(deptYears[{{ $department->id }}]||[]).includes({{ $y }})">
+                                                                    <span class="inline-flex rounded border px-1.5 py-0.5 text-[9px] font-bold text-gray-500 peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">Year {{ $y }}</span>
+                                                                </label>
+                                                            @endfor
+                                                            <input type="hidden" name="department_ids[]" value="{{ $department->id }}" :disabled="!selected.includes({{ $department->id }})">
+                                                            <template x-for="y in (deptYears[{{ $department->id }}]||[])" :key="y"><input type="hidden" :name="'year_levels[{{ $department->id }}][]'" :value="y"></template>
+                                                            <p class="w-full text-[9px] font-semibold text-gray-400">Leave every year unticked to apply this slot to the whole faculty.</p>
+                                                        </div>
+                                                    @else
+                                                        <input type="hidden" name="department_ids[]" value="{{ $department->id }}" :disabled="!selected.includes({{ $department->id }})">
+                                                    @endif
+                                                </div>
                                             @endforeach
                                         </div>
+
                                         @unless($shift->is_locked || $selectedYear->is_locked)
                                             <button class="mt-3 rounded-lg bg-[#1a5632] px-3 py-2 text-[11px] font-black text-white">Save for {{ $organization->name }}</button>
                                         @else
@@ -163,6 +214,7 @@
                             </div>
                         </details>
                     </div>
+                    </details>
                 </section>
 
                 <dialog id="edit-shift-{{ $shift->id }}" class="m-auto w-[calc(100%_-_2rem)] max-w-2xl rounded-2xl p-0 shadow-2xl backdrop:bg-gray-950/55"><form method="POST" action="{{ route('admin.teaching-learning.routine-configuration.shifts.update',$shift) }}">@csrf @method('PATCH')<div class="flex items-center justify-between border-b px-5 py-4"><div><p class="text-[10px] font-black uppercase tracking-widest text-[#1a5632]">Reusable time-slot master</p><h3 class="font-black">Edit {{ $shift->name }}</h3></div><button type="button" onclick="this.closest('dialog').close()" class="h-8 w-8 rounded-full bg-gray-100 text-xl text-gray-500">&times;</button></div><div class="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-3"><div><label class="{{ $label }}">Name</label><input name="name" value="{{ $shift->name }}" required class="{{ $input }}"></div><div><label class="{{ $label }}">Starts</label><input type="time" name="starts_at" value="{{ substr($shift->starts_at,0,5) }}" required class="{{ $input }}"></div><div><label class="{{ $label }}">Ends</label><input type="time" name="ends_at" value="{{ substr($shift->ends_at,0,5) }}" required class="{{ $input }}"></div><div><label class="{{ $label }}">Period minutes</label><input type="number" name="period_minutes" value="{{ $shift->period_minutes }}" min="15" max="180" required class="{{ $input }}"></div><div><label class="{{ $label }}">Break after</label><input type="number" name="break_after_period" value="{{ $shift->break_after_period }}" min="1" max="20" class="{{ $input }}"></div><div><label class="{{ $label }}">Break minutes</label><input type="number" name="break_minutes" value="{{ $shift->break_minutes }}" min="5" max="120" class="{{ $input }}"></div><div class="sm:col-span-2 lg:col-span-3"><label class="{{ $label }}">Working days</label><div class="flex flex-wrap gap-1.5">@foreach($days as $day)<label class="cursor-pointer"><input type="checkbox" name="working_days[]" value="{{ $day }}" class="peer sr-only" @checked(in_array($day,$shift->working_days ?? []))><span class="inline-flex rounded-lg border px-2.5 py-2 text-[10px] font-bold text-gray-500 peer-checked:border-[#1a5632] peer-checked:bg-emerald-50 peer-checked:text-[#1a5632]">{{ substr($day,0,3) }}</span></label>@endforeach</div></div><label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" name="is_active" value="1" @checked($shift->is_active) class="rounded text-[#1a5632]"> Active</label><p class="rounded-lg bg-amber-50 p-2 text-[10px] font-bold text-amber-700 sm:col-span-2">Saving changes this shared slot everywhere it is assigned and regenerates its periods.</p></div><div class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" onclick="this.closest('dialog').close()" class="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button class="rounded-lg bg-[#1a5632] px-4 py-2 text-xs font-black text-white">Save &amp; regenerate</button></div></form></dialog>
@@ -172,4 +224,5 @@
         </div>
     @endif
 </div>
+@include('partials.preserve-scroll-on-submit')
 @endsection
