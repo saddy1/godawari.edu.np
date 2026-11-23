@@ -25,22 +25,13 @@
     </header>
     <div id="attendance-list" class="divide-y divide-slate-100">
         @forelse($students as $student)@php $saved=$attendance->get($student->id);$status=$saved?->status;$notebook=$saved?->notebook_checked; @endphp
-        <article class="attendance-row flex flex-col gap-2 p-3 sm:px-4" data-student="{{$student->id}}" data-status="{{$status}}" data-notebook="{{$notebook===null?'':($notebook?'1':'0')}}" data-search="{{strtolower($student->full_name.' '.$student->roll_number)}}">
-            <div class="flex items-center gap-2 sm:gap-4">
-                <span class="w-5 shrink-0 text-center text-[10px] font-black text-slate-400">{{$loop->iteration}}</span>
-                <div class="min-w-0 flex-1"><h3 class="text-xs font-black sm:text-sm">{{$student->full_name}}</h3><p class="text-[10px] text-slate-500">{{$student->roll_number?:'—'}}</p><p class="row-state text-[9px] font-bold text-slate-400">{{$saved?'Saved '.optional($saved->marked_at)->format('h:i A').(!in_array($status,['present','absent'])?' · '.ucfirst($status):''):'Not recorded'}}</p></div>
-                <div class="flex shrink-0 gap-1">
-                    <button type="button" data-value="present" @disabled(!$editable) aria-label="Mark {{$student->full_name}} present" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">PRESENT</button>
-                    <button type="button" data-value="absent" @disabled(!$editable) aria-label="Mark {{$student->full_name}} absent" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">ABSENT</button>
-                </div>
-            </div>
-            <div class="flex items-center gap-2 pl-7">
-                <span class="text-[9px] font-bold uppercase tracking-wide text-slate-400">Notebook</span>
-                <div class="flex shrink-0 gap-1">
-                    <button type="button" data-notebook-value="1" aria-label="Mark {{$student->full_name}}'s notebook checked" class="notebook-button rounded-lg px-2 py-1.5 text-[10px] font-black">✓ CHECKED</button>
-                    <button type="button" data-notebook-value="0" aria-label="Mark {{$student->full_name}}'s notebook not checked" class="notebook-button rounded-lg px-2 py-1.5 text-[10px] font-black">✗ NOT CHECKED</button>
-                </div>
-                <span class="notebook-state text-[9px] font-bold text-slate-400"></span>
+        <article class="attendance-row flex items-center gap-2 p-3 sm:gap-4 sm:px-4" data-student="{{$student->id}}" data-status="{{$status}}" data-notebook="{{$notebook===null?'':($notebook?'1':'0')}}" data-search="{{strtolower($student->full_name.' '.$student->roll_number)}}">
+            <span class="w-5 shrink-0 text-center text-[10px] font-black text-slate-400">{{$loop->iteration}}</span>
+            <div class="min-w-0 flex-1"><h3 class="truncate text-xs font-black sm:text-sm">{{$student->full_name}}</h3><p class="text-[10px] text-slate-500">{{$student->roll_number?:'—'}}</p><p class="row-state text-[9px] font-bold text-slate-400">{{$saved?'Saved '.optional($saved->marked_at)->format('h:i A').(!in_array($status,['present','absent'])?' · '.ucfirst($status):''):'Not recorded'}}</p></div>
+            <div class="flex shrink-0 gap-1">
+                <button type="button" data-value="present" @disabled(!$editable) aria-label="Mark {{$student->full_name}} present" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">PRESENT</button>
+                <button type="button" data-value="absent" @disabled(!$editable) aria-label="Mark {{$student->full_name}} absent" class="status-button rounded-lg px-2 py-3 text-[10px] font-black">ABSENT</button>
+                <button type="button" data-notebook-toggle aria-label="Toggle {{$student->full_name}}'s notebook checked status" class="notebook-toggle rounded-lg px-2 py-3 text-[10px] font-black">NOTEBOOK</button>
             </div>
         </article>
         @empty<div class="p-10 text-center text-sm font-bold text-amber-700">No students are assigned to your routine group.</div>@endforelse
@@ -96,19 +87,19 @@ document.querySelectorAll('[data-all]').forEach(button=>button.addEventListener(
 const notebookUrl=@json(route('admin.teacher.attendance.notebook.save',$routineLesson));
 let notebookSaving=false;
 function paintNotebook(row){
-    row.querySelectorAll('.notebook-button').forEach(button=>{
-        button.classList.remove('bg-emerald-600','bg-red-600','text-white','bg-slate-100','text-slate-500');
-        const selected=button.dataset.notebookValue===row.dataset.notebook;
-        const activeColor=button.dataset.notebookValue==='1'?'bg-emerald-600 text-white':'bg-red-600 text-white';
-        button.classList.add(...(selected?activeColor:'bg-slate-100 text-slate-500').split(' '));
-        button.setAttribute('aria-pressed',String(selected));
-    });
+    const button=row.querySelector('.notebook-toggle');
+    if(!button)return;
+    const checked=row.dataset.notebook==='1';
+    button.classList.remove('bg-emerald-600','text-white','bg-slate-100','text-slate-500');
+    button.classList.add(...(checked?'bg-emerald-600 text-white':'bg-slate-100 text-slate-500').split(' '));
+    button.setAttribute('aria-pressed',String(checked));
+    button.textContent=checked?'NOTEBOOK ✓':'NOTEBOOK';
 }
 async function saveNotebook(value,row=null){
     if(notebookSaving)return;
     notebookSaving=true;
     const affected=row?[row]:rows;
-    affected.forEach(item=>item.querySelector('.notebook-state').textContent='Saving…');
+    affected.forEach(item=>{const button=item.querySelector('.notebook-toggle');if(button)button.disabled=true;});
     try{
         const body=row?{student_id:Number(row.dataset.student),checked:value==='1'}:{all:true,checked:value==='1'};
         const response=await fetch(notebookUrl,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':token},body:JSON.stringify(body)});
@@ -117,13 +108,15 @@ async function saveNotebook(value,row=null){
         affected.forEach(item=>{
             item.dataset.notebook=value;
             paintNotebook(item);
-            item.querySelector('.notebook-state').textContent='Saved '+data.saved_at;
         });
     }catch(error){
-        affected.forEach(item=>item.querySelector('.notebook-state').textContent='Save failed · Tap to retry');
-    }finally{notebookSaving=false;}
+        pageState.textContent=error.message||'Notebook save failed · tap the button to retry';
+    }finally{
+        notebookSaving=false;
+        affected.forEach(item=>{const button=item.querySelector('.notebook-toggle');if(button)button.disabled=false;});
+    }
 }
-rows.forEach(row=>{paintNotebook(row);row.querySelectorAll('.notebook-button').forEach(button=>button.addEventListener('click',()=>saveNotebook(button.dataset.notebookValue,row)));});
+rows.forEach(row=>{paintNotebook(row);row.querySelector('.notebook-toggle')?.addEventListener('click',()=>saveNotebook(row.dataset.notebook==='1'?'0':'1',row));});
 document.querySelectorAll('[data-all-notebook]').forEach(button=>button.addEventListener('click',()=>saveNotebook(button.dataset.allNotebook)));
 document.getElementById('attendance-search').addEventListener('input',event=>{const q=event.target.value.toLowerCase();rows.forEach(row=>row.style.display=row.dataset.search.includes(q)?'':'none');});
 pageState.setAttribute('role','status');

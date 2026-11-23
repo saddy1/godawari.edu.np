@@ -345,7 +345,7 @@ class RoutineBuilderController extends Controller
             'routine_room_id' => filled($group['routine_room_id'] ?? null) ? (int) $group['routine_room_id'] : null,
             'position' => $index + 1,
             'group_label' => $data['mode'] === 'practical_split' ? (($group['group_label'] ?? null) ?: 'Group '.chr(65 + $index)) : null,
-            'student_percentage' => $data['mode'] === 'practical_split' ? 50 : 100,
+            'student_percentage' => $data['mode'] === 'practical_split' && $groups->count() > 1 ? 50 : 100,
         ]);
         $collisions->ensureAvailable($routinePlan, (int) $base['section_id'], $base['day_of_week'], $startPeriod, $endPeriod, $groups, $lesson?->id);
 
@@ -361,7 +361,7 @@ class RoutineBuilderController extends Controller
             }
             app(\App\Services\RoutineLessonRosterService::class)->sync($lesson->fresh('groups'));
         });
-        $message = $data['mode'] === 'practical_split' ? '50/50 practical groups scheduled.' : 'Theory class scheduled.';
+        $message = $data['mode'] === 'practical_split' ? ($groups->count() > 1 ? '50/50 practical groups scheduled.' : 'Single practical class scheduled.') : 'Theory class scheduled.';
         return $request->expectsJson() ? response()->json(['message' => $message]) : back()->with('success', $message);
     }
 
